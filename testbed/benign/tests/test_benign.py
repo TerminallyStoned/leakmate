@@ -60,7 +60,7 @@ def test_fallback_pool_is_usable() -> None:
 
 
 def test_tranco_falls_back_offline(tmp_path: Path) -> None:
-    pool = dom.load_top_domains(limit=200, cache_dir=tmp_path, allow_network=False)
+    pool = dom.load_top_domains(limit=200, cache_file=tmp_path / "tranco.csv", allow_network=False)
     assert len(pool) >= 100
 
 

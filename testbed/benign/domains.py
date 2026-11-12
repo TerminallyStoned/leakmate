@@ -23,7 +23,8 @@ log = logging.getLogger(__name__)
 HERE = Path(__file__).resolve().parent
 REPO_ROOT = HERE.parent.parent
 FALLBACK_FILE = HERE / "fallback_domains.txt"
-DEFAULT_CACHE = REPO_ROOT / "data" / "external" / "tranco"
+# Same file the M2 scripts read (`--tranco data/external/tranco.csv`), so one download serves both.
+DEFAULT_CACHE_FILE = REPO_ROOT / "data" / "external" / "tranco.csv"
 
 # Tranco only serves one file, the million-domain list, as a zip (~10 MB). Smaller
 # requests take that many rows from the top of it.
@@ -34,9 +35,7 @@ TRANCO_URL = "https://tranco-list.eu/top-1m.csv.zip"
 # positives on high-entropy labels.
 CDN_ZONES: tuple[str, ...] = (
     "cloudfront.net",
-    "d1m1uqzu43r0nx.cloudfront.net",
     "akamaized.net",
-    "akeyours15.me",
     "edgesuite.net",
     "edgekey.net",
     "azureedge.net",
@@ -48,7 +47,6 @@ CDN_ZONES: tuple[str, ...] = (
     "blob.core.windows.net",
     "s3.amazonaws.com",
     "storage.googleapis.com",
-    "cdn77.securityaws.com",
 )
 
 # Third parties a real page pulls in besides the publisher itself.
@@ -75,7 +73,7 @@ USER_AGENT = (
 # would teach models that high-entropy names are NXDOMAIN-ish — rcode is a real tunnel
 # signal, so the benign class must not pollute it. These zones do resolve.
 EDGE_ZONE_RE = re.compile(
-    r"[a-z0-9][a-z0-9._-]{2,120}\.(?:cloudfront\.net|akamaized\.net|akeyours15\.me|edgesuite\.net"
+    r"[a-z0-9][a-z0-9._-]{2,120}\.(?:cloudfront\.net|akamaized\.net|edgesuite\.net"
     r"|edgekey\.net|azureedge\.net|fastly\.net|fastlylb\.net|cdn77\.org|cdnbuild\.net|gcdn\.co"
     r"|cloudflare\.net|cdn\.ispapi\.net|core\.windows\.net|s3\.amazonaws\.com|storage\.googleapis\.com"
     r"|akamai\.net|akadns\.net|bitgravity\.com|edgecastcdn\.net)",
@@ -123,12 +121,12 @@ def load_fallback(path: Path | str = FALLBACK_FILE) -> list[str]:
 
 def load_top_domains(
     limit: int = 1000,
-    cache_dir: Path | str | None = DEFAULT_CACHE,
+    cache_file: Path | str | None = DEFAULT_CACHE_FILE,
     timeout: float = 60.0,
     allow_network: bool = True,
 ) -> list[str]:
     """Return up to *limit* popular domains: cache, then Tranco, then the bundled fallback."""
-    cache = None if cache_dir is None else Path(cache_dir) / "top-1m.csv"
+    cache = None if cache_file is None else Path(cache_file)
 
     if cache is not None and cache.is_file():
         domains = _parse_tranco(cache.read_text(encoding="utf-8", errors="replace"))
