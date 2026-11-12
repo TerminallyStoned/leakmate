@@ -16,8 +16,11 @@ ARG WITH_BROWSER=0
 RUN if [ "$WITH_BROWSER" = "1" ]; then pip install --no-cache-dir "playwright==1.48.0" \
       && playwright install --with-deps chromium; fi
 
-WORKDIR /app
+# Repo-shaped layout on purpose: domains.py derives the Tranco cache path as
+# <repo root>/data/external/tranco.csv, so compose can mount the host's copy at
+# /app/data/external and a lab container with no route still gets real top-sites.
+WORKDIR /app/testbed/benign
 COPY domains.py generate.py check_benign.py fallback_domains.txt ./
 
 ENTRYPOINT ["python3", "generate.py"]
-CMD ["--minutes", "10", "--target-qps", "10", "--out", "/out"]
+CMD ["--minutes", "10", "--target-qps", "10", "--out", "/out/"]

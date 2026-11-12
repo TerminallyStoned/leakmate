@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # Benign traffic generator entry point (Trello card 7).
 #
-#   testbed/benign/run_benign.sh --hosts 4 --minutes 10 --resolver 10.20.0.2
+#   testbed/benign/run_benign.sh --hosts 4 --minutes 10 --resolver 172.28.0.2  # in testbed
+#   testbed/benign/run_benign.sh --hosts 4 --minutes 10 --docker                # as containers
 #
 # Runs N host profiles concurrently for M minutes and writes one NDJSON sidecar per host
 # under --out, then checks the run against the card's acceptance bar (>5k benign queries
 # in 10 minutes, names that parse cleanly, CDN/cloud names present). Inside the testbed
-# network every container is pointed at the resolver, so tcpdump there sees the traffic.
+# (`lab`, card 5) every container is pointed at the resolver, so tcpdump there sees it.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -29,7 +30,8 @@ Usage: run_benign.sh [options]
 
   --hosts N          host profiles to run concurrently (default 4)
   --minutes M        run length in minutes (default 10)
-  --resolver IP      testbed resolver to query (default $RESOLVER_IP, then /etc/resolv.conf)
+  --resolver IP      resolver to query (default $RESOLVER_IP; inside the testbed that is
+                     172.28.0.2, which --docker already assumes)
   --target-qps Q     approximate total lookups/s across hosts (default 10 => ~6k in 10 min)
   --engines LIST     comma list of dns,cdn,page,curl,apt (default all)
   --out DIR          output directory (default data/raw/benign/<run id>)
@@ -71,11 +73,32 @@ RUN_ID="benign_${HOSTS}h_${MINUTES}m_$(date -u +%Y%m%dT%H%M%SZ)"
 OUT="${OUT:-$REPO_ROOT/data/raw/benign/$RUN_ID}"
 
 if [[ "$MODE" == "docker" ]]; then
-  # Containers get real distinct source IPs; compose scales the benign service.
-  BENIGN_HOSTS="$HOSTS" BENIGN_MINUTES="$MINUTES" BENIGN_TARGET_QPS="$TARGET_QPS" \
-  BENIGN_ENGINES="$ENGINES" RESOLVER_IP="$RESOLVER" BENIGN_SEED="$SEED" \
-    docker compose -f "$SCRIPT_DIR/docker-compose.yml" up --build --scale benign="$HOSTS"
-  exit $?
+  # One compose file for the whole testbed (card 5). The benign service sits behind the
+  # `benign` profile, so `docker compose up -d` in testbed/ is unaffected by this work.
+  COMPOSE=(docker compose -f "$REPO_ROOT/testbed/docker-compose.yml" --profile benign)
+  RESOLVER="${RESOLVER:-172.28.0.2}"   # the testbed resolver, from card 5
+  mkdir -p "$OUT" "$REPO_ROOT/data/external"
+  if [[ " ${EXTRA[*]-} " != *" --no-send "* ]]; then
+    # The lab has no route, so the top-sites list and the harvested edge names are
+    # refreshed here and bind-mounted into the containers.
+    echo "preparing data/external (Tranco + harvested edge names) on the host ..."
+    python3 "$SCRIPT_DIR/generate.py" --prepare || echo "WARN prepare failed; containers fall back to the bundled domain list" >&2
+  fi
+  export BENIGN_MINUTES="$MINUTES" BENIGN_TARGET_QPS="$TARGET_QPS" BENIGN_ENGINES="$ENGINES"
+  export RESOLVER_IP="$RESOLVER" BENIGN_SEED="$SEED" BENIGN_OUT="$OUT"
+  echo "benign traffic x$HOSTS -> $OUT (resolver $RESOLVER, ${MINUTES}m)"
+  # --abort-on-container-exit: generate.py exits on its own after --minutes, and this is
+  # the only way `up` returns while the long-running resolver is part of the project.
+  STATUS=0
+  "${COMPOSE[@]}" up --build --abort-on-container-exit --exit-code-from benign \
+    --scale benign="$HOSTS" benign || STATUS=$?
+  echo "containers finished (exit $STATUS); the stack is stopped, restart it with:
+  (cd testbed && docker compose up -d)"
+  if [[ "$STATUS" -eq 0 && "$RUN_CHECK" -eq 1 ]]; then
+    python3 "$SCRIPT_DIR/check_benign.py" "$OUT" --window-minutes "$MINUTES" \
+      --min-hosts "$(( HOSTS < 2 ? HOSTS : 2 ))" || exit 1
+  fi
+  exit "$STATUS"
 fi
 
 mkdir -p "$OUT"

@@ -25,9 +25,11 @@ import json
 import logging
 import os
 import random
+import pathlib
 import re
 import shutil
 import signal
+import socket
 import subprocess
 import sys
 import threading
@@ -73,6 +75,37 @@ _STATUS_RE = re.compile(r"status: (\w+), id:")
 _SIZE_RE = re.compile(r"MSG SIZE\s+rcvd:\s*(\d+)")
 
 _STOPPED = False
+
+
+def _ipv4(value: str | None) -> bool:
+    return bool(value) and bool(re.fullmatch(r"(\d{1,3}\.){3}\d{1,3}", value))
+
+
+def auto_host() -> str:
+    """This machine's own IPv4, so src_host matches the pcap source address.
+
+    Containers on the isolated lab network have no default route, so a UDP probe would
+    fail; gethostbyname(hostname) does not need one and returns the eth0 address docker
+    wrote into /etc/hosts.
+    """
+    name = socket.gethostname()
+    try:
+        ip = socket.gethostbyname(name)
+    except OSError:
+        ip = None
+    if _ipv4(ip) and not ip.startswith("127."):
+        return ip
+    # Docker writes the container *id* into /etc/hosts, so the compose hostname does not
+    # resolve; the address on that line is still the one the capture sees.
+    try:
+        hosts_txt = pathlib.Path("/etc/hosts").read_text(encoding="utf-8")
+    except OSError:
+        hosts_txt = ""
+    for line in hosts_txt.splitlines():
+        fields = line.split()
+        if len(fields) >= 2 and _ipv4(fields[0]) and not fields[0].startswith("127."):
+            return fields[0]
+    return name
 
 
 def _handle_signal(signum: int, _frame: object) -> None:  # pragma: no cover - signal path
@@ -186,6 +219,7 @@ class BenignGenerator:
         browser_min_interval: float = 30.0,
         apt_min_interval: float = 300.0,
         fetch_timeout: float = 3.0,
+        http: bool = True,
         dataset: str = "testbed",
         throttle: bool = False,
         edge_hosts: list[str] | None = None,
@@ -200,6 +234,9 @@ class BenignGenerator:
         self.browser_min_interval = browser_min_interval
         self.apt_min_interval = apt_min_interval
         self.fetch_timeout = fetch_timeout
+        # False inside the testbed: `lab` is internal, so an HTTP fetch only fails slowly.
+        # Lookups are still issued with dig, which the resolver does forward.
+        self.http = http
         self._net: queue.Queue[str | None] = queue.Queue()
         self._net_thread: threading.Thread | None = None
         self.dataset = dataset
@@ -260,13 +297,22 @@ class BenignGenerator:
             status.group(1) if status else None,
         )
 
+    def _tool_lookup(self, name: str, qtype: str = "A") -> tuple[int | None, str | None]:
+        """Resolve a host a real tool would have resolved.
+
+        With a route, the tool's own stack does the lookup and the capture sees it, so we
+        record nothing here. Without one (testbed `--no-http`) the tool never asks, so we
+        ask the resolver ourselves rather than log a query that never happened.
+        """
+        return () if self.http else self.dig(name, qtype)
+
     def http_get(self, url: str) -> None:
         """Queue a fetch so the tool chain performs its own resolver lookups.
 
         Handled on a background thread: a slow or dead web server must not stall the
         paced lookup loop, and it is the DNS traffic the resolver capture records.
         """
-        if self.send:
+        if self.send and self.http:
             self._net.put(url)
 
     def _drain_net(self) -> None:
@@ -285,7 +331,7 @@ class BenignGenerator:
 
     def _page(self):
         """Lazy Playwright page; None when the optional dependency is absent."""
-        if self._pw_page is not None or not self.send:
+        if self._pw_page is not None or not self.send or not self.http:
             return self._pw_page
         try:
             from playwright.sync_api import sync_playwright  # type: ignore[import-not-found]
@@ -384,11 +430,11 @@ class BenignGenerator:
         """Plain tool traffic: curl a page, sometimes a CDN asset too."""
         domain = self.rng.choice(self.pool)
         url = f"https://{domain}/"
-        yield self._record(domain, "A", "curl", ts)
+        yield self._record(domain, "A", "curl", ts, *self._tool_lookup(domain, "A"))
         self.http_get(url)
         if self.rng.random() < 0.5:
             cdn = dom.random_cdn_fqdn(self.rng)
-            yield self._record(cdn, "A", "curl", ts + self.rng.uniform(0.1, 0.8))
+            yield self._record(cdn, "A", "curl", ts + self.rng.uniform(0.1, 0.8), *self._tool_lookup(cdn, "A"))
             self.http_get(f"https://{cdn}/assets/app.js")
         if self.rng.random() < 0.2:
             typo_host = self.rng.choice(self.pool)
@@ -404,7 +450,7 @@ class BenignGenerator:
         for host in self.rng.sample(APT_HOSTS, k=self.rng.randint(1, len(APT_HOSTS))):
             yield self._record(host, "A", "apt", ts, *self.dig(host, "A"))
         pkg = self.rng.choice(APT_PACKAGES)
-        if self.send and shutil.which("apt-get"):
+        if self.send and self.http and shutil.which("apt-get"):
             cmds = (
                 ["apt-get", "update", "-qq"],
                 ["apt-get", "install", "-y", "-qq", "--no-install-recommends", "--download-only", pkg],
@@ -414,7 +460,7 @@ class BenignGenerator:
                     subprocess.run(cmd, capture_output=True, text=True, timeout=180.0)
                 except (subprocess.TimeoutExpired, OSError):
                     self.errors += 1
-        elif self.send:  # no apt in this image: hit the mirrors over HTTP instead
+        elif self.send and self.http:  # no apt in this image: hit the mirrors over HTTP instead
             host = self.rng.choice(APT_HOSTS)
             self.http_get(f"http://{host}/")
             yield self._record(host, "A", "apt", ts + self.rng.uniform(0.2, 1.0))
@@ -463,12 +509,17 @@ class BenignGenerator:
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--src-host", default=os.environ.get("HOSTNAME") or "host-01", help="host label written to the sidecar")
+    p.add_argument(
+        "--src-host",
+        default="auto",
+        help="host label written to the sidecar; \"auto\" is this machine's own IP, the address "
+        "the resolver capture sees (fallback: $HOSTNAME)",
+    )
     p.add_argument("--minutes", type=float, default=10.0, help="run duration in minutes (fractions allowed)")
     p.add_argument("--target-qps", type=float, default=10.0, help="approximate total lookups/s across all hosts")
     p.add_argument("--hosts", type=int, default=1, help="host count used only to divide --target-qps")
     p.add_argument("--resolver", default=os.environ.get("RESOLVER_IP") or None, help="testbed resolver to query (default: /etc/resolv.conf)")
-    p.add_argument("--out", required=True, help="sidecar file, or a directory (trailing /) to write <src-host>.ndjson into")
+    p.add_argument("--out", help="sidecar file, or a directory (trailing /) to write <src-host>.ndjson into")
     p.add_argument("--format", choices=("ndjson", "csv"), default="ndjson")
     p.add_argument("--engines", default="dns,cdn,page,curl,apt", help="comma list of dns,cdn,page,curl,apt")
     p.add_argument("--tranco-limit", type=int, default=1000, help="how many top-sites to draw from")
@@ -481,6 +532,21 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--dataset", default="testbed", help="value of the dataset contract column")
     p.add_argument("--throttle", action="store_true", help="mark rows as a throttled low-and-slow run (E5)")
     p.add_argument("--no-send", action="store_true", help="plan lookups without touching the network")
+    p.add_argument(
+        "--edge-hosts-file",
+        default=str(dom.EDGE_HOSTS_FILE),
+        help="harvested edge names to use when this run cannot fetch pages (testbed); written by --prepare",
+    )
+    p.add_argument(
+        "--prepare",
+        action="store_true",
+        help="with internet: refresh the Tranco cache and the edge-name list, then exit",
+    )
+    p.add_argument(
+        "--no-http",
+        action="store_true",
+        help="issue every lookup via dig and skip web fetches (testbed `lab` has no route out)",
+    )
     p.add_argument("--summary", type=Path, default=None, help="write run summary JSON here")
     p.add_argument("--verbose", "-v", action="store_true")
     return p.parse_args(argv)
@@ -499,19 +565,54 @@ def _resolve_out(args: argparse.Namespace) -> Path:
     return out
 
 
+def _prepare(args: argparse.Namespace) -> int:
+    """Refresh the two internet-only inputs a lab run needs, then exit.
+
+    `lab` is internal: true, so a benign container can neither download Tranco nor fetch
+    pages to harvest edge names from. Both are cached under data/external/ (gitignored)
+    and bind-mounted into the containers instead.
+    """
+    out = {"tranco": None, "edge_names": 0}
+    pool = dom.load_top_domains(limit=max(args.tranco_limit, 5000))
+    out["tranco"] = len(pool)
+    hosts = dom.harvest_edge_hosts(pool, max_pages=max(args.harvest_pages, 40))
+    if hosts:
+        out["edge_names"] = len(hosts)
+        out["edge_file"] = str(dom.save_edge_hosts(hosts))
+    print(json.dumps(out, sort_keys=True))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     signal.signal(signal.SIGTERM, _handle_signal)
     signal.signal(signal.SIGINT, _handle_signal)
 
+    if not args.prepare and not args.out:
+        raise SystemExit("error: --out is required unless --prepare is given")
+
+    # Resolve before --out is derived from it: two replicas both labelled "auto" would
+    # otherwise share one sidecar and interleave their JSON lines.
+    if args.src_host == "auto":
+        args.src_host = auto_host()
+
     engines = tuple(e.strip() for e in args.engines.split(",") if e.strip())
     rng = random.Random(args.seed)
-    pool = dom.load_top_domains(limit=args.tranco_limit, allow_network=not args.no_send)
+    online = not (args.no_send or args.no_http)
+    if args.prepare:
+        return _prepare(args)
+
+    pool = dom.load_top_domains(limit=args.tranco_limit, allow_network=online)
     edge_hosts: list[str] = []
-    if not args.no_send and args.harvest_pages > 0 and "cdn" in engines:
+    if online and args.harvest_pages > 0 and "cdn" in engines:
         edge_hosts = dom.harvest_edge_hosts(pool, max_pages=args.harvest_pages)
         log.info("harvested %d real hashed edge hostnames from page HTML", len(edge_hosts))
+    elif args.harvest_pages > 0:
+        # Inside the lab there is no route to harvest with, so reuse the host's list.
+        edge_hosts = dom.load_edge_hosts(args.edge_hosts_file)
+        if edge_hosts:
+            log.info("loaded %d harvested edge names from %s", len(edge_hosts), args.edge_hosts_file)
     log.info("%d candidate domains, engines=%s, resolver=%s, send=%s", len(pool), ",".join(engines), args.resolver or "system", not args.no_send)
 
     gen = BenignGenerator(
@@ -524,6 +625,7 @@ def main(argv: list[str] | None = None) -> int:
         browser=args.browser,
         browser_min_interval=args.browser_interval,
         fetch_timeout=args.fetch_timeout,
+        http=not (args.no_http or args.no_send),
         dataset=args.dataset,
         throttle=args.throttle,
         edge_hosts=edge_hosts,
