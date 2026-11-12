@@ -18,7 +18,8 @@ RESOLVER_IP=10.20.0.2 TESTBED_NETWORK=ict3214_testbed \
 testbed/benign/run_benign.sh --hosts 2 --minutes 1 --target-qps 60 --no-send
 ```
 
-`run_benign.sh --help` lists every flag. Output goes to `data/raw/benign/<run id>/`:
+`run_benign.sh --help` lists every flag. Output goes to `--out DIR` (the repo convention is
+`data/raw/benign/<run id>/`, which the script defaults to when `--out` is omitted):
 one `<host>.ndjson` sidecar per host, one `<host>.summary.json`, and `run.json` metadata.
 
 ## Engines (weighted action mix)
@@ -72,7 +73,14 @@ python3 testbed/benign/check_benign.py data/raw/benign/<run id>
 
 Passes when the run has >5k rows (card's "done when"), names that pass DNS syntax, ≥2
 source hosts, a span matching the requested window, and CDN/cloud names present.
-`run_benign.sh` runs it automatically at the end.
+`run_benign.sh` runs it automatically at the end and propagates its exit code.
+
+Verified run, 12 Nov 2026, public resolver (no testbed yet):
+`run_benign.sh --hosts 4 --minutes 10 --target-qps 30` → **PASS 14022 benign queries over
+799s from 4 hosts** (17.6 lookups/s, 2985 distinct names, engines page 7064 / dns 3086 /
+cdn 2134 / curl 1144 / browser 575 / apt 19, NXDOMAIN 8.3% of the dig-issued rows).
+The same command inside the testbed is the number to quote in the report; the pcap join
+still has to be checked once card 5's resolver is up.
 
 ## Dependencies and current state
 
