@@ -1,0 +1,15 @@
+$TTL 60
+@       IN  SOA ns.tunnel.test. admin.tunnel.test. (
+                1          ; serial
+                3600       ; refresh
+                600        ; retry
+                86400      ; expire
+                60 )       ; minimum TTL
+
+@       IN  NS  ns.tunnel.test.
+ns      IN  A   172.28.0.3
+@       IN  A   172.28.0.3
+
+; Wildcard so ANY subdomain under tunnel.test resolves. DNS tunnels encode data
+; into fresh subdomain labels, so every random label must get an answer here.
+*       IN  A   172.28.0.3
