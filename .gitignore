@@ -7,3 +7,17 @@ data/processed/
 models/weights/
 checkpoints/
 .ipynb_checkpoints/
+
+# --- testbed / live artifacts (large or local-only) ---
+*.pcap
+*.pcapng
+live/alerts.db
+*.sqlite
+
+# --- OS noise ---
+.DS_Store
+Thumbs.db
+
+# --- local-only working files (not part of the repo) ---
+ICT3214 Coursework 2.docx
+ict3214.json
