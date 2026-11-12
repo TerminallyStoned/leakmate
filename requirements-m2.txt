@@ -1,0 +1,9 @@
+torch>=2.2
+transformers>=4.40
+tokenizers>=0.19
+scikit-learn>=1.4
+pandas>=2.0
+pyarrow>=14
+numpy>=1.26
+joblib>=1.3
+dpkt>=1.9
