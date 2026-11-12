@@ -29,7 +29,7 @@ one `<host>.ndjson` sidecar per host, one `<host>.summary.json`, and `run.json` 
 | `page`  | one page view: publisher + `www` + third-party assets + hashed CDN hosts. Playwright drives a real browser when installed, otherwise the same hosts are resolved directly |
 | `curl`  | real `curl`-equivalent HTTPS fetches, sometimes an extra CDN asset                                             |
 | `apt`   | `apt-get update` + `--download-only` install burst, at most once per 5 minutes (needs root; falls back to mirror HTTP) |
-| `cdn`   | hash-like edge hostnames under `cloudfront.net`, `akamaized.net`, `akeyours15.me`, `azureedge.net`, `fastly.net`, `blob.core.windows.net`, … 85% of them (and of the asset hosts a `page` view touches) are real names harvested from top-site HTML via `--harvest-pages` (default 40 pages), because invented ones answer NXDOMAIN |
+| `cdn`   | hash-like edge hostnames under `cloudfront.net`, `akamaized.net`, `edgesuite.net`, `azureedge.net`, `fastly.net`, `blob.core.windows.net`, `storage.googleapis.com`, … (every zone in `CDN_ZONES` was checked for delegation with `dig NS`; non-resolving zones were dropped because they can only return NXDOMAIN) 85% of them (and of the asset hosts a `page` view touches) are real names harvested from top-site HTML via `--harvest-pages` (default 40 pages), because invented ones answer NXDOMAIN |
 
 The CDN/cloud engine is the point of the card: the proposal names high-entropy-but-benign
 edge names as the fix for DNS-BERT false positives, so they must be present in volume.
@@ -77,7 +77,7 @@ source hosts, a span matching the requested window, and CDN/cloud names present.
 ## Dependencies and current state
 
 - **Nothing needed to write or dry-run this code.** Tranco is fetched at run time into
-  `data/external/tranco/` (never committed); if the fetch fails the bundled
+  `data/external/tranco.csv` (never committed; same path the M2 scripts read); if the fetch fails the bundled
   `fallback_domains.txt` (120 domains) is used, so offline runs still work.
 - **Full fidelity needs card 5** (testbed network + resolver + capture). Until that exists,
   run with `--no-send`, or against the host's normal resolver — the sidecar is still valid,
