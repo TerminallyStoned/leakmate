@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+
+# Generated traffic and cached top-site lists: reproducible, large, shared off-repo
+# (testbed/benign/run_benign.sh writes the first two, domains.py writes the third).
+data/raw/
+data/external/
+testbed/benign/out/
