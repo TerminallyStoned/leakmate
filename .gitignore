@@ -2,9 +2,14 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .venv/
+.ipynb_checkpoints/
 
-# Generated traffic and cached top-site lists: reproducible, large, shared off-repo
-# (testbed/benign/run_benign.sh writes the first two, domains.py writes the third).
+# Datasets, captures and model weights stay off-repo: reproducible or shared on Drive.
+# run_benign.sh writes data/raw/, domains.py caches the Tranco list in data/external/.
 data/raw/
 data/external/
+data/sample/
+data/processed/
+models/weights/
+checkpoints/
 testbed/benign/out/
