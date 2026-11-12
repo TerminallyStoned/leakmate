@@ -38,6 +38,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Generator, Iterator, TextIO
 
+# Script-style sibling import: this module is run as a program (`python3 generate.py`) and
+# imported by the tests, so the package-relative form is not available.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import domains as dom  # noqa: E402  (sibling module, script-style import)
