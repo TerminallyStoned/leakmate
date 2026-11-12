@@ -26,21 +26,34 @@ REQUIRED = ("ts", "src_host", "qname", "qtype", "label", "tool", "dataset")
 CDN_HINT = re.compile(r"(cloudfront|akamai|akamaized|akadns|azureedge|edgekey|edgesuite|fastly|cdn77|cdnbuild|gcdn|cloudflare|core\.windows|s3\.amazonaws|storage\.googleapis)\.")
 
 
-def iter_rows(paths: Iterable[Path]) -> Iterator[dict[str, object]]:
-    """Yield sidecar rows; unreadable or malformed files warn on stderr and are skipped."""
+def iter_rows(paths: Iterable[Path], problems: list[str] | None = None) -> Iterator[dict[str, object]]:
+    """Yield sidecar rows.
+
+    Unreadable files warn on stderr; malformed *lines* are counted and appended to
+    *problems*, because a truncated line is how two writers on one sidecar shows up and a
+    checker that dropped them quietly would certify corrupted data.
+    """
     for path in sorted(paths):
         try:
             text = path.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError) as exc:
             print(f"WARN cannot read {path}: {exc}", file=sys.stderr)
             continue
+        malformed = 0
         if path.suffix == ".csv":
             yield from _parse_csv(text)
         else:
             for lineno, line in enumerate(text.splitlines(), 1):
                 row = _parse_line(path, lineno, line.strip())
-                if row is not None:
-                    yield row
+                if row is None:
+                    malformed += 1
+                    continue
+                yield row
+        if malformed and problems is not None:
+            problems.append(
+                f"{path.name}: {malformed} malformed line(s) — sidecar corrupted, "
+                "usually two hosts writing one file (check --src-host is unique)"
+            )
 
 
 def _parse_csv(text: str) -> Iterator[dict[str, object]]:
@@ -82,8 +95,8 @@ def _to_num(value: object) -> float | None:
 
 def check(paths: Iterable[Path], min_queries: int, window_minutes: float, min_hosts: int) -> tuple[list[str], dict[str, object]]:
     """Return (problems, stats) for the sidecar rows under *paths*."""
-    rows = list(iter_rows(paths))
     problems: list[str] = []
+    rows = list(iter_rows(paths, problems))
     hosts: Counter[str] = Counter()
     engines: Counter[str] = Counter()
     qtypes: Counter[str] = Counter()

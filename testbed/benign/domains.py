@@ -188,6 +188,26 @@ def harvest_edge_hosts(
     return sorted(hosts)
 
 
+EDGE_HOSTS_FILE = REPO_ROOT / "data" / "external" / "edge_hosts.txt"
+
+
+def save_edge_hosts(hosts: list[str], path: Path | str = EDGE_HOSTS_FILE) -> Path:
+    """Persist harvested names so a run inside the lab can use names it cannot fetch."""
+    p = Path(path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text("\n".join(sorted(set(hosts))) + "\n", encoding="utf-8")
+    return p
+
+
+def load_edge_hosts(path: Path | str = EDGE_HOSTS_FILE) -> list[str]:
+    """Read a previously harvested list; empty when absent or unreadable."""
+    try:
+        lines = Path(path).read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return []
+    return [ln.strip().lower() for ln in lines if ln.strip() and not ln.startswith("#")]
+
+
 def random_hash_label(rng: random.Random, charset: str, lo: int, hi: int) -> str:
     return "".join(rng.choice(charset) for _ in range(rng.randint(lo, hi)))
 

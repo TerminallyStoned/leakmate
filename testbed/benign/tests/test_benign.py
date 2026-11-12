@@ -9,6 +9,8 @@ from __future__ import annotations
 import json
 import random
 import time
+
+import pytest
 from pathlib import Path
 
 import domains as dom
@@ -228,3 +230,104 @@ def gen_check(paths: list[Path]):
     import check_benign
 
     return check_benign.check(paths, min_queries=5000, window_minutes=10.0, min_hosts=2)
+
+
+def test_no_http_queues_no_web_fetches() -> None:
+    """In the lab an HTTP fetch can only fail, so --no-http must not queue one."""
+    g = gen.BenignGenerator(
+        src_host="benign-01", pool=list(POOL), rng=random.Random(5), send=True, http=False
+    )
+    list(g.action_curl(1000.0))
+    assert g._net.qsize() == 0
+
+
+def test_no_http_asks_the_resolver_for_tool_traffic() -> None:
+    """Without a route the tool never resolves anything, so dig does it instead."""
+    g = gen.BenignGenerator(
+        src_host="benign-01", pool=list(POOL), rng=random.Random(5), send=True, http=False
+    )
+    asked: list[tuple[str, str]] = []
+
+    def fake_dig(name: str, qtype: str = "A"):
+        asked.append((name, qtype))
+        return 61, "NOERROR"
+
+    g.dig = fake_dig  # type: ignore[method-assign]
+    rows = list(g.action_curl(1000.0))
+    assert asked, "curl traffic produced no resolver lookup"
+    assert all(r.resp_size == 61 for r in rows if r.qtype == "A" and r.rcode)
+    assert rows, "curl action emitted nothing"
+
+
+def test_http_mode_leaves_tool_lookups_to_the_tool() -> None:
+    g = make_generator()
+    asked: list[str] = []
+    g.dig = lambda name, qtype="A": (asked.append(name) or (None, None))  # type: ignore[assignment]
+    list(g.action_curl(1000.0))
+    assert asked == [], "the tool itself resolves; dig must stay out of it"
+
+
+def test_edge_host_list_round_trip(tmp_path: Path) -> None:
+    path = dom.save_edge_hosts(["A1B2.cloudfront.net", "d3.azureedge.net"], tmp_path / "edge_hosts.txt")
+    assert dom.load_edge_hosts(path) == ["a1b2.cloudfront.net", "d3.azureedge.net"]
+    assert dom.load_edge_hosts(tmp_path / "absent.txt") == []
+
+
+def test_offline_run_reuses_the_harvested_list(tmp_path: Path) -> None:
+    """A lab run cannot harvest, so --edge-hosts-file is where its CDN names come from."""
+    edge_file = dom.save_edge_hosts(["px9f3a.cloudfront.net", "t7k2.akamaized.net"], tmp_path / "edge_hosts.txt")
+    sidecar = tmp_path / "benign-01.ndjson"
+    rc = gen.main(
+        [
+            "--no-send",
+            "--engines", "cdn",
+            "--max-rows", "40",
+            "--out", str(sidecar),
+            "--edge-hosts-file", str(edge_file),
+        ]
+    )
+    assert rc == 0
+    names = {json.loads(line)["qname"] for line in sidecar.read_text(encoding="utf-8").splitlines()}
+    assert names & {"px9f3a.cloudfront.net", "t7k2.akamaized.net"}
+
+
+def test_testbed_compose_keeps_card5_services_and_gates_benign() -> None:
+    """Adding benign must not change what `docker compose up -d` in testbed/ starts."""
+    yaml = pytest.importorskip("yaml")
+    compose = Path(__file__).resolve().parents[2] / "docker-compose.yml"
+    spec = yaml.safe_load(compose.read_text(encoding="utf-8"))
+    assert set(spec["services"]) == {"attacker-ns", "resolver", "victim", "benign"}
+    benign = spec["services"]["benign"]
+    assert benign["profiles"] == ["benign"], "benign must stay behind a profile"
+    assert benign["networks"] == {"lab": None}, "no static IP, or --scale cannot run replicas"
+    assert "172.28.0.2" in benign["dns"][0], "dns must default to the card-5 resolver"
+    assert "--no-http" in benign["command"], "the lab has no route for web fetches"
+    # rsplit: the host side of the output mount contains ":-" from the compose default.
+    assert {v.rsplit(":", 1)[1] for v in benign["volumes"]} >= {"/app/data/external", "/out"}
+
+
+def test_src_host_auto_never_names_the_sidecar_auto(tmp_path: Path) -> None:
+    """Two replicas both labelled "auto" shared one file and interleaved JSON."""
+    assert gen.main(["--src-host", "auto", "--no-send", "--minutes", "0.02",
+                     "--target-qps", "40", "--out", f"{tmp_path}/"]) == 0
+    written = [q.name for q in tmp_path.glob("*.ndjson")]
+    assert len(written) == 1 and written[0] != "auto.ndjson", written
+
+
+def test_checker_reports_malformed_lines(tmp_path: Path) -> None:
+    import check_benign
+
+    path = tmp_path / "benign-01.ndjson"
+    write_sidecar(path, rows=400, hosts=1, span=60.0)
+    lines = path.read_text().splitlines()
+    # What a second writer truncating mid-record looks like.
+    path.write_text("\n".join(lines[:-1]) + "\n" + lines[-1][:40] + "\n")
+    problems, _ = check_benign.check([path], min_queries=100, window_minutes=1.0, min_hosts=1)
+    assert any("malformed" in q for q in problems), problems
+
+
+def test_ipv4_helper() -> None:
+    assert gen._ipv4("172.28.0.4")
+    assert not gen._ipv4("::1")
+    assert not gen._ipv4(None)
+    assert not gen._ipv4("hermes-vm")
