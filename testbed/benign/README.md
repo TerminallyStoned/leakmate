@@ -7,12 +7,11 @@ the models never learn "high-entropy label = tunnel".
 ## Run it
 
 ```bash
-# local processes, one per host profile, 10 minutes, ~6k lookups, resolver inside the testbed
-testbed/benign/run_benign.sh --hosts 4 --minutes 10 --resolver 10.20.0.2
+# inside the card-5 lab (recommended): N containers, N real source IPs, DNS via 172.28.0.2
+cd testbed && ./benign/run_benign.sh --hosts 4 --minutes 10 --docker
 
-# containers (real distinct source IPs; needs the card-5 network)
-RESOLVER_IP=10.20.0.2 TESTBED_NETWORK=ict3214_testbed \
-  testbed/benign/run_benign.sh --hosts 4 --minutes 10 --docker
+# local processes against any resolver (your laptop's, or the lab's if reachable)
+testbed/benign/run_benign.sh --hosts 4 --minutes 10 --resolver 172.28.0.2
 
 # no network at all: plan the lookups only (used by CI and the "does it parse" smoke test)
 testbed/benign/run_benign.sh --hosts 2 --minutes 1 --target-qps 60 --no-send
@@ -21,6 +20,28 @@ testbed/benign/run_benign.sh --hosts 2 --minutes 1 --target-qps 60 --no-send
 `run_benign.sh --help` lists every flag. Output goes to `--out DIR` (the repo convention is
 `data/raw/benign/<run id>/`, which the script defaults to when `--out` is omitted):
 one `<host>.ndjson` sidecar per host, one `<host>.summary.json`, and `run.json` metadata.
+
+## Running inside the lab (`--docker`)
+
+The `benign` service is defined in [`../docker-compose.yml`](../docker-compose.yml) behind
+`profiles: ["benign"]`, so Justin's `docker compose up -d` is unaffected; `--docker` runs
+`docker compose --profile benign up --scale benign=N`. Two things follow from `lab` being
+`internal: true` with no route to the internet:
+
+- The service runs with `--no-http`: every engine keeps its DNS fan-out (a page view still
+  resolves its publisher, third-party and CDN hosts) but the TCP half of `curl`/`apt`/browser
+  does not happen, because it could not leave the network anyway. `page` still dominates the
+  query count (measured 1-minute 2-replica mix: page 844, dns 321, cdn 190, curl 91, apt 5).
+- Tranco and the harvested CDN hostnames cannot be downloaded there, so `run_benign.sh` runs
+  `generate.py --prepare` on the host first and the container reads the mounted
+  `data/external/` (`tranco.csv`, `edge_hosts.txt`). Invented hash names answer NXDOMAIN, and
+  `rcode` is a tunnel signal, so reusing real harvested names matters: NXDOMAIN among dig rows
+  is 8.5% in the lab versus 24.7% without the file.
+
+`--src-host auto` (the default) resolves to the container's own IPv4, so each replica writes
+`<ip>.ndjson` and the label matches the source address in the resolver's pcap — that is the
+join key for the parser (card 9). Two replicas once shared one `auto.ndjson` and interleaved
+their JSON; `check_benign.py` now fails on malformed lines rather than warning.
 
 ## Engines (weighted action mix)
 
@@ -61,9 +82,10 @@ Scale with hosts, which is also what the testbed wants:
 testbed/benign/run_benign.sh --hosts 4 --minutes 10 --target-qps 30   # ~16k queries
 ```
 
-Inside the testbed, `--resolver` points at the container resolver (latency ~1 ms instead
-of tens of ms), so the per-process ceiling is higher. `--target-qps` is the total across
-hosts; each process paces at `target-qps / hosts`.
+Inside the lab the ceiling is similar, not better — measured 7.1 and 9.4 lookups/s for two
+replicas against the container resolver, so the limit is the generator's own pacing rather
+than `dig` latency. Scale with `--hosts`, not with optimism: `--target-qps` is the total
+across hosts and each process paces at `target-qps / hosts`.
 
 ## Acceptance check
 
@@ -75,12 +97,36 @@ Passes when the run has >5k rows (card's "done when"), names that pass DNS synta
 source hosts, a span matching the requested window, and CDN/cloud names present.
 `run_benign.sh` runs it automatically at the end and propagates its exit code.
 
-Verified run, 12 Nov 2026, public resolver (no testbed yet):
-`run_benign.sh --hosts 4 --minutes 10 --target-qps 30` → **PASS 14022 benign queries over
-799s from 4 hosts** (17.6 lookups/s, 2985 distinct names, engines page 7064 / dns 3086 /
-cdn 2134 / curl 1144 / browser 575 / apt 19, NXDOMAIN 8.3% of the dig-issued rows).
-The same command inside the testbed is the number to quote in the report; the pcap join
-still has to be checked once card 5's resolver is up.
+Verified runs, 12 Nov 2026:
+
+- host, public resolver: `run_benign.sh --hosts 4 --minutes 10 --target-qps 30` →
+  **PASS 14022 benign queries over 799s from 4 hosts** (17.6 lookups/s, 2985 distinct names,
+  engines page 7064 / dns 3086 / cdn 2134 / curl 1144 / browser 575 / apt 19, NXDOMAIN 8.3%).
+- inside the card-5 lab: `run_benign.sh --hosts 2 --minutes 1 --target-qps 25 --docker` →
+  1451 rows, one `<ip>.ndjson` per replica, no malformed lines, NXDOMAIN 8.5%, real harvested
+  edge names present.
+
+### The sidecars agree with the wire
+
+"Parses cleanly" is only meaningful against the capture, so the join was checked directly:
+`tcpdump -qi eth0 -w cap.pcap 'udp port 53'` inside the `resolver` container (Alpine: `apk add
+tcpdump`) while the profile ran, then parsed with `dpkt` and compared per source address.
+
+| | sidecar | pcap (2 min, 3 replicas) |
+| -------------- | --------- | -------------------------- |
+| total queries | 5520 | 5520 (ratio 1.000) |
+| `172.28.0.4` | 1823 | 1823 |
+| `172.28.0.5` | 1847 | 1847 |
+| `172.28.0.6` | 1850 | 1850 |
+| qtypes | A 4347, AAAA 1110, NS 20, SOA 16, TXT 16, MX 11 | identical |
+
+So `src_host` is the address the capture shows and nothing was lost or double-counted — the
+parser (card 9) can join on it. Note `resp_size`/`rcode` in the pcap (NXDOMAIN 8.9%) come from
+the resolver itself, which is what the models should read; the sidecar copy is a convenience.
+
+Still open for the card: the 10-minute run repeated **while the resolver is capturing**, and
+the pcap count joined to these sidecars — that is the "parse cleanly" half, and it needs
+Yehan's parser (card 9) to be final.
 
 ## Dependencies and current state
 

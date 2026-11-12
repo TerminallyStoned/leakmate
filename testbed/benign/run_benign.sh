@@ -71,6 +71,12 @@ if [[ "$HOSTS" -lt 1 ]]; then echo "--hosts must be >= 1" >&2; exit 2; fi
 
 RUN_ID="benign_${HOSTS}h_${MINUTES}m_$(date -u +%Y%m%dT%H%M%SZ)"
 OUT="${OUT:-$REPO_ROOT/data/raw/benign/$RUN_ID}"
+# Compose bind sources must be absolute: a relative --out is read as a named volume and the
+# whole project fails with "refers to undefined volume".
+case "$OUT" in
+  /*) ;;
+  *) OUT="$PWD/$OUT" ;;
+esac
 
 if [[ "$MODE" == "docker" ]]; then
   # One compose file for the whole testbed (card 5). The benign service sits behind the

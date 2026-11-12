@@ -48,8 +48,9 @@ All splits are time/session based, never shuffled rows (except in S).
   Details in [`docs/m2.md`](docs/m2.md).
 - **Testbed** (*partial*): closed Docker network with resolver + authoritative server generating labelled
   traffic from iodine, dnscat2, dns2tcp and DNSExfiltrator, plus benign traffic (Tranco, apt, curl,
-  browser). Containment is tested so no traffic leaves the network. The benign generator is in
-  [`testbed/benign/`](testbed/benign/README.md); the tunnel tools and network are in progress.
+  browser). Containment is tested so no traffic leaves the network. Available now: the network itself
+  ([`testbed/`](testbed/README.md)) and the benign generator ([`testbed/benign/`](testbed/benign/README.md));
+  the four tunnel tools are in progress.
 - **Tranco** top-1M list: benign domain names (https://tranco-list.eu).
 
 Raw data, processed data and model weights are **not** committed (see `.gitignore`); scripts regenerate them.
@@ -97,10 +98,11 @@ On Google Colab: open `notebooks/m2_dnsbert_colab.ipynb`, choose a T4 GPU, Run a
 
 ## Quick start (benign traffic generator)
 ```bash
-testbed/benign/run_benign.sh --hosts 4 --minutes 10 --target-qps 30 --resolver 10.20.0.2
-python3 -m pytest testbed/benign/tests -q        # no network needed
+cd testbed && docker compose up -d                                   # card-5 network
+./benign/run_benign.sh --hosts 4 --minutes 10 --docker               # 10 min of benign lookups
+python3 -m pytest testbed/benign/tests -q                            # from the repo root; no network needed
 ```
-Writes `data/raw/benign/<run id>/<host>.ndjson` sidecars in the query-table schema (see
+Writes `data/raw/benign/<run id>/<ip>.ndjson` sidecars in the query-table schema (see
 Contracts) plus `run.json`; `check_benign.py` runs automatically and enforces the card's
 acceptance bar. `--no-send` plans the lookups offline. Details: `testbed/benign/README.md`.
 
