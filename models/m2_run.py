@@ -93,6 +93,10 @@ def main(argv=None):
             cfg["extra_benign"] = load_tranco(a.tranco, a.tranco_n)
     else:
         mod, cfg = iforest_baseline, {}
+        if "qname_truncated" in df.columns:
+            # CIC snaplen=96 cuts off the qtype of nearly every exfil query, so qtype
+            # would leak the label. Drop qtype-derived features on CIC.
+            cfg["drop_cols"] = ["qtype_code", "is_txt_null"]
 
     t0 = time.time()
     model = mod.train(train_df, cfg)
