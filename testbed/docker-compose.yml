@@ -1,0 +1,61 @@
+name: ict3214-testbed
+
+# Two networks:
+#   lab      -> internal:true, NO route to the internet. Holds the victim(s)
+#               and the attacker-controlled authoritative server. Tunnel traffic
+#               for tunnel.test lives here and cannot leave.
+#   upstream -> normal bridge with internet. ONLY the resolver is attached to it,
+#               so only legitimate (non-test) lookups are forwarded out.
+networks:
+  lab:
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+  upstream:
+    driver: bridge
+
+services:
+  # Attacker-controlled authoritative name server for tunnel.test.
+  # Later (card #6) the tunnel tool servers (iodined, dnscat2) live behind this.
+  attacker-ns:
+    image: internetsystemsconsortium/bind9:9.20
+    container_name: attacker-ns
+    # No command override: the image's entrypoint is already `named`, and its
+    # default args run `named -c /etc/bind/named.conf` on the config we mount.
+    volumes:
+      - ./attacker-ns:/etc/bind:ro
+    networks:
+      lab:
+        ipv4_address: 172.28.0.3
+    restart: unless-stopped
+
+  # Recursive resolver the victims point at.
+  # Forwards tunnel.test -> attacker-ns (stays internal); everything else -> 1.1.1.1.
+  resolver:
+    image: internetsystemsconsortium/bind9:9.20
+    container_name: resolver
+    # No command override (see attacker-ns).
+    volumes:
+      - ./resolver:/etc/bind:ro
+    networks:
+      lab:
+        ipv4_address: 172.28.0.2
+      upstream:
+    depends_on:
+      - attacker-ns
+    restart: unless-stopped
+
+  # A victim host. DNS is pointed at the resolver. No internet of its own.
+  victim:
+    build: ./victim
+    container_name: victim
+    command: ["sleep", "infinity"]
+    dns:
+      - 172.28.0.2
+    networks:
+      lab:
+        ipv4_address: 172.28.0.10
+    depends_on:
+      - resolver
+    restart: unless-stopped

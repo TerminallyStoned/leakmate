@@ -1,0 +1,22 @@
+=== ICT3214 testbed containment evidence ===
+Generated: 2026-11-12 07:47:07 UTC
+
+--- 1. Containers up ---
+NAME          IMAGE                                  COMMAND                  SERVICE       CREATED          STATUS          PORTS
+attacker-ns   internetsystemsconsortium/bind9:9.20   "/usr/sbin/named -u …"   attacker-ns   10 minutes ago   Up 10 minutes   53/tcp, 443/tcp, 853/tcp, 953/tcp, 53/udp
+resolver      internetsystemsconsortium/bind9:9.20   "/usr/sbin/named -u …"   resolver      10 minutes ago   Up 10 minutes   53/tcp, 443/tcp, 853/tcp, 953/tcp, 53/udp
+victim        ict3214-testbed-victim                 "sleep infinity"         victim        10 minutes ago   Up 10 minutes   
+
+--- 2. lab network is internal:true (no gateway to the internet) ---
+lab internal = true
+
+--- 3. tunnel.test resolves ONLY to the internal attacker NS (172.28.0.3) ---
+172.28.0.3
+172.28.0.3
+
+--- 4. A real domain still resolves (resolver forwards non-test upstream) ---
+104.20.23.154
+172.66.147.243
+
+--- 5. The victim has NO direct internet route (can only talk DNS to the resolver) ---
+OK: victim cannot reach the internet directly
