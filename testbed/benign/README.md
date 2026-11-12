@@ -102,9 +102,10 @@ Verified runs, 12 Nov 2026:
 - host, public resolver: `run_benign.sh --hosts 4 --minutes 10 --target-qps 30` →
   **PASS 14022 benign queries over 799s from 4 hosts** (17.6 lookups/s, 2985 distinct names,
   engines page 7064 / dns 3086 / cdn 2134 / curl 1144 / browser 575 / apt 19, NXDOMAIN 8.3%).
-- inside the card-5 lab: `run_benign.sh --hosts 2 --minutes 1 --target-qps 25 --docker` →
-  1451 rows, one `<ip>.ndjson` per replica, no malformed lines, NXDOMAIN 8.5%, real harvested
-  edge names present.
+- inside the card-5 lab, the card's own bar: `./benign/run_benign.sh --hosts 4 --minutes 10
+  --docker` → **PASS 38873 benign queries over 1035s from 4 hosts** (5430 distinct names, mix
+  page 21440 / dns 8742 / cdn 5542 / curl 3114 / apt 35), captured at the resolver at the same
+  time.
 
 ### The sidecars agree with the wire
 
@@ -112,21 +113,16 @@ Verified runs, 12 Nov 2026:
 `tcpdump -qi eth0 -w cap.pcap 'udp port 53'` inside the `resolver` container (Alpine: `apk add
 tcpdump`) while the profile ran, then parsed with `dpkt` and compared per source address.
 
-| | sidecar | pcap (2 min, 3 replicas) |
-| -------------- | --------- | -------------------------- |
-| total queries | 5520 | 5520 (ratio 1.000) |
-| `172.28.0.4` | 1823 | 1823 |
-| `172.28.0.5` | 1847 | 1847 |
-| `172.28.0.6` | 1850 | 1850 |
-| qtypes | A 4347, AAAA 1110, NS 20, SOA 16, TXT 16, MX 11 | identical |
+| 10-minute lab run | sidecar | pcap |
+| ----------------- | ---------------------------------------- | ---------------------------------------- |
+| total queries     | 38873                                   | 38873 (ratio 1.0000)                     |
+| per host          | `.4` 8901, `.5` 9919, `.6` 10419, `.7` 9634 | identical, to the query                |
+| qtypes            | A 30629, AAAA 7888, SOA 95, NS 91, MX 88, TXT 82 | identical                              |
 
 So `src_host` is the address the capture shows and nothing was lost or double-counted — the
-parser (card 9) can join on it. Note `resp_size`/`rcode` in the pcap (NXDOMAIN 8.9%) come from
-the resolver itself, which is what the models should read; the sidecar copy is a convenience.
-
-Still open for the card: the 10-minute run repeated **while the resolver is capturing**, and
-the pcap count joined to these sidecars — that is the "parse cleanly" half, and it needs
-Yehan's parser (card 9) to be final.
+parser (card 9) can join on it. `resp_size` and `rcode` should be read from the pcap rather
+than the sidecar where they differ: the sidecar's copy only covers lookups the generator issued
+itself, while the capture sees what the resolver actually answered.
 
 ## Dependencies and current state
 
