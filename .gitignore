@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+data/raw/
+data/external/
+data/sample/
+data/processed/
+models/weights/
+checkpoints/
+.ipynb_checkpoints/
