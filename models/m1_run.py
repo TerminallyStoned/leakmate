@@ -1,6 +1,10 @@
 """Train + score M1 (XGBoost) or its Random Forest baseline, write the contract
 results JSON results/<model>/<experiment>[_<tag>].json, and (M1) SHAP outputs.
 
+Input and output follow docs/contracts.md (v1.0.0): the query table in section 1,
+the results file in section 3. Every results record is checked with
+contracts.validate before it is written, so an invalid file is never saved.
+
 Examples
   # M1 on CIC (E2), per-query + per-host features, SHAP plots
   python -m models.m1_run --model m1 --exp E2 --data data/processed/cic/queries.parquet
@@ -36,6 +40,7 @@ try:
     import numpy as np
     import pandas as pd
 
+    from contracts import CONTRACT_VERSION, EXPERIMENTS, validate
     from models import m1_features, m1_xgb, rf_baseline
 except ModuleNotFoundError as e:
     raise SystemExit(f"Missing package '{e.name}'. Install the M1 packages with:\n"
@@ -135,7 +140,7 @@ def write_shap(model, test_df: pd.DataFrame, out_dir: Path, name: str, n: int, s
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", choices=sorted(MODULES), required=True)
-    ap.add_argument("--exp", required=True, help="E1..E5 or S")
+    ap.add_argument("--exp", required=True, choices=EXPERIMENTS, help="experiment ID (docs/contracts.md, section 3)")
     ap.add_argument("--data", required=True, help="query-table parquet (contract schema)")
     ap.add_argument("--test-data", help="separate test parquet (e.g. E4 cross-dataset)")
     ap.add_argument("--tag", default="", help="suffix for ablations, e.g. ablation_query_only")
@@ -210,6 +215,8 @@ def main(argv=None):
         "labels": [int(x) for x in test_df["label"]],
         "tools": test_df["tool"].astype(str).tolist() if "tool" in test_df else None,
         "src_hosts": test_df["src_host"].astype(str).tolist() if "src_host" in test_df else None,
+        "session_ids": test_df["session_id"].astype(str).tolist() if "session_id" in test_df else None,
+        "ts": [float(x) for x in test_df["ts"]] if "ts" in test_df else None,
         "feature_cols": model["cols"],
         "dropped_cols": dropped,
         "feature_importance": mod.feature_importance(model),
@@ -220,11 +227,15 @@ def main(argv=None):
         "score_meaning": SCORE_MEANING[a.model],
         "config": {k: v for k, v in model["cfg"].items()},
         "created_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "contract_version": CONTRACT_VERSION,
     }
     if a.model == "m1":
         res["best_iteration"] = model.get("best_iteration")
         res["n_val"] = model.get("n_val")
         res["shap"] = shap_info
+    # session_ids / ts are optional until E3/E5; leave them out rather than write None
+    res = {k: v for k, v in res.items() if not (k in ("session_ids", "ts") and v is None)}
+    validate(res)  # raises ContractError listing every problem; nothing is written then
     out = out_dir / f"{name}.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(res))
