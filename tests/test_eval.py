@@ -1,11 +1,11 @@
 """Run with:  python -m pytest -q"""
+
 import math
 
 import numpy as np
 import pytest
 
-from eval.metrics import (binary_metrics, evaluate_run, per_tool_recall,
-                          select_model, threshold_at_fpr)
+from eval.metrics import binary_metrics, evaluate_run, per_tool_recall, select_model, threshold_at_fpr
 
 
 def test_perfect_model():
@@ -34,15 +34,20 @@ def test_threshold_respects_fpr():
 
 
 def test_validation_threshold_is_used():
-    run = {"scores": [0.1, 0.9], "labels": [0, 1], "threshold": 0.95,
-           "train_time_s": 1, "latency_ms_per_query": 1, "config": {}}
+    run = {
+        "scores": [0.1, 0.9],
+        "labels": [0, 1],
+        "threshold": 0.95,
+        "train_time_s": 1,
+        "latency_ms_per_query": 1,
+        "config": {},
+    }
     m = evaluate_run(run)
     assert m["threshold_source"] == "validation" and m["recall"] == 0.0
 
 
 def test_per_tool_recall():
-    r = per_tool_recall([1, 1, 1, 0], [0.9, 0.2, 0.8, 0.1],
-                        ["iodine", "iodine", "dnscat2", "benign"], 0.5)
+    r = per_tool_recall([1, 1, 1, 0], [0.9, 0.2, 0.8, 0.1], ["iodine", "iodine", "dnscat2", "benign"], 0.5)
     assert r == {"dnscat2": 1.0, "iodine": 0.5}
 
 
@@ -58,12 +63,16 @@ def test_selection_rule():
 
 def test_latency_table():
     import pandas as pd
+
     from eval.summarise import latency_table
-    summary = pd.DataFrame({
-        "model": ["fast", "fast", "slow"],
-        "latency_ms_per_query": [1.0, 3.0, 14.0],
-        "train_time_s": [10, 20, 30],
-    })
+
+    summary = pd.DataFrame(
+        {
+            "model": ["fast", "fast", "slow"],
+            "latency_ms_per_query": [1.0, 3.0, 14.0],
+            "train_time_s": [10, 20, 30],
+        }
+    )
     t = latency_table(summary).set_index("model")
     assert t.loc["fast", "latency_ms_median"] == 2.0 and t.loc["fast", "n_runs"] == 2
     assert bool(t.loc["fast", "under_limit"]) and not bool(t.loc["slow", "under_limit"])
@@ -71,8 +80,28 @@ def test_latency_table():
 
 def test_old_latency_name_still_loads(tmp_path):
     import json
+
     from eval.results_io import load_result
+
     p = tmp_path / "r.json"
-    p.write_text(json.dumps({"scores": [0.1], "labels": [0], "train_time_s": 1,
-                             "latency_ms": 2.0, "config": {}}))
+    p.write_text(json.dumps({"scores": [0.1], "labels": [0], "train_time_s": 1, "latency_ms": 2.0, "config": {}}))
     assert load_result(p)["latency_ms_per_query"] == 2.0
+
+
+def test_run_identity_uses_json_keys():
+    from eval.results_io import run_identity
+
+    # ablation: model name in the JSON already carries the tag -> grouped under E2
+    assert run_identity("m1", "E2_ablation_query_only", {"model": "m1_ablation_query_only", "experiment": "E2"}) == (
+        "m1_ablation_query_only",
+        "E2",
+        True,
+    )
+    # E3 holdout: tag kept so each held-out tool is its own group
+    assert run_identity("m3_cnn", "E3_iodine", {"model": "m3_cnn", "experiment": "E3"}) == (
+        "m3_cnn",
+        "E3_iodine",
+        False,
+    )
+    # older files without the keys fall back to folder and file name
+    assert run_identity("rf", "E2", {}) == ("rf", "E2", False)

@@ -3,16 +3,17 @@
 Character embedding -> parallel Conv1D blocks (kernel 3/5/7) -> global max-pool
 -> dense -> one logit. About 0.2M parameters with the defaults (limit: 1M).
 """
+
 from __future__ import annotations
 
 import torch
 from torch import nn
 
-from models.m3_common import (PAD, VOCAB_SIZE, M3Model, load_model, save_model,
-                              score_model, train_model)
+from models.m3_common import PAD, VOCAB_SIZE, M3Model, load_model, save_model, score_model, train_model
 
-ARCH_DEFAULTS = {"emb_dim": 32, "filters": 128, "kernels": [3, 5, 7],
-                 "hidden": 128, "dropout": 0.3}
+SCORE_MEANING = "char-CNN P(tunnel) from the query name"
+
+ARCH_DEFAULTS = {"emb_dim": 32, "filters": 128, "kernels": [3, 5, 7], "hidden": 128, "dropout": 0.3}
 
 
 class CharCNN(nn.Module):
@@ -20,16 +21,18 @@ class CharCNN(nn.Module):
         super().__init__()
         c = {**ARCH_DEFAULTS, **cfg}
         self.emb = nn.Embedding(VOCAB_SIZE, c["emb_dim"], padding_idx=PAD)
-        self.convs = nn.ModuleList([
-            nn.Sequential(
-                nn.Conv1d(c["emb_dim"], c["filters"], k, padding=k // 2),
-                nn.BatchNorm1d(c["filters"]),
-                nn.ReLU(),
-                nn.Conv1d(c["filters"], c["filters"], k, padding=k // 2),
-                nn.ReLU(),
-            )
-            for k in c["kernels"]
-        ])
+        self.convs = nn.ModuleList(
+            [
+                nn.Sequential(
+                    nn.Conv1d(c["emb_dim"], c["filters"], k, padding=k // 2),
+                    nn.BatchNorm1d(c["filters"]),
+                    nn.ReLU(),
+                    nn.Conv1d(c["filters"], c["filters"], k, padding=k // 2),
+                    nn.ReLU(),
+                )
+                for k in c["kernels"]
+            ]
+        )
         self.head = nn.Sequential(
             nn.Dropout(c["dropout"]),
             nn.Linear(c["filters"] * len(c["kernels"]), c["hidden"]),
@@ -39,14 +42,14 @@ class CharCNN(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        mask = (x != PAD).unsqueeze(1)                 # (B, 1, L)
-        h = self.emb(x).transpose(1, 2)                # (B, E, L)
+        mask = (x != PAD).unsqueeze(1)  # (B, 1, L)
+        h = self.emb(x).transpose(1, 2)  # (B, E, L)
         pooled = []
         for conv in self.convs:
             z = conv(h).masked_fill(~mask, float("-inf"))  # ignore padding in the max-pool
             pooled.append(z.max(dim=2).values)
         out = torch.cat(pooled, dim=1)
-        out = torch.nan_to_num(out, neginf=0.0)        # empty names
+        out = torch.nan_to_num(out, neginf=0.0)  # empty names
         return self.head(out).squeeze(1)
 
 

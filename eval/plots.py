@@ -1,4 +1,5 @@
 """ROC curves and confusion matrices, saved as PNG under results/figures/."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -71,8 +72,7 @@ def plot_confusion(m: dict, model: str, experiment: str, out_dir: Path) -> Path:
     fig, ax = plt.subplots(figsize=(3.6, 3.2), dpi=150)
     ax.imshow(cm, cmap="Blues")
     for (i, j), v in np.ndenumerate(cm):
-        ax.text(j, i, f"{v:,}", ha="center", va="center",
-                color="white" if v > cm.max() / 2 else "black")
+        ax.text(j, i, f"{v:,}", ha="center", va="center", color="white" if v > cm.max() / 2 else "black")
     ax.set_xticks([0, 1], ["benign", "tunnel"])
     ax.set_yticks([0, 1], ["benign", "tunnel"])
     ax.set_xlabel("Predicted")
