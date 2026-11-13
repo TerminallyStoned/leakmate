@@ -32,11 +32,11 @@ python -m eval.run --model m3 --exp E2               # trains m3_cnn and m3_bils
 python -m eval.run --model m3 --exp E2 --epochs 1 --max-rows 20000   # quick smoke test
 ```
 
-Experiments: `E1`, `E2`, `E3` (all tools, or `--holdout iodine`), `E4_cic2testbed`, `E4_testbed2cic`, `E5`, `S_time`, `S_shuffled`.
+Experiments: `E1`, `E2`, `E3` (all tools, or `--holdout iodine`), `E4_cic2testbed`, `E4_testbed2cic`, `E5`, `S` (shuffled-row split; compare with `E1`, or with `E2` when run with `--dataset cic`). Use `--dataset cic` for `E3`/`S` before testbed data exists.
 
 ## Results JSON
 
-Required (CONTRACTS card): `scores`, `labels`, `train_time_s`, `latency_ms`, `config`.
+Required (CONTRACTS card): `scores`, `labels`, `train_time_s`, `latency_ms_per_query`, `config`.
 
 Optional, used when present:
 
@@ -47,4 +47,4 @@ Optional, used when present:
 
 - M3 lower-cases names and keeps the last 256 characters; 41-symbol vocabulary.
 - M3 holds out the latest 10% of training sessions for early stopping and the threshold. Test data is never used for either.
-- `latency_ms` from `eval.run` scores one query at a time on whatever machine ran it. The official latency table is re-run on one fixed machine (Kang Hao Wei's E5 card).
+- `latency_ms_per_query` from `eval.run` scores one query at a time on whatever machine ran it. The official latency table is re-run on one fixed machine (Kang Hao Wei's E5 card).
