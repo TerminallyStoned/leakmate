@@ -17,8 +17,10 @@ The CIC pcaps were captured with snaplen = 96 B (docs/m2.md): exfil query names
 are cut to ~40 chars, lose their qtype and lose their attacker domain. Some
 features then describe where the capture cut the packet instead of what the
 tunnel did, and a supervised model will happily learn that artefact. When the
-table has a `qname_truncated` column (scripts/cic_to_queries.py output), these
-groups are dropped unless cfg["keep_cic_leaky"] is True (ablation only):
+table's optional `qname_truncated` column (docs/contracts.md, section 1) marks at
+least one row as truncated (scripts/cic_to_queries.py output), these groups are
+dropped unless cfg["keep_cic_leaky"] is True (ablation only). A table whose
+qname_truncated is all False (testbed, synthetic sample) keeps every feature:
 
   qtype          qtype_code, is_txt_null, h_txt_null_ratio
                  qtype sits after the name, so it is missing on truncated rows.
@@ -55,7 +57,10 @@ WIRE_OVERHEAD = 18  # DNS header 12 + name length/terminator 2 + qtype/qclass 4
 
 
 def is_cic_table(df: pd.DataFrame) -> bool:
-    return "qname_truncated" in df.columns
+    """True when the capture cut query names short (CIC snaplen), so the leakage guard applies."""
+    if "qname_truncated" not in df.columns:
+        return False
+    return bool(df["qname_truncated"].fillna(False).astype(bool).any())
 
 
 def host_key(df: pd.DataFrame) -> pd.Series:
