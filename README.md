@@ -46,9 +46,11 @@ All splits are time/session based, never shuffled rows (except in S).
   Download the **PCAP** folder (registration required): https://www.unb.ca/cic/datasets/dns-exf-2021.html.
   ⚠️ Captured with snaplen = 96 B: exfil query names are truncated to ~40 chars and lose their qtype.
   Details in [`docs/m2.md`](docs/m2.md).
-- **Testbed** (*planned*): closed Docker network with resolver + authoritative server generating labelled
+- **Testbed** (*partial*): closed Docker network with resolver + authoritative server generating labelled
   traffic from iodine, dnscat2, dns2tcp and DNSExfiltrator, plus benign traffic (Tranco, apt, curl,
-  browser). Containment is tested so no traffic leaves the network.
+  browser). Containment is tested so no traffic leaves the network. Available now: the network itself
+  ([`testbed/`](testbed/README.md)) and the benign generator ([`testbed/benign/`](testbed/benign/README.md));
+  the four tunnel tools are in progress.
 - **Tranco** top-1M list: benign domain names (https://tranco-list.eu).
 
 Raw data, processed data and model weights are **not** committed (see `.gitignore`); scripts regenerate them.
@@ -69,7 +71,9 @@ notebooks/    m2_dnsbert_colab.ipynb (Colab GPU run), m1_xgb_colab.ipynb (Colab 
 results/      <model>/<experiment>.json in the shared results format
 docs/         per-component notes (m2.md)
 tests/        smoke tests
-testbed/ parser/ eval/ live/ dashboard/    planned
+testbed/
+  benign/            benign traffic generator (Tranco, CDN names, curl, apt, browser)
+parser/ eval/ live/ dashboard/    planned
 ```
 
 ## Shared contracts
@@ -96,6 +100,16 @@ python -m pytest tests -q
 ```
 On Google Colab: open `notebooks/m2_dnsbert_colab.ipynb`, choose a T4 GPU, Run all
 (reads the zips from `MyDrive/ICT3214 datasets`).
+
+## Quick start (benign traffic generator)
+```bash
+cd testbed && docker compose up -d                                   # card-5 network
+./benign/run_benign.sh --hosts 4 --minutes 10 --docker               # 10 min of benign lookups
+python3 -m pytest testbed/benign/tests -q                            # from the repo root; no network needed
+```
+Writes `data/raw/benign/<run id>/<ip>.ndjson` sidecars in the query-table schema (see
+Contracts) plus `run.json`; `check_benign.py` runs automatically and enforces the card's
+acceptance bar. `--no-send` plans the lookups offline. Details: `testbed/benign/README.md`.
 
 Planned entry points: `python -m parser ...`, `python -m eval.run --model m1 --exp E3`,
 `streamlit run dashboard/app.py`. The user manual will be built from these commands.

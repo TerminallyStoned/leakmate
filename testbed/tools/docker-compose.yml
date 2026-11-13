@@ -1,0 +1,92 @@
+name: leakmate-tools
+
+# Tunnel tool containers for the card #5 lab (Trello card #8: dns2tcp, DNSExfiltrator).
+# Separate from testbed/docker-compose.yml on purpose: the lab itself stays untouched, and
+# `internal: true` cannot be unset on an existing network, so the tools join it as an
+# external network. Everything is behind profiles, so nothing here starts by accident:
+#
+#   testbed/run_tool.sh --tool dns2tcp --size 65536 --rate 40
+#   testbed/run_tool.sh --tool dnsexfiltrator --size 4096 --rate 5
+#
+# Static IPs are deliberate: scripts/parse_capture.py labels a query by its source address,
+# so the tunnel hosts have to be predictable. They sit at the top of the /16, far from where
+# Docker hands out addresses to the victim and the benign replicas.
+#
+# Capture location: the clients below resolve the tool server directly, because the card-5
+# resolver forwards the whole of tunnel.test to attacker-ns and cannot be redirected per
+# subdomain without editing Justin's named.conf. So `--capture` records inside the tool
+# container, not at the resolver. If the group prefers capture-at-the-resolver, add two
+# narrower forward zones (exfil.tunnel.test -> 172.28.0.41, dns2tcp.tunnel.test ->
+# 172.28.0.42) to testbed/resolver/named.conf and point the clients at 172.28.0.2.
+networks:
+  lab:
+    name: ict3214-testbed_lab
+    external: true
+
+services:
+  # DNSExfiltrator receiver: authoritative for exfil.tunnel.test, answers each chunk's TXT
+  # query with the chunk number and writes the reassembled zip under /out.
+  dnsexfiltrator-ns:
+    profiles: ["dnsexfiltrator"]
+    build: ./dnsexfiltrator
+    image: leakmate-dnsexfiltrator:latest
+    container_name: dnsexfiltrator-ns
+    command:
+      - python3
+      - server.py
+      - -d
+      - "${EXFIL_DOMAIN:-exfil.tunnel.test}"
+      - -p
+      - "${EXFIL_PASSWORD:-leakmate-lab}"
+      - --out
+      - /out
+    networks:
+      lab:
+        ipv4_address: 172.28.0.41
+    volumes:
+      - ${TOOL_OUT:-./out}/dnsexfiltrator:/out
+    restart: "no"
+
+  # The "compromised host". Same image, client role, so the pcap shows two distinct
+  # addresses and the label comes from the source host, as the card requires.
+  dnsexfiltrator-cli:
+    profiles: ["dnsexfiltrator"]
+    image: leakmate-dnsexfiltrator:latest
+    container_name: dnsexfiltrator-cli
+    command: ["sleep", "infinity"]
+    networks:
+      lab:
+        ipv4_address: 172.28.0.43
+    dns: ["172.28.0.41"]
+    volumes:
+      - ${TOOL_OUT:-./out}/dnsexfiltrator:/out
+    depends_on: [dnsexfiltrator-ns]
+    restart: "no"
+
+  # dns2tcpd: DNS bootstrap (TXT/A per resource) plus the TCP tunnel it forwards.
+  # No cap_add: dns2tcp tunnels TCP, it is not an IP tunnel like iodine.
+  dns2tcpd:
+    profiles: ["dns2tcp"]
+    build: ./dns2tcp
+    image: leakmate-dns2tcp:latest
+    container_name: dns2tcpd
+    networks:
+      lab:
+        ipv4_address: 172.28.0.42
+    volumes:
+      - ${TOOL_OUT:-./out}/dns2tcp:/out
+    restart: "no"
+
+  # Second host for dns2tcp: runs dns2tcpc, then pushes payload through the local end of
+  # the tunnel. Its resolver is dns2tcpd so the zone resolves at all.
+  dns2tcp-client:
+    profiles: ["dns2tcp"]
+    image: leakmate-dns2tcp:latest
+    container_name: dns2tcp-client
+    command: ["sleep", "infinity"]
+    networks:
+      lab:
+        ipv4_address: 172.28.0.44
+    dns: ["172.28.0.42"]
+    depends_on: [dns2tcpd]
+    restart: "no"
