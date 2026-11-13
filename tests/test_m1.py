@@ -8,6 +8,7 @@ import random
 import numpy as np
 import pandas as pd
 
+from contracts import assign_sessions, validate
 from models import host_features, m1_features, m1_run, m1_xgb, rf_baseline
 
 BENIGN = ["www.google.com", "api.github.com", "cdn.jsdelivr.net", "mail.yahoo.com", "static.xx.fbcdn.net",
@@ -20,7 +21,9 @@ def _tunnel(rnd):
 
 
 def _table(n=600, seed=0, cic=False):
-    """Benign hosts browse slowly; one tunnel host sends many unique names fast."""
+    """Contract-valid query table (docs/contracts.md, section 1).
+
+    Benign hosts browse slowly; one tunnel host sends many unique names fast."""
     rnd, rows, t = random.Random(seed), [], 1_700_000_000.0
     for _ in range(n):
         t += rnd.expovariate(4)
@@ -28,14 +31,20 @@ def _table(n=600, seed=0, cic=False):
             q, lab, tool, host, qt = _tunnel(rnd), 1, "iodine", "10.0.0.66", "TXT"
         else:
             q, lab, tool, host, qt = rnd.choice(BENIGN), 0, "benign", f"10.0.0.{rnd.randint(2, 9)}", "A"
-        row = dict(ts=t, src_host=host, session_id=f"{host}-{int(t // 600)}", qname=q, qtype=qt,
-                   resp_size=rnd.randint(40, 300), rcode=0, label=lab, tool=tool, dataset="unit", throttle=0)
+        row = dict(ts=t, src_host=host, qname=q, qtype=qt,
+                   resp_size=rnd.randint(40, 300), rcode=0, label=lab, tool=tool, dataset="synthetic", throttle=0)
         if cic:
             row.update(qname_truncated=lab == 1, qlen_wire=len(q) + 18, source_file="f.pcap")
         rows.append(row)
     df = pd.DataFrame(rows)
+    df["session_id"] = assign_sessions(df)
     df["split"] = ["train" if i < int(n * 0.7) else "test" for i in range(n)]
     return df
+
+
+def test_fixture_tables_follow_the_contract():
+    validate(_table())
+    validate(_table(cic=True))
 
 
 def test_host_features_are_past_only_and_count_window():
@@ -107,10 +116,13 @@ def test_cic_leaky_features_dropped_unless_asked():
     assert "qtype_code" in m_qt["cols"] and "q_len" not in m_qt["cols"]        # per-group ablation
     r = rf_baseline.train(train, {"n_estimators": 20, "n_jobs": 1})
     assert r["cols"] == m["cols"]                              # M1 and RF see identical inputs
-    # non-CIC tables keep everything
+    # non-CIC tables keep everything, including ones that carry qname_truncated but never truncate
     clean = m1_features.attach(_table())
     assert set(m1_features.CIC_LEAKY) <= set(m1_xgb.train(clean[clean.split == "train"],
                                                           {"n_estimators": 20, "n_jobs": 1})["cols"])
+    untruncated = _table(cic=True).assign(qname_truncated=False)
+    assert not m1_features.is_cic_table(untruncated)
+    assert m1_features.drop_list(untruncated) == []
 
 
 def test_shap_values_add_up_and_explain():
@@ -134,10 +146,10 @@ def test_runner_writes_contract_json(tmp_path):
         out = m1_run.main(["--model", model, "--exp", "E2", "--data", str(data), "--out", str(tmp_path / "res"),
                            "--n-estimators", "40", "--latency-n", "5", "--shap-n", "100"])
         res = json.loads(out.read_text())
-        for k in ["model", "experiment", "split", "n_train", "n_test", "scores", "labels", "tools", "src_hosts",
-                  "train_time_s", "latency_ms_per_query", "score_meaning", "config", "feature_cols"]:
+        validate(res)                                          # shared results contract
+        for k in ["feature_cols", "session_ids", "ts"]:
             assert k in res, k
-        assert len(res["scores"]) == len(res["labels"]) == res["n_test"]
+        assert len(res["scores"]) == len(res["session_ids"]) == len(res["ts"]) == res["n_test"]
         assert res["split"] == "split_column" and "qtype_code" in res["dropped_cols"]
     shap_json = json.loads((tmp_path / "res" / "m1" / "shap" / "E2_shap.json").read_text())
     assert shap_json["mean_abs_shap"] and shap_json["examples"]["top_scored_tunnels"]
@@ -153,3 +165,13 @@ def test_runner_writes_contract_json(tmp_path):
                        "--out", str(tmp_path / "res"), "--n-estimators", "20", "--latency-n", "3"])
     res = json.loads(out.read_text())
     assert res["n_test"] == 200 and res["split"].startswith("train=")
+
+
+def test_cic_truncated_qname_has_no_trailing_dot():
+    # snaplen can cut a packet right after a label's length byte; the name must not end with "."
+    import cic_to_queries  # scripts/ is on the pytest path
+
+    hdr = bytes(12)
+    assert cic_to_queries._qname(hdr + b"\x03abc\x09wordpress\x03") == ("abc.wordpress", True, None)
+    assert cic_to_queries._qname(hdr + b"\x03abc\x09wordpress\x03co") == ("abc.wordpress.co", True, None)
+    assert cic_to_queries._qname(hdr + b"\x03abc\x03com\x00\x00\x01") == ("abc.com", False, 21)
