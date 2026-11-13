@@ -50,7 +50,7 @@ For a test table without real data, run `python scripts/make_synthetic_sample.py
 ## 1. Query table
 
 - **File:** `data/processed/<dataset>/queries.parquet`, one row per DNS query a client sent, in any row order.
-- **Written by:** the parser (testbed pcaps), `scripts/cic_to_queries.py` (CIC pcaps), `scripts/make_synthetic_sample.py` (tests).
+- **Written by:** the parser (testbed pcaps), `parser/cic.py` (CIC pcaps, `python -m parser cic`), `scripts/make_synthetic_sample.py` (tests).
 - **Read by:** every model, for training and scoring.
 - **Why it's fixed:** CIC and testbed data look identical to the models, so any model runs on either dataset unchanged.
 
@@ -186,7 +186,7 @@ ODCS handles extensions the same way, with `customProperties` kept apart from th
    - edit this doc and bump the version line;
    - update `CONTRACT_VERSION` and the checks in `contracts.py`;
    - update `tests/test_contracts.py`;
-   - update every producer (`scripts/cic_to_queries.py`, the testbed parser, `scripts/make_synthetic_sample.py`);
+   - update every producer (`parser/cic.py`, the testbed parser, `scripts/make_synthetic_sample.py`);
    - add a changelog entry below.
 
    For a **major** change the PR also lists what must be regenerated or rerun (for example "rebuild the CIC parquet,

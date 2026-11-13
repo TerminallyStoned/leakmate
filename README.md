@@ -67,7 +67,7 @@ models/       model code, one file per model: train / score / save / load
   host_features.py     per-host sliding-window features (past-only)
   m1_run.py            M1/RF train + score, writes results JSON + SHAP outputs
 contracts.py  validator + session/qtype helpers for the shared contracts (docs/contracts.md)
-scripts/      cic_to_queries.py (CIC pcaps -> query table, stopgap until parser/), make_synthetic_sample.py
+scripts/      make_synthetic_sample.py, parse_capture.py + build_queries_parquet.py (testbed stopgaps), cic_to_queries.py (old path, calls parser/cic.py)
 notebooks/    m2_dnsbert_colab.ipynb (Colab GPU run), m1_xgb_colab.ipynb (Colab CPU run)
 results/      <model>/<experiment>.json in the shared results format
 docs/         per-component notes (m2.md)
@@ -75,7 +75,7 @@ tests/        smoke tests
 testbed/
   benign/            benign traffic generator (Tranco, CDN names, curl, apt, browser)
   m3_cnn.py, m3_bilstm.py, m3_common.py   M3 char-CNN + BiLSTM
-parser/       python -m parser {cic,pcap,testbed}: captures -> query table (wraps the scripts/ stopgaps for now)
+parser/       python -m parser {cic,features,pcap,testbed}; `from parser import load; train, test = load("cic")`
 eval/         shared evaluation module: splits, metrics, plots, run.py, summarise.py
 data/         raw/, external/, processed/ (not committed; see data/README.md)
 live/         live detector (planned)
@@ -120,7 +120,8 @@ The user manual is built from these commands.
 | Testbed network | `cd testbed && docker compose up -d` | ✅ |
 | Benign traffic | `testbed/benign/run_benign.sh --hosts 4 --minutes 10 --docker` | ✅ |
 | Tunnel traffic | `testbed/run_tool.sh --tool dns2tcp --size 100000 --rate 2000 --capture` | dns2tcp, DNSExfiltrator ✅; iodine, dnscat2 planned |
-| Parse CIC | `python -m parser cic --raw data/raw/cic --out data/processed/cic/queries.parquet` | ✅ (stopgap inside) |
+| Parse CIC | `python -m parser cic --raw data/raw/cic --out data/processed/cic/queries.parquet` | ✅ |
+| CIC features | `python -m parser features --dataset cic` -> `data/processed/cic/features.parquet` | ✅ |
 | Parse testbed | `python -m parser testbed --add <run dir> ... --out data/processed/testbed/queries.parquet` | ✅ (stopgap inside) |
 | Check a table | `python contracts.py data/processed/cic/queries.parquet` | ✅ |
 | Train + score M1 / RF / IF / M3 | `python -m eval.run --model m1 --exp E3` | needs testbed data; won't overwrite existing results without `--overwrite` |
