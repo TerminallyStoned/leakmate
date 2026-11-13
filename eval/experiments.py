@@ -4,7 +4,7 @@ PLACEHOLDER: Yehan owns the official splits ("Parser + features + splits" card).
 When his version lands, make `get_split` call it and delete the logic below.
 Everything here only relies on the query-table schema, so swapping is one import.
 
-Splits are by SESSION and TIME, never by shuffled rows (except experiment S_shuffled).
+Splits are by SESSION and TIME, never by shuffled rows (except experiment S).
 """
 from __future__ import annotations
 
@@ -57,7 +57,9 @@ def get_split(exp: str, root: Path = DATA_ROOT, holdout_tool: str | None = None,
       E3 leave-one-tool-out        (needs holdout_tool; result name E3_<tool>)
       E4_cic2testbed / E4_testbed2cic
       E5 low-and-slow              (train on non-throttled, test on throttled)
-      S_time / S_shuffled          (same data, two split methods)
+      S shuffled-row split         (result name S; compare with E1 for testbed or
+                                    E2 for CIC, which use the proper time split
+                                    on the same data. "S_shuffled" also accepted.)
     """
     if exp == "E1":
         tr, te = time_session_split(load_queries("testbed", root))
@@ -83,8 +85,7 @@ def get_split(exp: str, root: Path = DATA_ROOT, holdout_tool: str | None = None,
         tr = tr[(tr["label"] == 0) | (tr["throttle"].fillna(0).astype(float) == 0)]
         te = te[(te["label"] == 0) | slow]
         return tr, te, "E5"
-    if exp in ("S_time", "S_shuffled"):
-        df = load_queries(dataset, root)
-        tr, te = time_session_split(df) if exp == "S_time" else shuffled_split(df)
-        return tr, te, exp
+    if exp in ("S", "S_shuffled"):
+        tr, te = shuffled_split(load_queries(dataset, root))
+        return tr, te, "S"
     raise ValueError(f"Unknown experiment {exp!r}")

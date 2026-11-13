@@ -35,7 +35,7 @@ def test_threshold_respects_fpr():
 
 def test_validation_threshold_is_used():
     run = {"scores": [0.1, 0.9], "labels": [0, 1], "threshold": 0.95,
-           "train_time_s": 1, "latency_ms": 1, "config": {}}
+           "train_time_s": 1, "latency_ms_per_query": 1, "config": {}}
     m = evaluate_run(run)
     assert m["threshold_source"] == "validation" and m["recall"] == 0.0
 
@@ -48,9 +48,9 @@ def test_per_tool_recall():
 
 def test_selection_rule():
     rows = [
-        {"model": "fast_good", "f1": 0.95, "fpr": 0.005, "latency_ms": 1.0},
-        {"model": "too_slow", "f1": 0.99, "fpr": 0.001, "latency_ms": 20.0},
-        {"model": "too_noisy", "f1": 0.98, "fpr": 0.05, "latency_ms": 1.0},
+        {"model": "fast_good", "f1": 0.95, "fpr": 0.005, "latency_ms_per_query": 1.0},
+        {"model": "too_slow", "f1": 0.99, "fpr": 0.001, "latency_ms_per_query": 20.0},
+        {"model": "too_noisy", "f1": 0.98, "fpr": 0.05, "latency_ms_per_query": 1.0},
     ]
     assert select_model(rows)["model"] == "fast_good"
     assert select_model(rows[1:]) is None
@@ -61,9 +61,18 @@ def test_latency_table():
     from eval.summarise import latency_table
     summary = pd.DataFrame({
         "model": ["fast", "fast", "slow"],
-        "latency_ms": [1.0, 3.0, 14.0],
+        "latency_ms_per_query": [1.0, 3.0, 14.0],
         "train_time_s": [10, 20, 30],
     })
     t = latency_table(summary).set_index("model")
     assert t.loc["fast", "latency_ms_median"] == 2.0 and t.loc["fast", "n_runs"] == 2
     assert bool(t.loc["fast", "under_limit"]) and not bool(t.loc["slow", "under_limit"])
+
+
+def test_old_latency_name_still_loads(tmp_path):
+    import json
+    from eval.results_io import load_result
+    p = tmp_path / "r.json"
+    p.write_text(json.dumps({"scores": [0.1], "labels": [0], "train_time_s": 1,
+                             "latency_ms": 2.0, "config": {}}))
+    assert load_result(p)["latency_ms_per_query"] == 2.0

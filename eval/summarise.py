@@ -17,21 +17,21 @@ from eval.plots import plot_confusion, plot_latency, plot_roc
 
 COLUMNS = ["model", "experiment", "n", "n_tunnel", "threshold", "threshold_source",
            "accuracy", "precision", "recall", "f1", "fpr", "roc_auc",
-           "recall_at_1pct_fpr", "train_time_s", "latency_ms", "tp", "fp", "tn", "fn"]
+           "recall_at_1pct_fpr", "train_time_s", "latency_ms_per_query", "tp", "fp", "tn", "fn"]
 
 
 def latency_table(summary: pd.DataFrame, limit_ms: float = MAX_LATENCY_MS) -> pd.DataFrame:
     """One row per model: per-query latency across its runs and whether it meets the limit.
 
-    Numbers come from each results JSON's `latency_ms`. Runs on different machines are
+    Numbers come from each results JSON's `latency_ms_per_query`. Runs on different machines are
     not comparable; the official table uses Kang Hao Wei's single-machine re-timing,
-    which only needs to write results JSONs with the new latency_ms to update this."""
-    g = summary.dropna(subset=["latency_ms"]).groupby("model")
+    which only needs to write results JSONs with the new latency_ms_per_query to update this."""
+    g = summary.dropna(subset=["latency_ms_per_query"]).groupby("model")
     table = pd.DataFrame({
-        "latency_ms_median": g["latency_ms"].median(),
-        "latency_ms_min": g["latency_ms"].min(),
-        "latency_ms_max": g["latency_ms"].max(),
-        "queries_per_sec": 1000 / g["latency_ms"].median(),
+        "latency_ms_median": g["latency_ms_per_query"].median(),
+        "latency_ms_min": g["latency_ms_per_query"].min(),
+        "latency_ms_max": g["latency_ms_per_query"].max(),
+        "queries_per_sec": 1000 / g["latency_ms_per_query"].median(),
         "train_time_s_median": g["train_time_s"].median(),
         "n_runs": g.size(),
     }).reset_index()
@@ -82,7 +82,7 @@ def summarise(results_dir: str = "results", plots: bool = True) -> pd.DataFrame:
                       "selected_model": win["model"] if win else None,
                       "f1": win["f1"] if win else None,
                       "fpr": win["fpr"] if win else None,
-                      "latency_ms": win["latency_ms"] if win else None})
+                      "latency_ms_per_query": win["latency_ms_per_query"] if win else None})
     pd.DataFrame(picks).to_csv(results_dir / "selection.csv", index=False)
     return summary
 
@@ -96,7 +96,7 @@ def main():
     summary = summarise(args.results_dir, plots=not args.no_plots)
     with pd.option_context("display.width", 160, "display.max_columns", 20):
         print(summary[["model", "experiment", "precision", "recall", "f1", "fpr",
-                       "roc_auc", "latency_ms", "threshold_source"]].round(4))
+                       "roc_auc", "latency_ms_per_query", "threshold_source"]].round(4))
     print("\nLatency per model:")
     print(pd.read_csv(Path(args.results_dir) / "latency.csv")
           [["model", "latency_ms_median", "queries_per_sec", "under_limit"]].to_string(index=False))

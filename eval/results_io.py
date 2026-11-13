@@ -6,11 +6,18 @@ from pathlib import Path
 
 import numpy as np
 
-REQUIRED = ("scores", "labels", "train_time_s", "latency_ms", "config")
+# Field names exactly as used by the results files on main.
+REQUIRED = ("scores", "labels", "train_time_s", "latency_ms_per_query", "config")
+
+# Older or alternative names -> the name above. Add a line here if a teammate's
+# results file uses a different spelling; nothing else needs to change.
+ALIASES = {
+    "latency_ms": "latency_ms_per_query",
+}
 
 
 def write_result(path: str | Path, scores, labels, train_time_s: float,
-                 latency_ms: float, config: dict, **extra) -> Path:
+                 latency_ms_per_query: float, config: dict, **extra) -> Path:
     """Write one run. `extra` may hold optional fields: threshold, tools, qnames."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -18,7 +25,7 @@ def write_result(path: str | Path, scores, labels, train_time_s: float,
         "scores": np.asarray(scores, dtype=float).round(6).tolist(),
         "labels": np.asarray(labels, dtype=int).tolist(),
         "train_time_s": float(train_time_s),
-        "latency_ms": float(latency_ms),
+        "latency_ms_per_query": float(latency_ms_per_query),
         "config": config,
     }
     for k, v in extra.items():
@@ -29,9 +36,12 @@ def write_result(path: str | Path, scores, labels, train_time_s: float,
 
 def load_result(path: str | Path) -> dict:
     run = json.loads(Path(path).read_text())
+    for old, new in ALIASES.items():
+        if old in run and new not in run:
+            run[new] = run.pop(old)
     missing = [k for k in REQUIRED if k not in run]
     if missing:
-        raise ValueError(f"{path}: missing fields {missing}")
+        raise ValueError(f"{path}: missing fields {missing} (found {sorted(run)})")
     if len(run["scores"]) != len(run["labels"]):
         raise ValueError(f"{path}: scores and labels differ in length")
     return run
