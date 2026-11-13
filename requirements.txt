@@ -1,8 +1,7 @@
-# Tested with these versions (Nov 2026). Pin exact versions in the final repo.
-numpy>=2.0
-pandas>=2.2
-pyarrow>=15
-scikit-learn>=1.5
-matplotlib>=3.8
-torch>=2.3
-pytest>=8
+# Everything, for one `pip install -r requirements.txt`. The per-part files stay the source
+# of truth (CI and scripts/check_setup.py read them); add a package there, not here.
+-r requirements-dev.txt
+-r requirements-m1.txt
+-r requirements-m2.txt
+# dashboard/app.py
+streamlit>=1.35

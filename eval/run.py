@@ -29,7 +29,14 @@ import pandas as pd
 from eval.experiments import DATA_ROOT, get_split
 from eval.results_io import write_result
 
-ALIASES = {"m3": ["m3_cnn", "m3_bilstm"]}
+ALIASES = {"m3": ["m3_cnn", "m3_bilstm"], "m1": ["m1_xgb"], "rf": ["rf_baseline"], "iforest": ["iforest_baseline"]}
+# results/<name>/ folder and `model` key per module, matching what models/m1_run.py and m2_run.py write
+RESULT_DIRS = {"m1_xgb": "m1", "rf_baseline": "rf", "iforest_baseline": "iforest"}
+SCORE_MEANING = {
+    "m1": "XGBoost P(tunnel)",
+    "rf": "RandomForest P(tunnel)",
+    "iforest": "negative IsolationForest score_samples",
+}
 
 
 def per_query_latency_ms(mod, model, df, n: int = 1000) -> float:
@@ -60,9 +67,18 @@ def run_one(
     results_dir: Path,
     max_rows: int | None,
     dataset: str = "testbed",
+    overwrite: bool = False,
 ) -> Path:
     mod = importlib.import_module(f"models.{model_name}")
     train_df, test_df, exp_id, run_name, split_desc = get_split(exp, data_root, holdout_tool=holdout, dataset=dataset)
+    model_dir = RESULT_DIRS.get(model_name, model_name)
+    out_path = results_dir / model_dir / f"{run_name}.json"
+    if out_path.exists() and not overwrite:
+        # models/m1_run.py and m2_run.py write to the same folders with their own splits
+        raise SystemExit(
+            f"{out_path} already exists (maybe from models.m1_run / m2_run); "
+            "pass --overwrite to replace it, or --results-dir to write elsewhere"
+        )
     if max_rows:  # keep both classes when subsampling for smoke tests
         train_df, test_df = (_subsample(train_df, max_rows), _subsample(test_df, max_rows))
         split_desc += f";max_rows={max_rows}"
@@ -78,14 +94,16 @@ def run_one(
     mod.save(model, Path("artifacts") / model_name / f"{run_name}.pt")
 
     # Every key the contract (docs/contracts.md section 3) requires, plus optional extras.
+    # M3 models carry .cfg; M1/RF/IF models are dicts with a "cfg" key
+    used_cfg = model.get("cfg", cfg) if isinstance(model, dict) else getattr(model, "cfg", cfg)
     out = write_result(
-        results_dir / model_name / f"{run_name}.json",
+        out_path,
         scores=scores,
         labels=test_df["label"].to_numpy(),
         train_time_s=train_time,
         latency_ms_per_query=latency,
-        config={**getattr(model, "cfg", cfg), "max_rows": max_rows},
-        model=model_name,
+        config={**used_cfg, "max_rows": max_rows},
+        model=model_dir,
         experiment=exp_id,
         dataset=sorted(test_df["dataset"].astype(str).unique()),
         split=split_desc,
@@ -95,7 +113,9 @@ def run_one(
         src_hosts=test_df["src_host"].astype(str).to_numpy(),
         session_ids=test_df["session_id"].astype(str).to_numpy(),
         ts=test_df["ts"].astype(float).to_numpy(),
-        score_meaning=getattr(mod, "SCORE_MEANING", f"{model_name} score, higher = more suspicious"),
+        score_meaning=SCORE_MEANING.get(
+            model_dir, getattr(mod, "SCORE_MEANING", f"{model_name} score, higher = more suspicious")
+        ),
         created_utc=datetime.now(timezone.utc).isoformat(timespec="seconds"),
         threshold=getattr(model, "threshold", None),  # extra key: chosen on validation data
         validate=True,
@@ -106,7 +126,12 @@ def run_one(
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--model", required=True, help="m3, m3_cnn, m3_bilstm, ...")
+    ap.add_argument(
+        "--model",
+        required=True,
+        help="m1, rf, iforest, m3 (= m3_cnn + m3_bilstm), or any models/<name>.py. "
+        "M2 runs through python -m models.m2_run (needs the Tranco list)",
+    )
     ap.add_argument("--exp", required=True, help="E1 E2 E3 E4_cic2testbed E4_testbed2cic E5 S")
     ap.add_argument("--holdout", help="tool to hold out for E3 (all tools if omitted)")
     ap.add_argument(
@@ -121,6 +146,7 @@ def main():
     ap.add_argument("--max-rows", type=int, help="subsample for quick tests")
     ap.add_argument("--data-root", default=str(DATA_ROOT))
     ap.add_argument("--results-dir", default="results")
+    ap.add_argument("--overwrite", action="store_true", help="replace an existing results file")
     args = ap.parse_args()
 
     cfg = {k: v for k, v in {"epochs": args.epochs, "batch_size": args.batch_size}.items() if v is not None}
@@ -135,7 +161,17 @@ def main():
 
     for name in models:
         for h in holdouts:
-            run_one(name, args.exp, dict(cfg), h, data_root, results_dir, args.max_rows, dataset=args.dataset)
+            run_one(
+                name,
+                args.exp,
+                dict(cfg),
+                h,
+                data_root,
+                results_dir,
+                args.max_rows,
+                dataset=args.dataset,
+                overwrite=args.overwrite,
+            )
 
 
 if __name__ == "__main__":

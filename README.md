@@ -22,7 +22,7 @@ DNS traffic behind a dashboard.
 |---|---|---|---|---|
 | **M1** | XGBoost on per-query + per-host features, SHAP explanations | supervised | Random Forest | ✅ Phase 1 code ([`docs/m1.md`](docs/m1.md)) |
 | **M2** | DNS-BERT: small BERT trained only on benign names; flags high pseudo-perplexity | benign-only | Isolation Forest | ✅ Phase 1 done |
-| **M3** | Character-level CNN on the raw query name | supervised | BiLSTM | *planned* |
+| **M3** | Character-level CNN on the raw query name | supervised | BiLSTM | code in `models/m3_*.py`, no results yet |
 
 Selection rule: best F1 with false-positive rate < 1% and latency < 10 ms per query.
 
@@ -74,7 +74,12 @@ docs/         per-component notes (m2.md)
 tests/        smoke tests
 testbed/
   benign/            benign traffic generator (Tranco, CDN names, curl, apt, browser)
-parser/ eval/ live/ dashboard/    planned
+  m3_cnn.py, m3_bilstm.py, m3_common.py   M3 char-CNN + BiLSTM
+parser/       python -m parser {cic,pcap,testbed}: captures -> query table (wraps the scripts/ stopgaps for now)
+eval/         shared evaluation module: splits, metrics, plots, run.py, summarise.py
+data/         raw/, external/, processed/ (not committed; see data/README.md)
+live/         live detector (planned)
+dashboard/    Streamlit app (planned; app.py is a placeholder)
 ```
 
 ## Shared contracts
@@ -106,12 +111,31 @@ python -m pytest        # test files whose packages you don't have are skipped, 
 ```
 CI runs the same checks on every pull request. If a job fails, its summary says how to reproduce and fix it.
 
+## One command per stage
+Everything runs from the repo root after `pip install -r requirements.txt` (or one `requirements-<part>.txt`).
+The user manual is built from these commands.
+
+| Stage | Command | Status |
+|---|---|---|
+| Testbed network | `cd testbed && docker compose up -d` | ✅ |
+| Benign traffic | `testbed/benign/run_benign.sh --hosts 4 --minutes 10 --docker` | ✅ |
+| Tunnel traffic | `testbed/run_tool.sh --tool dns2tcp --size 100000 --rate 2000 --capture` | dns2tcp, DNSExfiltrator ✅; iodine, dnscat2 planned |
+| Parse CIC | `python -m parser cic --raw data/raw/cic --out data/processed/cic/queries.parquet` | ✅ (stopgap inside) |
+| Parse testbed | `python -m parser testbed --add <run dir> ... --out data/processed/testbed/queries.parquet` | ✅ (stopgap inside) |
+| Check a table | `python contracts.py data/processed/cic/queries.parquet` | ✅ |
+| Train + score M1 / RF / IF / M3 | `python -m eval.run --model m1 --exp E3` | needs testbed data; won't overwrite existing results without `--overwrite` |
+| Train + score M1 with SHAP | `python -m models.m1_run --model m1 --exp E2 --data data/processed/cic/queries.parquet` | ✅ |
+| Train + score M2 | `python -m models.m2_run --model m2 --exp E2 --data ... --tranco data/external/tranco.csv` | ✅ |
+| Metrics, plots, selection | `python -m eval.summarise` | ✅ |
+| Live detector | `python -m live` | planned (19 Nov) |
+| Dashboard | `streamlit run dashboard/app.py` | placeholder (20 Nov) |
+
 ## Quick start (M2 on CIC)
 ```bash
 pip install -r requirements-m2.txt
 # unzip each CIC PCAP zip into its own folder under data/raw/cic/
 # (attack zips into a folder whose name contains "attack", e.g. data/raw/cic/heavy_attacks), then:
-python scripts/cic_to_queries.py --raw data/raw/cic --out data/processed/cic/queries.parquet
+python -m parser cic --raw data/raw/cic --out data/processed/cic/queries.parquet
 python -m models.m2_run --model m2 --exp E2 --data data/processed/cic/queries.parquet \
     --tranco data/external/tranco.csv --tokenizer bpe
 python -m models.m2_run --model m2 --exp E2 --tokenizer char --tag ablation1_char \
@@ -131,9 +155,6 @@ python3 -m pytest testbed/benign/tests -q                            # from the 
 Writes `data/raw/benign/<run id>/<ip>.ndjson` sidecars in the query-table schema (see
 Contracts) plus `run.json`; `check_benign.py` runs automatically and enforces the card's
 acceptance bar. `--no-send` plans the lookups offline. Details: `testbed/benign/README.md`.
-
-Planned entry points: `python -m parser ...`, `python -m eval.run --model m1 --exp E3`,
-`streamlit run dashboard/app.py`. The user manual will be built from these commands.
 
 ## Results so far (E2, CIC)
 From the shared evaluation module (`python -m eval.summarise`); M2 latency measured on an RTX 4060.
