@@ -28,7 +28,7 @@ try:
     import numpy as np
     import pandas as pd
 
-    from models import iforest_baseline, m2_dnsbert
+    from models import iforest_baseline, m1_features, m2_dnsbert
 except ModuleNotFoundError as e:
     raise SystemExit(f"Missing package '{e.name}'. Install the M2 packages with:\n"
                      "    pip install -r requirements-m2.txt\n"
@@ -51,6 +51,20 @@ def split(df: pd.DataFrame, test_frac: float = 0.3):
     d = df.sort_values("ts", kind="stable")
     cut = int(len(d) * (1 - test_frac))
     return d.iloc[:cut], d.iloc[cut:], f"time_{int((1 - test_frac) * 100)}_{int(test_frac * 100)}"
+
+
+def hold_out_benign(train_df: pd.DataFrame, val_frac: float):
+    """Latest `val_frac` of benign train rows (by ts) -> validation; never used for training.
+
+    The threshold is set on these (alert above the 99th percentile = <=1% FPR),
+    so the test set is never used to pick it.
+    """
+    benign = train_df[train_df["label"] == 0].sort_values("ts", kind="stable")
+    n_val = int(len(benign) * val_frac)
+    if n_val == 0:
+        return train_df, benign.iloc[:0]
+    val = benign.iloc[-n_val:]
+    return train_df.drop(index=val.index), val
 
 
 def latency_ms(mod, model, df: pd.DataFrame, n: int = 200, seed: int = 0) -> float:
@@ -82,6 +96,9 @@ def main(argv=None):
     ap.add_argument("--ckpt-dir")
     ap.add_argument("--device")
     ap.add_argument("--latency-n", type=int, default=200)
+    ap.add_argument("--val-frac", type=float, default=0.1,
+                    help="latest share of benign train rows held out to set the threshold")
+    ap.add_argument("--fpr", type=float, default=0.01, help="target false-positive rate for the threshold")
     a = ap.parse_args(argv)
     for p in [a.data, a.test_data, a.tranco]:
         if p and not Path(p).exists():
@@ -90,9 +107,13 @@ def main(argv=None):
 
     df = pd.read_parquet(a.data)
     if a.test_data:
-        train_df, test_df, split_desc = df, pd.read_parquet(a.test_data), f"train={a.data};test={a.test_data}"
+        test_df = pd.read_parquet(a.test_data)
+        test_df.index = test_df.index + len(df)  # keep row ids unique across the two tables
+        train_df, split_desc = df, f"train={a.data};test={a.test_data}"
     else:
         train_df, test_df, split_desc = split(df)
+
+    train_df, val_df = hold_out_benign(train_df, a.val_frac)
 
     if a.model == "m2":
         mod = m2_dnsbert
@@ -104,10 +125,11 @@ def main(argv=None):
             cfg["extra_benign"] = load_tranco(a.tranco, a.tranco_n)
     else:
         mod, cfg = iforest_baseline, {}
-        if "qname_truncated" in df.columns:
-            # CIC snaplen=96 cuts off the qtype of nearly every exfil query, so qtype
-            # would leak the label. Drop qtype-derived features on CIC.
-            cfg["drop_cols"] = ["qtype_code", "is_txt_null"]
+        # M1 features computed once on the whole table, so a host's past-only window
+        # can reach back across the train/test cut (same as m1_run). The CIC leakage
+        # guard inside m1_features drops the snaplen artefacts.
+        full = m1_features.attach(pd.concat([train_df, val_df, test_df]))
+        train_df, val_df, test_df = full.loc[train_df.index], full.loc[val_df.index], full.loc[test_df.index]
 
     t0 = time.time()
     model = mod.train(train_df, cfg)
@@ -125,6 +147,7 @@ def main(argv=None):
         scores = mod.score(model, test_df)
     score_s = time.time() - t0
     lat = latency_ms(mod, model, test_df, a.latency_n)
+    threshold = float(np.quantile(mod.score(model, val_df), 1 - a.fpr)) if len(val_df) else None
 
     used_cfg = model.cfg if hasattr(model, "cfg") else model["cfg"]
     used_cfg = {k: v for k, v in used_cfg.items() if k != "extra_benign"}
@@ -141,10 +164,16 @@ def main(argv=None):
         "labels": [int(x) for x in test_df["label"]],
         "tools": test_df["tool"].astype(str).tolist() if "tool" in test_df else None,
         "src_hosts": test_df["src_host"].astype(str).tolist() if "src_host" in test_df else None,
+        # required by the contract before E3/E5 (docs/contracts.md section 3)
+        "session_ids": test_df["session_id"].astype(str).tolist() if "session_id" in test_df else None,
+        "ts": [float(x) for x in test_df["ts"]] if "ts" in test_df else None,
         **extra,
         "train_time_s": round(train_s, 3),
         "score_time_s": round(score_s, 3),
         "latency_ms_per_query": round(lat, 3),
+        "threshold": threshold,
+        "threshold_source": f"validation: latest {a.val_frac:.0%} of benign train, {1 - a.fpr:.0%} quantile",
+        "n_val_benign": int(len(val_df)),
         "score_meaning": "pseudo-log-perplexity (mean masked-token NLL)" if a.model == "m2"
         else "negative IsolationForest score_samples",
         "config": used_cfg,
