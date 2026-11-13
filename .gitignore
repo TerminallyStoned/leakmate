@@ -23,6 +23,9 @@ live/alerts.db
 testbed/out/
 testbed/benign/out/
 
+# Captures and reassembled files from the tunnel tools (run_tool.sh --out / TOOL_OUT).
+testbed/tools/out/
+
 # --- OS noise ---
 .DS_Store
 Thumbs.db

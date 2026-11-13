@@ -84,3 +84,9 @@ read from the mounted `../data/external/`, so nothing needs downloading inside t
 docker compose down                                     # the three core containers
 docker compose --profile benign down --remove-orphans   # plus any benign replicas
 ```
+
+## Tunnel tools
+
+`tools/` (card #8: dns2tcp, DNSExfiltrator) and `run_tool.sh` live alongside this file but
+use a **separate compose project** that joins `ict3214-testbed_lab` as an external network,
+so nothing here changes when they run: [`tools/README.md`](tools/README.md).
