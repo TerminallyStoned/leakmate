@@ -11,6 +11,7 @@ data/external/
 data/sample/
 data/processed/
 models/weights/
+artifacts/
 checkpoints/
 
 # --- testbed / live artifacts (large or local-only) ---
