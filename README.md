@@ -64,7 +64,8 @@ models/       model code, one file per model: train / score / save / load
   m1_features.py       M1/RF feature matrix + CIC snaplen leakage guard
   host_features.py     per-host sliding-window features (past-only)
   m1_run.py            M1/RF train + score, writes results JSON + SHAP outputs
-scripts/      cic_to_queries.py (CIC pcaps -> query table, stopgap until parser/)
+contracts.py  validator + session/qtype helpers for the shared contracts (docs/contracts.md)
+scripts/      cic_to_queries.py (CIC pcaps -> query table, stopgap until parser/), make_synthetic_sample.py
 notebooks/    m2_dnsbert_colab.ipynb (Colab GPU run), m1_xgb_colab.ipynb (Colab CPU run)
 results/      <model>/<experiment>.json in the shared results format
 docs/         per-component notes (m2.md)
@@ -73,13 +74,17 @@ testbed/ parser/ eval/ live/ dashboard/    planned
 ```
 
 ## Shared contracts
-Coding to these lets anyone rerun or take over anyone's part.
+Coding to these lets anyone rerun or take over anyone's part. The full field tables, allowed values and sources
+are in [`docs/contracts.md`](docs/contracts.md). Check a table or results file with
+`python contracts.py <file.parquet|file.json> ...`.
 1. **Query table** `data/processed/<dataset>/queries.parquet`, one row per DNS query:
-   `ts, src_host, session_id, qname, qtype, resp_size, rcode, label (0/1), tool, dataset, throttle`
-2. **Model interface** `models/<name>.py`: `train(train_df, cfg) -> model`, `score(model, df) -> np.ndarray`
-   (higher = more suspicious), `save`, `load`.
-3. **Results** `results/<model>/<experiment>.json`: scores, labels, train time (s), per-query latency (ms),
-   config. The shared evaluation module computes all metrics and plots; model owners never write metric code.
+   `ts` (epoch s UTC), `src_host`, `session_id`, `qname`, `qtype`, `resp_size`, `rcode`, `label` (0/1), `tool`,
+   `dataset`, `throttle` (ms); optional `split`, `qname_truncated`, `qlen_wire`, `source_file`.
+2. **Model interface** `models/<name>.py`: `train(train_df, cfg=None) -> model`, `score(model, df) -> np.ndarray`
+   (higher = more suspicious), `save(model, path)`, `load(path)`.
+3. **Results** `results/<model>/<experiment>.json`: raw per-row `scores`, `labels`, `tools`, `src_hosts`, plus
+   train time (s), per-query latency (ms), `score_meaning` and `config`. The shared evaluation module computes all
+   metrics and plots; model owners never write metric code.
 
 ## Quick start (M2 on CIC)
 ```bash
