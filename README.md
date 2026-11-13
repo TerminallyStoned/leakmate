@@ -20,7 +20,7 @@ DNS traffic behind a dashboard.
 ## Models
 | | Model | Supervision | Baseline | Status |
 |---|---|---|---|---|
-| **M1** | XGBoost on per-query + per-host features, SHAP explanations | supervised | Random Forest | *planned* |
+| **M1** | XGBoost on per-query + per-host features, SHAP explanations | supervised | Random Forest | ✅ Phase 1 code ([`docs/m1.md`](docs/m1.md)) |
 | **M2** | DNS-BERT: small BERT trained only on benign names; flags high pseudo-perplexity | benign-only | Isolation Forest | ✅ Phase 1 done |
 | **M3** | Character-level CNN on the raw query name | supervised | BiLSTM | *planned* |
 
@@ -59,8 +59,13 @@ models/       model code, one file per model: train / score / save / load
   m2_dnsbert.py        M2 DNS-BERT (BPE + char tokenizers, batched pseudo-perplexity)
   iforest_baseline.py  Isolation Forest baseline for M2
   m2_run.py            train + score, writes the results JSON
+  m1_xgb.py            M1 XGBoost + exact TreeSHAP explanations
+  rf_baseline.py       Random Forest baseline for M1 (same features)
+  m1_features.py       M1/RF feature matrix + CIC snaplen leakage guard
+  host_features.py     per-host sliding-window features (past-only)
+  m1_run.py            M1/RF train + score, writes results JSON + SHAP outputs
 scripts/      cic_to_queries.py (CIC pcaps -> query table, stopgap until parser/)
-notebooks/    m2_dnsbert_colab.ipynb (Colab GPU run)
+notebooks/    m2_dnsbert_colab.ipynb (Colab GPU run), m1_xgb_colab.ipynb (Colab CPU run)
 results/      <model>/<experiment>.json in the shared results format
 docs/         per-component notes (m2.md)
 tests/        smoke tests
@@ -123,8 +128,8 @@ shown as a recorded video.
 |---|---|
 | Tan Yehan | Contracts, parser + features + splits, results freeze, report editor, submission |
 | Justin Hiap | Testbed network, iodine + dnscat2, live sniffer, demo video |
-| Joshua Tan | Benign traffic generator, dns2tcp + DNSExfiltrator, user manual |
-| Kang Hao Wei | M1 (XGBoost + Random Forest + SHAP), report skeleton, reproduction test |
+| Joshua Tan | M1 (XGBoost + Random Forest + SHAP), report skeleton, reproduction test |
+| Kang Hao Wei | Benign traffic generator, dns2tcp + DNSExfiltrator, user manual |
 | Thierry Tang | M2 (DNS-BERT + Isolation Forest), presentation slides |
 | Neo Chuan Yu | Shared evaluation module, M3 (char-CNN + BiLSTM), dashboard, code tidy |
 
