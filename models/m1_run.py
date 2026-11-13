@@ -32,10 +32,15 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-import numpy as np
-import pandas as pd
+try:
+    import numpy as np
+    import pandas as pd
 
-from models import m1_features, m1_xgb, rf_baseline
+    from models import m1_features, m1_xgb, rf_baseline
+except ModuleNotFoundError as e:
+    raise SystemExit(f"Missing package '{e.name}'. Install the M1 packages with:\n"
+                     "    pip install -r requirements-m1.txt\n"
+                     "Then check your setup with: python scripts/check_setup.py m1") from e
 
 MODULES = {"m1": m1_xgb, "rf": rf_baseline}
 SCORE_MEANING = {"m1": "XGBoost P(tunnel)", "rf": "RandomForest P(tunnel)"}
@@ -149,6 +154,10 @@ def main(argv=None):
     ap.add_argument("--shap-n", type=int, default=5000, help="M1: rows sampled for SHAP")
     ap.add_argument("--latency-n", type=int, default=200)
     a = ap.parse_args(argv)
+    for p in [a.data, a.test_data]:
+        if p and not Path(p).exists():
+            ap.error(f"{p} not found. Build the query table first (README > Quick start), "
+                     "or see what is missing with: python scripts/check_setup.py data")
 
     mod = MODULES[a.model]
     if a.keep_cic_leaky is None:
