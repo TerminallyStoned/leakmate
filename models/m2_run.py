@@ -24,10 +24,17 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-import numpy as np
-import pandas as pd
+try:
+    import numpy as np
+    import pandas as pd
 
-from models import iforest_baseline, m2_dnsbert
+    from models import iforest_baseline, m2_dnsbert
+except ModuleNotFoundError as e:
+    raise SystemExit(f"Missing package '{e.name}'. Install the M2 packages with:\n"
+                     "    pip install -r requirements-m2.txt\n"
+                     "(CPU-only torch is enough off Colab: pip install torch --index-url "
+                     "https://download.pytorch.org/whl/cpu)\n"
+                     "Then check your setup with: python scripts/check_setup.py m2") from e
 
 RESULT_DIR = {"m2": "m2", "iforest": "iforest"}
 
@@ -76,6 +83,10 @@ def main(argv=None):
     ap.add_argument("--device")
     ap.add_argument("--latency-n", type=int, default=200)
     a = ap.parse_args(argv)
+    for p in [a.data, a.test_data, a.tranco]:
+        if p and not Path(p).exists():
+            ap.error(f"{p} not found. Build or download it first (README > Quick start), "
+                     "or see what is missing with: python scripts/check_setup.py data")
 
     df = pd.read_parquet(a.data)
     if a.test_data:

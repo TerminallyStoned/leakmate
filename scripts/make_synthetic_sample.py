@@ -14,7 +14,6 @@ import os
 import random
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 
 SUBS = ["www", "api", "cdn", "mail", "m", "static", "img", "login", "app", "assets", "edge", "s3", "auth", ""]
@@ -46,7 +45,7 @@ def main():
     doms = pd.read_csv(a.tranco, header=None, names=["r", "d"], nrows=50000)["d"].tolist()
     rows, t = [], 1_700_000_000.0
     tools = ["iodine", "dnscat2", "dns2tcp", "dnsexfiltrator"]
-    for i in range(a.n):
+    for _ in range(a.n):
         t += rnd.expovariate(5)
         if rnd.random() < a.tunnel_frac:
             tool = rnd.choice(tools); q, qt = tunnel_name(tool, rnd); lab = 1

@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements-dev.txt
+      - name: Bug rules on every file
+        run: ruff check --output-format github .
+      - name: Style rules and formatting on new files
+        if: github.event_name == 'pull_request'
+        run: |
+          files=$(git diff --name-only --diff-filter=A "origin/${{ github.base_ref }}...HEAD" -- '*.py')
+          if [ -z "$files" ]; then echo "No new Python files."; exit 0; fi
+          ruff check --output-format github --extend-select E,W,I,UP,SIM $files
+          ruff format --check $files
+      - name: How to fix
+        if: failure()
+        run: |
+          {
+            echo "### Lint failed. To fix it on your machine:"
+            echo '```'
+            echo "pip install -r requirements-dev.txt"
+            echo "ruff check --fix ."
+            echo "ruff check --fix --extend-select E,W,I,UP,SIM <new files you added>"
+            echo "ruff format <new files you added>"
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "::error::Lint failed. Run: pip install -r requirements-dev.txt && ruff check --fix . (see the job summary for new-file rules)"
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [m1, m2]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install CPU-only torch
+        if: matrix.group == 'm2'
+        run: pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - run: pip install -r requirements-dev.txt -r requirements-${{ matrix.group }}.txt
+      - name: Check setup
+        run: python scripts/check_setup.py dev ${{ matrix.group }}
+      - run: python -m pytest
+      - name: How to fix
+        if: failure()
+        run: |
+          {
+            echo "### ${{ matrix.group }} tests failed. To reproduce on your machine:"
+            echo '```'
+            echo "python scripts/check_setup.py dev ${{ matrix.group }}"
+            echo "python -m pytest"
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "::error::${{ matrix.group }} tests failed. Reproduce with: python scripts/check_setup.py dev ${{ matrix.group }} && python -m pytest"
+
+  testbed:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate docker-compose.yml
+        run: docker compose -f testbed/docker-compose.yml config -q
+      - name: How to fix
+        if: failure()
+        run: echo "::error::testbed/docker-compose.yml is invalid. Reproduce with: docker compose -f testbed/docker-compose.yml config"
