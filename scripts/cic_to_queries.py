@@ -2,7 +2,9 @@
 
 The parser card (Yehan) owns the real parser. This only exists so M2 is not
 blocked. Output: one row per DNS query (client -> port 53) in the contract
-schema, plus `qname_truncated`, `qlen_wire`, `source_file`, `split`.
+schema (docs/contracts.md), plus `qname_truncated`, `qlen_wire`, `source_file`, `split`.
+qtype is the mnemonic, TYPE<n> for unmapped codes, UNKNOWN when snaplen cut it off.
+session_id is `<source_file>|<src_host>|<k>`, k growing after a 30-min idle gap.
 
 CIC CAVEAT: the pcaps were captured with snaplen=96, so each packet keeps only
 ~40 bytes of the query name. Most benign names fit; nearly every exfiltration
@@ -25,14 +27,17 @@ from __future__ import annotations
 import argparse
 import re
 import socket
+import sys
 from pathlib import Path
 
 import dpkt
 import pandas as pd
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from contracts import assign_sessions, qtype_name, validate_queries  # noqa: E402
+
 EXFIL = re.compile(r"^(init\.[A-Za-z2-7]{8,}|\d+\.[A-Za-z0-9_-]{8,})")
-QTYPES = {1: "A", 2: "NS", 5: "CNAME", 6: "SOA", 10: "NULL", 12: "PTR", 15: "MX", 16: "TXT", 28: "AAAA",
-          33: "SRV", 65: "HTTPS", 255: "ANY"}
 
 
 def _qname(raw: bytes):
@@ -84,7 +89,7 @@ def parse_pcap(path: Path, is_attack: bool) -> pd.DataFrame:
                     if key in pending:  # retransmission of a query still awaiting an answer
                         continue
                     pending[key] = len(queries)
-                    queries.append(dict(ts=float(ts), src_host=src, qname=q, qtype=QTYPES.get(qt, str(qt)),
+                    queries.append(dict(ts=float(ts), src_host=src, qname=q, qtype=qtype_name(qt),
                                         resp_size=0, rcode=-1, label=int(exfil),
                                         tool="dnsexfiltrator" if exfil else "benign",
                                         qname_truncated=trunc, qlen_wire=u.ulen - 8))
@@ -99,7 +104,6 @@ def parse_pcap(path: Path, is_attack: bool) -> pd.DataFrame:
     if df.empty:
         return df
     df["source_file"] = f"{path.parent.parent.name}/{path.name}"
-    df["session_id"] = df["source_file"] + "|" + df["src_host"]
     return df
 
 
@@ -121,6 +125,8 @@ def main():
         print(f"{p}: {len(df)} queries, {int(df.label.sum())} exfil, {int(df.qname_truncated.sum())} truncated")
     out = pd.concat(parts, ignore_index=True)
     out["dataset"], out["throttle"] = "cic", 0
+    out["session_id"] = assign_sessions(out)
+    validate_queries(out)
     cols = ["ts", "src_host", "session_id", "qname", "qtype", "resp_size", "rcode", "label", "tool", "dataset",
             "throttle", "qname_truncated", "qlen_wire", "source_file", "split"]
     Path(a.out).parent.mkdir(parents=True, exist_ok=True)
