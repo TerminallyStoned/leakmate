@@ -22,7 +22,7 @@ def _tunnel(rnd):
 def _table(n=600, seed=0, cic=False):
     """Benign hosts browse slowly; one tunnel host sends many unique names fast."""
     rnd, rows, t = random.Random(seed), [], 1_700_000_000.0
-    for i in range(n):
+    for _ in range(n):
         t += rnd.expovariate(4)
         if rnd.random() < 0.3:
             q, lab, tool, host, qt = _tunnel(rnd), 1, "iodine", "10.0.0.66", "TXT"

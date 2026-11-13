@@ -81,6 +81,20 @@ Coding to these lets anyone rerun or take over anyone's part.
 3. **Results** `results/<model>/<experiment>.json`: scores, labels, train time (s), per-query latency (ms),
    config. The shared evaluation module computes all metrics and plots; model owners never write metric code.
 
+## Developer setup
+Check what your machine is missing. Each failed line prints the exact command that fixes it:
+```bash
+python scripts/check_setup.py              # dev tools, M1 and M2 packages
+python scripts/check_setup.py testbed data # Docker, and the data files the runners need
+```
+Install the linter and test runner with `pip install -r requirements-dev.txt`. Before you push:
+```bash
+ruff check --fix .      # bug rules, every file
+ruff format new_file.py # formatting, only on files you added (old files get one cleanup after the freeze)
+python -m pytest        # test files whose packages you don't have are skipped, with the install command
+```
+CI runs the same checks on every pull request. If a job fails, its summary says how to reproduce and fix it.
+
 ## Quick start (M2 on CIC)
 ```bash
 pip install -r requirements-m2.txt

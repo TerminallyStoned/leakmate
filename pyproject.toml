@@ -1,0 +1,42 @@
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+extend-exclude = ["notebooks"]
+
+[tool.ruff.lint]
+select = ["F", "E9", "B", "NPY"]
+ignore = ["B905", "NPY002", "E741"]
+
+[tool.ruff.lint.per-file-ignores]
+"scripts/check_setup.py" = ["UP036"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = [".", "scripts"]
+addopts = "-q -rs"
+
+[tool.mypy]
+python_version = "3.10"
+mypy_path = "scripts"
+
+[[tool.mypy.overrides]]
+module = ["sklearn.*", "shap.*", "xgboost.*", "dpkt.*", "joblib.*", "pandas.*", "matplotlib.*", "transformers.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = [
+    "models.*",
+    "cic_to_queries", "scripts.cic_to_queries",
+    "make_synthetic_sample", "scripts.make_synthetic_sample",
+    "test_m1", "tests.test_m1",
+    "test_m2", "tests.test_m2",
+]
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+disallow_untyped_calls = false
+disallow_any_generics = false
+warn_return_any = false
+disable_error_code = ["var-annotated", "arg-type", "assignment", "index", "misc"]
