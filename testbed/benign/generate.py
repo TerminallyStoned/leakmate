@@ -38,7 +38,7 @@ import time
 import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Generator, Iterator, TextIO
+from typing import Generator, TextIO
 
 # Script-style sibling import: this module is run as a program (`python3 generate.py`) and
 # imported by the tests, so the package-relative form is not available.
@@ -341,7 +341,7 @@ class BenignGenerator:
             return None
         try:
             self._pw = sync_playwright().start()
-            launcher = getattr(self._pw.chromium, "connect_over_cdp") if self.browser_url else None
+            launcher = self._pw.chromium.connect_over_cdp if self.browser_url else None
             if launcher:
                 browser = launcher(self.browser_url)
                 self._pw_page = (browser.contexts[0] if browser.contexts else browser.new_context()).new_page()
