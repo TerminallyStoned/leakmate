@@ -164,11 +164,13 @@ def main(argv=None):
         "labels": [int(x) for x in test_df["label"]],
         "tools": test_df["tool"].astype(str).tolist() if "tool" in test_df else None,
         "src_hosts": test_df["src_host"].astype(str).tolist() if "src_host" in test_df else None,
+        # required by the contract before E3/E5 (docs/contracts.md section 3)
+        "session_ids": test_df["session_id"].astype(str).tolist() if "session_id" in test_df else None,
+        "ts": [float(x) for x in test_df["ts"]] if "ts" in test_df else None,
         **extra,
         "train_time_s": round(train_s, 3),
         "score_time_s": round(score_s, 3),
-        "latency_ms": round(lat, 3),               # contract / eval module name
-        "latency_ms_per_query": round(lat, 3),     # kept for older readers
+        "latency_ms_per_query": round(lat, 3),
         "threshold": threshold,
         "threshold_source": f"validation: latest {a.val_frac:.0%} of benign train, {1 - a.fpr:.0%} quantile",
         "n_val_benign": int(len(val_df)),
