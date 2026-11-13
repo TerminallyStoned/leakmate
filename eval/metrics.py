@@ -3,6 +3,7 @@
 All functions take `labels` (0 = benign, 1 = tunnel) and `scores` (higher = more
 suspicious), exactly as written to results/<model>/<exp>.json.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -61,7 +62,10 @@ def binary_metrics(labels, scores, threshold: float) -> dict:
         "n": int(labels.size),
         "n_tunnel": int(labels.sum()),
         "threshold": float(threshold),
-        "tp": int(tp), "fp": int(fp), "tn": int(tn), "fn": int(fn),
+        "tp": int(tp),
+        "fp": int(fp),
+        "tn": int(tn),
+        "fn": int(fn),
         "accuracy": div(tp + tn, labels.size),
         "precision": precision,
         "recall": recall,
@@ -98,10 +102,13 @@ def per_tool_recall(labels, scores, tools, threshold: float) -> dict:
     return out
 
 
-def select_model(summary_rows: list[dict], max_fpr: float = MAX_FPR,
-                 max_latency_ms: float = MAX_LATENCY_MS) -> dict | None:
+def select_model(
+    summary_rows: list[dict], max_fpr: float = MAX_FPR, max_latency_ms: float = MAX_LATENCY_MS
+) -> dict | None:
     """Apply the selection rule to rows of ONE experiment. Returns the winning row."""
-    ok = [r for r in summary_rows
-          if r["fpr"] <= max_fpr and r["latency_ms_per_query"] <= max_latency_ms
-          and not np.isnan(r["f1"])]
+    ok = [
+        r
+        for r in summary_rows
+        if r["fpr"] <= max_fpr and r["latency_ms_per_query"] <= max_latency_ms and not np.isnan(r["f1"])
+    ]
     return max(ok, key=lambda r: r["f1"]) if ok else None
