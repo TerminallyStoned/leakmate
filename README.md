@@ -135,14 +135,16 @@ acceptance bar. `--no-send` plans the lookups offline. Details: `testbed/benign/
 Planned entry points: `python -m parser ...`, `python -m eval.run --model m1 --exp E3`,
 `streamlit run dashboard/app.py`. The user manual will be built from these commands.
 
-## Results so far (E2, CIC, Colab T4)
-Sanity numbers; official metrics come from the shared evaluation module.
+## Results so far (E2, CIC)
+From the shared evaluation module (`python -m eval.summarise`); M2 latency measured on an RTX 4060.
 
-| Model | ROC-AUC | Latency / query |
-|---|---|---|
-| M2 DNS-BERT (BPE) | 0.99997 | 7.4 ms |
-| M2 DNS-BERT (char, ablation 1) | 1.00000 | 6.8 ms |
-| Isolation Forest | 0.99993 | 30.1 ms |
+| Model | F1 | ROC-AUC | Latency / query |
+|---|---|---|---|
+| M2 DNS-BERT (BPE) | 0.9980 | 0.99998 | 5.2 ms |
+| M2 DNS-BERT (char, ablation 1) | 0.9979 | 1.00000 | 6.3 ms |
+| Isolation Forest | 0.9980 | 1.00000 | 20.1 ms (excl. feature extraction) |
+
+M1 results: see `docs/m1.md`.
 
 CIC contains one tool and no throttling, so it is near-trivially separable; E3–E5 on the testbed are the
 real test.
