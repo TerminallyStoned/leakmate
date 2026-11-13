@@ -128,8 +128,8 @@ shown as a recorded video.
 |---|---|
 | Tan Yehan | Contracts, parser + features + splits, results freeze, report editor, submission |
 | Justin Hiap | Testbed network, iodine + dnscat2, live sniffer, demo video |
-| Joshua Tan | M1 (XGBoost + Random Forest + SHAP), report skeleton, reproduction test |
-| Kang Hao Wei | Benign traffic generator, dns2tcp + DNSExfiltrator, user manual |
+| Joshua Tan | M1 (XGBoost + Random Forest + SHAP), report skeleton, user manual |
+| Kang Hao Wei | Benign traffic generator, dns2tcp + DNSExfiltrator, reproduction test |
 | Thierry Tang | M2 (DNS-BERT + Isolation Forest), presentation slides |
 | Neo Chuan Yu | Shared evaluation module, M3 (char-CNN + BiLSTM), dashboard, code tidy |
 
