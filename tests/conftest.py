@@ -4,7 +4,7 @@ import pytest
 from _pytest.terminal import TerminalReporter
 from check_setup import check_group
 
-NEEDS = {"test_m1.py": "m1", "test_m2.py": "m2", "test_eval.py": "m1"}
+NEEDS = {"test_m1.py": "m1", "test_m2.py": "m2", "test_eval.py": "m1", "test_parser.py": "m1"}
 _skipped: dict[str, list[str]] = {}
 
 
