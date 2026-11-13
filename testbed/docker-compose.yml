@@ -59,3 +59,35 @@ services:
     depends_on:
       - resolver
     restart: unless-stopped
+
+  # Benign traffic hosts (card #7). Gated behind a profile so `docker compose up -d`
+  # above is unchanged; start it with the helper instead:
+  #   testbed/benign/run_benign.sh --hosts 4 --minutes 10 --docker
+  # No ipv4_address: compose assigns one per replica, which is what --scale needs.
+  # --no-http because `lab` is internal: true, so only the DNS itself leaves via the
+  # resolver; the lookups are what the capture measures.
+  benign:
+    profiles: ["benign"]
+    build: ./benign
+    image: leakmate-benign:latest
+    depends_on:
+      - resolver
+    dns:
+      - "${RESOLVER_IP:-172.28.0.2}"
+    networks:
+      lab:
+    command:
+      - --minutes
+      - "${BENIGN_MINUTES:-10}"
+      - --target-qps
+      - "${BENIGN_TARGET_QPS:-30}"
+      - --engines
+      - "${BENIGN_ENGINES:-dns,cdn,page,curl,apt}"
+      - --out
+      - /out/
+      - --no-http
+    volumes:
+      # Tranco cache lives on the host: the lab has no route to fetch it from a container.
+      - ../data/external:/app/data/external
+      - ${BENIGN_OUT:-./out/benign}:/out
+    restart: "no"

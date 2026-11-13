@@ -1,18 +1,30 @@
 __pycache__/
-*.pyc
+*.py[cod]
+.pytest_cache/
+.venv/
+.ipynb_checkpoints/
+
+# Datasets, captures and model weights stay off-repo: reproducible or shared on Drive.
+# run_benign.sh writes data/raw/, domains.py caches the Tranco list in data/external/.
 data/raw/
 data/external/
 data/sample/
 data/processed/
 models/weights/
 checkpoints/
-.ipynb_checkpoints/
 
 # --- testbed / live artifacts (large or local-only) ---
 *.pcap
 *.pcapng
 live/alerts.db
 *.sqlite
+
+# Container output from the benign generator (run_benign.sh --docker writes here).
+testbed/out/
+testbed/benign/out/
+
+# Captures and reassembled files from the tunnel tools (run_tool.sh --out / TOOL_OUT).
+testbed/tools/out/
 
 # --- OS noise ---
 .DS_Store
