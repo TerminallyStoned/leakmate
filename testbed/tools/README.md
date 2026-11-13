@@ -73,6 +73,27 @@ and `rcode` joined from the matching reply. It emits exactly the contract column
 output is a drop-in for Yehan's card-9 parser; when that lands this script becomes a
 specialisation of it rather than a second source of truth.
 
+## From captures to a model
+
+The rows are half a dataset: `eval/experiments.py` (card #10) wants one Parquet query table
+per dataset. `scripts/build_queries_parquet.py` is that bridge — concatenate the benign run
+and the tool captures into `data/processed/testbed/queries.parquet`:
+
+```bash
+python3 scripts/parse_capture.py testbed/out/dns2tcp_<utc>.pcap --out testbed/out/dns2tcp.ndjson --tool dns2tcp
+python3 scripts/build_queries_parquet.py \
+    --add data/raw/benign/<run id> \
+    --add testbed/out/dns2tcp.ndjson --add testbed/out/dnsexfiltrator.ndjson \
+    --out data/processed/testbed/queries.parquet
+python -m eval.run --model m1 --exp E1        # once eval/ merges
+```
+
+Pass **one source per capture window**. A benign sidecar and the pcap of that same run are
+two views of one traffic and their timestamps differ by `dig` latency (measured 44 ms, tail
+over half a second), so no fuzzy merge can separate them from two genuinely identical
+lookups; the script instead warns when two sources overlap. A test loads the output through
+`eval.experiments.get_split` and is skipped until card #10 merges.
+
 ## Tests
 
 ```bash

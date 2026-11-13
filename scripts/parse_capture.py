@@ -180,6 +180,16 @@ def parse_pcap(path: Path, tools: dict[str, str], dataset: str, throttle: str, s
     return rows
 
 
+def _write_parquet(rows: list[dict], path: Path) -> None:
+    """`--out x.parquet` for the eval loaders (eval/experiments.py reads a Parquet query table).
+
+    pandas is imported here, not at module top: the hot path is a dependency-free pcap read.
+    """
+    import pandas as pd  # noqa: PLC0415 - optional dependency, only needed for Parquet output
+
+    pd.DataFrame(rows, columns=list(COLUMNS)).to_parquet(path, index=False)
+
+
 def _dns_payload(buf: bytes):
     """The UDP payload of an IPv4/UDP frame, or None if the frame is not one."""
     try:
@@ -225,7 +235,7 @@ def _tools_map(spec: str) -> dict[str, str]:
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("pcap", type=Path)
-    ap.add_argument("--out", type=Path, help="write NDJSON rows here (omit with --summary)")
+    ap.add_argument("--out", type=Path, help="rows here: .ndjson/.csv, or .parquet (omit with --summary)")
     ap.add_argument("--tool", help="label traffic from this tool's lab address (dns2tcp | dnsexfiltrator)")
     ap.add_argument("--tools-map", default="", help="comma list of ip=tool, overrides --tool")
     ap.add_argument("--dataset", default="testbed", help="dataset column value")
@@ -261,9 +271,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.out is None:
         ap.error("--out is required unless --summary is given")
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    with args.out.open("w", encoding="utf-8") as fh:
-        for r in rows:
-            fh.write(json.dumps(r) + "\n")
+    if args.out.suffix == ".parquet":
+        _write_parquet(rows, args.out)
+    else:
+        with args.out.open("w", encoding="utf-8") as fh:
+            for r in rows:
+                fh.write(json.dumps(r) + "\n")
     print(f"wrote {len(rows)} rows to {args.out}")
     return 0
 
