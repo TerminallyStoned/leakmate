@@ -50,7 +50,8 @@ def _qname(raw: bytes):
         if n & 0xC0:  # compression pointer never appears in a question; treat as malformed
             return ".".join(labels), True, None
         if i + 1 + n > len(raw):
-            labels.append(raw[i + 1:].decode("latin1"))
+            if i + 1 < len(raw):  # keep the cut-off label; an empty one would leave a trailing dot
+                labels.append(raw[i + 1:].decode("latin1"))
             return ".".join(labels), True, None
         labels.append(raw[i + 1:i + 1 + n].decode("latin1"))
         i += 1 + n
