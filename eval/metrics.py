@@ -82,7 +82,7 @@ def evaluate_run(run: dict) -> dict:
     out = binary_metrics(labels, scores, thr)
     out["threshold_source"] = source
     out["train_time_s"] = run.get("train_time_s", float("nan"))
-    out["latency_ms"] = run.get("latency_ms", float("nan"))
+    out["latency_ms_per_query"] = run.get("latency_ms_per_query", float("nan"))
     return out
 
 
@@ -102,6 +102,6 @@ def select_model(summary_rows: list[dict], max_fpr: float = MAX_FPR,
                  max_latency_ms: float = MAX_LATENCY_MS) -> dict | None:
     """Apply the selection rule to rows of ONE experiment. Returns the winning row."""
     ok = [r for r in summary_rows
-          if r["fpr"] <= max_fpr and r["latency_ms"] <= max_latency_ms
+          if r["fpr"] <= max_fpr and r["latency_ms_per_query"] <= max_latency_ms
           and not np.isnan(r["f1"])]
     return max(ok, key=lambda r: r["f1"]) if ok else None

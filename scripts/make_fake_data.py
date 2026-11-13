@@ -36,7 +36,7 @@ def fake_results(out_dir: Path, n: int = 4000, seed: int = 0) -> None:
             scores = 1 / (1 + np.exp(-(labels * sep * 2 - sep + rng.normal(0, 1, n))))
             write_result(out_dir / model / f"{exp}.json", scores, labels,
                          train_time_s=float(rng.uniform(5, 300)),
-                         latency_ms=latency[model], config={"fake": True}, tools=tools)
+                         latency_ms_per_query=latency[model], config={"fake": True}, tools=tools)
     # Edge cases the module must survive.
     write_result(out_dir / "perfect" / "E1.json", [0.1, 0.2, 0.9, 0.8], [0, 0, 1, 1],
                  1.0, 0.1, {"fake": True})
