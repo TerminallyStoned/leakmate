@@ -1,12 +1,14 @@
 """Parser entry point: one subcommand per data source.
 
     python -m parser cic --raw data/raw/cic --out data/processed/cic/queries.parquet
+    python -m parser features --dataset cic
     python -m parser pcap CAPTURE.pcap --out rows.ndjson --tool dns2tcp
     python -m parser testbed --add data/raw/benign/<run id> --add data/raw/tools/<run> \\
         --out data/processed/testbed/queries.parquet
 
-Every subcommand passes its remaining arguments to the script it wraps, so
-`python -m parser cic --help` shows that script's options.
+Every subcommand passes its remaining arguments to its module, so
+`python -m parser cic --help` shows that module's options. `pcap` and `testbed` still
+wrap the stopgap scripts in scripts/ until the testbed parse card replaces them.
 """
 
 from __future__ import annotations
@@ -17,9 +19,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
-# subcommand -> (module in scripts/, one-line help)
+# subcommand -> (module, one-line help); bare names live in scripts/
 STAGES = {
-    "cic": ("cic_to_queries", "CIC-Bell-DNS-EXF-2021 pcaps -> data/processed/cic/queries.parquet"),
+    "cic": ("parser.cic", "CIC-Bell-DNS-EXF-2021 pcaps -> data/processed/cic/queries.parquet"),
+    "features": ("parser.features", "queries.parquet -> features.parquet (per-query + per-host)"),
     "pcap": ("parse_capture", "one testbed pcap -> contract rows (.ndjson/.csv/.parquet)"),
     "testbed": ("build_queries_parquet", "sidecars + parsed captures -> data/processed/testbed/queries.parquet"),
 }

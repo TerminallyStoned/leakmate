@@ -29,7 +29,7 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = [
     "models.*",
-    "cic_to_queries", "scripts.cic_to_queries",
+    "parser.cic", "cic_to_queries", "scripts.cic_to_queries",
     "make_synthetic_sample", "scripts.make_synthetic_sample",
     "test_m1", "tests.test_m1",
     "test_m2", "tests.test_m2",
