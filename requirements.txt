@@ -1,0 +1,8 @@
+# Tested with these versions (Nov 2026). Pin exact versions in the final repo.
+numpy>=2.0
+pandas>=2.2
+pyarrow>=15
+scikit-learn>=1.5
+matplotlib>=3.8
+torch>=2.3
+pytest>=8
