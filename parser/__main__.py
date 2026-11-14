@@ -2,13 +2,12 @@
 
     python -m parser cic --raw data/raw/cic --out data/processed/cic/queries.parquet
     python -m parser features --dataset cic
-    python -m parser pcap CAPTURE.pcap --out rows.ndjson --tool dns2tcp
-    python -m parser testbed --add data/raw/benign/<run id> --add data/raw/tools/<run> \\
-        --out data/processed/testbed/queries.parquet
+    python -m parser testbed --capture TOOL.pcap --capture SLOW.pcap@200 --capture RESOLVER.pcap
+    python -m parser features --dataset testbed
+    python -m parser pcap CAPTURE.pcap --summary      # quick per-capture check (scripts/parse_capture.py)
 
 Every subcommand passes its remaining arguments to its module, so
-`python -m parser cic --help` shows that module's options. `pcap` and `testbed` still
-wrap the stopgap scripts in scripts/ until the testbed parse card replaces them.
+`python -m parser cic --help` shows that module's options.
 """
 
 from __future__ import annotations
@@ -24,7 +23,7 @@ STAGES = {
     "cic": ("parser.cic", "CIC-Bell-DNS-EXF-2021 pcaps -> data/processed/cic/queries.parquet"),
     "features": ("parser.features", "queries.parquet -> features.parquet (per-query + per-host)"),
     "pcap": ("parse_capture", "one testbed pcap -> contract rows (.ndjson/.csv/.parquet)"),
-    "testbed": ("build_queries_parquet", "sidecars + parsed captures -> data/processed/testbed/queries.parquet"),
+    "testbed": ("parser.testbed", "testbed pcaps -> data/processed/testbed/queries.parquet"),
 }
 
 

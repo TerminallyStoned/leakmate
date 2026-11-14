@@ -28,6 +28,7 @@ try:
     import numpy as np
     import pandas as pd
 
+    from eval.experiments import EXP_HELP
     from models import iforest_baseline, m1_features, m2_dnsbert
 except ModuleNotFoundError as e:
     raise SystemExit(f"Missing package '{e.name}'. Install the M2 packages with:\n"
@@ -80,9 +81,9 @@ def latency_ms(mod, model, df: pd.DataFrame, n: int = 200, seed: int = 0) -> flo
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", choices=["m2", "iforest"], required=True)
-    ap.add_argument("--exp", required=True, help="E1..E5 or S")
+    ap.add_argument("--exp", required=True, help=EXP_HELP)
     ap.add_argument("--data", required=True, help="query-table parquet (contract schema)")
-    ap.add_argument("--test-data", help="separate test parquet (e.g. E4 cross-dataset)")
+    ap.add_argument("--test-data", help="separate test parquet (e.g. Experiment 4, cross-dataset)")
     ap.add_argument("--tag", default="", help="suffix for ablations, e.g. ablation1_char")
     ap.add_argument("--out", default="results")
     ap.add_argument("--save-model", help="where to save the trained model")

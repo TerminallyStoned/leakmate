@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from eval.experiments import experiment_name
 from eval.metrics import MAX_LATENCY_MS, evaluate_run, per_tool_recall, select_model
 from eval.plots import plot_confusion, plot_latency, plot_roc
 from eval.results_io import iter_results, run_identity
@@ -19,6 +20,7 @@ from eval.results_io import iter_results, run_identity
 COLUMNS = [
     "model",
     "experiment",
+    "experiment_name",
     "ablation",
     "n",
     "n_tunnel",
@@ -71,11 +73,13 @@ def summarise(results_dir: str = "results", plots: bool = True) -> pd.DataFrame:
     for folder, stem, run in iter_results(results_dir):
         model, exp, ablation = run_identity(folder, stem, run)
         m = evaluate_run(run)
-        rows.append({"model": model, "experiment": exp, "ablation": ablation, **m})
+        rows.append({"model": model, "experiment": exp, "experiment_name": experiment_name(exp), "ablation": ablation, **m})
         by_exp[exp][model] = run
         if run.get("tools") is not None:
             for tool, rec in per_tool_recall(run["labels"], run["scores"], run["tools"], m["threshold"]).items():
-                tool_rows.append({"model": model, "experiment": exp, "tool": tool, "recall": rec})
+                tool_rows.append(
+                    {"model": model, "experiment": exp, "experiment_name": experiment_name(exp), "tool": tool, "recall": rec}
+                )
         if plots:
             plot_confusion(m, model, exp, fig_dir)
 
@@ -102,6 +106,7 @@ def summarise(results_dir: str = "results", plots: bool = True) -> pd.DataFrame:
         picks.append(
             {
                 "experiment": exp,
+                "experiment_name": experiment_name(exp),
                 "selected_model": win["model"] if win else None,
                 "f1": win["f1"] if win else None,
                 "fpr": win["fpr"] if win else None,
@@ -123,7 +128,7 @@ def main():
             summary[
                 [
                     "model",
-                    "experiment",
+                    "experiment_name",
                     "precision",
                     "recall",
                     "f1",
