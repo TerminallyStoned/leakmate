@@ -67,7 +67,7 @@ models/       model code, one file per model: train / score / save / load
   host_features.py     per-host sliding-window features (past-only)
   m1_run.py            M1/RF train + score, writes results JSON + SHAP outputs
 contracts.py  validator + session/qtype helpers for the shared contracts (docs/contracts.md)
-scripts/      make_synthetic_sample.py, parse_capture.py + build_queries_parquet.py (testbed stopgaps), cic_to_queries.py (old path, calls parser/cic.py)
+scripts/      make_synthetic_sample.py, parse_capture.py (quick capture check used by run_tool.sh), build_queries_parquet.py (old sidecar merge), cic_to_queries.py (old path, calls parser/cic.py)
 notebooks/    m2_dnsbert_colab.ipynb (Colab GPU run), m1_xgb_colab.ipynb (Colab CPU run)
 results/      <model>/<experiment>.json in the shared results format
 docs/         per-component notes (m2.md)
@@ -122,7 +122,7 @@ The user manual is built from these commands.
 | Tunnel traffic | `testbed/run_tool.sh --tool dns2tcp --size 100000 --rate 2000 --capture` | dns2tcp, DNSExfiltrator ✅; iodine, dnscat2 planned |
 | Parse CIC | `python -m parser cic --raw data/raw/cic --out data/processed/cic/queries.parquet` | ✅ |
 | CIC features | `python -m parser features --dataset cic` -> `data/processed/cic/features.parquet` | ✅ |
-| Parse testbed | `python -m parser testbed --add <run dir> ... --out data/processed/testbed/queries.parquet` | ✅ (stopgap inside) |
+| Parse testbed | `python -m parser testbed --capture <tool>.pcap[@<throttle ms>] ... --capture <resolver>.pcap` | ✅ (benign from a resolver capture) |
 | Check a table | `python contracts.py data/processed/cic/queries.parquet` | ✅ |
 | Train + score M1 / RF / IF / M3 | `python -m eval.run --model m1 --exp E3` | needs testbed data; won't overwrite existing results without `--overwrite` |
 | Train + score M1 with SHAP | `python -m models.m1_run --model m1 --exp E2 --data data/processed/cic/queries.parquet` | ✅ |
