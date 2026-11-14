@@ -11,6 +11,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.metrics import roc_curve
 
+from eval.experiments import experiment_name
+
 
 def plot_roc(runs: dict[str, dict], experiment: str, out_dir: Path) -> Path | None:
     """Overlay ROC curves of every model for one experiment. `runs`: model -> run."""
@@ -33,7 +35,7 @@ def plot_roc(runs: dict[str, dict], experiment: str, out_dir: Path) -> Path | No
     ax.set_ylim(0, 1.01)
     ax.set_xlabel("False-positive rate (symlog)")
     ax.set_ylabel("True-positive rate")
-    ax.set_title(f"ROC: {experiment}")
+    ax.set_title(f"ROC: {experiment_name(experiment)}")
     ax.legend(loc="lower right", fontsize=8)
     fig.tight_layout()
     out = out_dir / f"roc_{experiment}.png"
@@ -77,7 +79,7 @@ def plot_confusion(m: dict, model: str, experiment: str, out_dir: Path) -> Path:
     ax.set_yticks([0, 1], ["benign", "tunnel"])
     ax.set_xlabel("Predicted")
     ax.set_ylabel("Actual")
-    ax.set_title(f"{model} · {experiment}", fontsize=9)
+    ax.set_title(f"{model} · {experiment_name(experiment)}", fontsize=9)
     fig.tight_layout()
     out = out_dir / f"cm_{model}_{experiment}.png"
     fig.savefig(out)
