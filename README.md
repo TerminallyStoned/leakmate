@@ -119,7 +119,7 @@ The user manual is built from these commands.
 |---|---|---|
 | Testbed network | `cd testbed && docker compose up -d` | ✅ |
 | Benign traffic | `testbed/benign/run_benign.sh --hosts 4 --minutes 10 --docker` | ✅ |
-| Tunnel traffic | `testbed/run_tool.sh --tool dns2tcp --size 100000 --rate 2000 --capture` | dns2tcp, DNSExfiltrator ✅; iodine, dnscat2 planned |
+| Tunnel traffic | `testbed/run_tool.sh --tool dns2tcp --size 100000 --rate 2000 --capture` | dns2tcp, DNSExfiltrator, iodine, dnscat2 ✅ (`testbed/tools/README.md`) |
 | Parse CIC | `python -m parser cic --raw data/raw/cic --out data/processed/cic/queries.parquet` | ✅ |
 | CIC features | `python -m parser features --dataset cic` -> `data/processed/cic/features.parquet` | ✅ |
 | Parse testbed | `python -m parser testbed --add <run dir> ... --out data/processed/testbed/queries.parquet` | ✅ (stopgap inside) |
