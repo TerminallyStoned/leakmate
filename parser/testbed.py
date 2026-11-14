@@ -13,7 +13,8 @@ make resp_size give the label away. The resolver's own forwarded queries are dro
 lookup is counted once.
 
 `PCAP@MS` sets throttle (configured delay between tunnel queries, ms) for that capture's
-tunnel rows; benign rows are always 0. E5 tests on throttle > 0, so slow runs need it.
+tunnel rows; benign rows are always 0. Experiment 5 (low-and-slow) tests on
+throttle > 0, so slow runs need it.
 Split: per capture, first 70% of queries by time -> train, rest -> test.
 """
 
