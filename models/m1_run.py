@@ -41,6 +41,7 @@ try:
     import pandas as pd
 
     from contracts import CONTRACT_VERSION, EXPERIMENTS, validate
+    from eval.experiments import EXP_HELP
     from models import m1_features, m1_xgb, rf_baseline
 except ModuleNotFoundError as e:
     raise SystemExit(f"Missing package '{e.name}'. Install the M1 packages with:\n"
@@ -140,9 +141,9 @@ def write_shap(model, test_df: pd.DataFrame, out_dir: Path, name: str, n: int, s
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", choices=sorted(MODULES), required=True)
-    ap.add_argument("--exp", required=True, choices=EXPERIMENTS, help="experiment ID (docs/contracts.md, section 3)")
+    ap.add_argument("--exp", required=True, choices=EXPERIMENTS, help=EXP_HELP)
     ap.add_argument("--data", required=True, help="query-table parquet (contract schema)")
-    ap.add_argument("--test-data", help="separate test parquet (e.g. E4 cross-dataset)")
+    ap.add_argument("--test-data", help="separate test parquet (e.g. Experiment 4, cross-dataset)")
     ap.add_argument("--tag", default="", help="suffix for ablations, e.g. ablation_query_only")
     ap.add_argument("--out", default="results")
     ap.add_argument("--save-model", help="where to save the trained model (.joblib)")
