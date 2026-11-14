@@ -97,6 +97,19 @@ def test_torn_trailing_record_is_dropped_not_fatal(tmp_path: Path, capsys) -> No
     assert "partial record" in capsys.readouterr().err
 
 
+def test_eight_bit_qname_is_kept_not_counted_as_truncated(tmp_path: Path) -> None:
+    """iodine's Base128 labels are not UTF-8; dpkt raises on them and the row was lost."""
+    pcap = tmp_path / "cap.pcap"
+    good = _frame("x" * 8 + ".i.tunnel.test", src="172.28.0.30", dst="172.28.0.2")
+    raw = good.replace(b"x" * 8, b"0qc\xca\xbe\xeeY\xd6")  # same length, so lengths/offsets hold
+    _write_pcap(pcap, [(1000.0, raw)])
+    stats: dict[str, int] = {}
+    rows = pc.parse_pcap(pcap, {"172.28.0.30": "iodine"}, "testbed", "", stats)
+    assert len(rows) == 1 and not stats.get("truncated")
+    assert rows[0]["qname"] == b"0qc\xca\xbe\xeey\xd6".decode("latin-1") + ".i.tunnel.test"
+    assert rows[0]["tool"] == "iodine" and rows[0]["label"] == 1
+
+
 def test_not_a_pcap_is_a_clear_error(tmp_path: Path) -> None:
     bad = tmp_path / "cap.pcap"
     bad.write_bytes(b"pcapng" + b"\x00" * 40)

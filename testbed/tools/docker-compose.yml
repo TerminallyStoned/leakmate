@@ -90,3 +90,90 @@ services:
     dns: ["172.28.0.42"]
     depends_on: [dns2tcpd]
     restart: "no"
+
+  # --- iodine and dnscat2 -------------------------------------------------------------
+  # Unlike the two tools above, these clients go THROUGH the resolver (172.28.0.2), which
+  # forwards i.tunnel.test -> 172.28.0.20 and d.tunnel.test -> 172.28.0.21 (see
+  # testbed/resolver/named.conf). So `--capture` records on the client container, where
+  # the query's source address is the compromised host, not the resolver.
+
+  # iodined: authoritative for i.tunnel.test, tunnel gateway 10.0.0.1. An IP tunnel, so it
+  # needs NET_ADMIN and the tun device.
+  iodine-server:
+    profiles: ["iodine"]
+    build: ./iodine
+    image: leakmate-iodine:latest
+    container_name: iodine-server
+    environment:
+      ROLE: server
+      TOPDOMAIN: "${IODINE_DOMAIN:-i.tunnel.test}"
+      TUNNEL_PASSWORD: "${IODINE_PASSWORD:-leakmate-lab}"
+    cap_add: [NET_ADMIN]
+    devices: [/dev/net/tun]
+    networks:
+      lab:
+        ipv4_address: 172.28.0.20
+    restart: on-failure
+
+  # The "compromised host" for iodine. IODINE_INTERVAL is iodine's own throttle (-I, the
+  # maximum seconds between requests); run_tool.sh sets it from --delay.
+  iodine-client:
+    profiles: ["iodine"]
+    image: leakmate-iodine:latest
+    container_name: iodine-client
+    environment:
+      ROLE: client
+      TOPDOMAIN: "${IODINE_DOMAIN:-i.tunnel.test}"
+      TUNNEL_PASSWORD: "${IODINE_PASSWORD:-leakmate-lab}"
+      RESOLVER: 172.28.0.2
+      IODINE_INTERVAL: "${IODINE_INTERVAL:-4}"
+      IODINE_TYPE: "${IODINE_TYPE:-}"
+      IODINE_ENCODING: "${IODINE_ENCODING:-}"
+    cap_add: [NET_ADMIN]
+    devices: [/dev/net/tun]
+    networks:
+      lab:
+        ipv4_address: 172.28.0.30
+    dns: ["172.28.0.2"]
+    depends_on: [iodine-server]
+    restart: on-failure
+
+  # dnscat2 Ruby server: authoritative for d.tunnel.test. Everything it receives is printed
+  # to `docker logs` (--firehose), and its console reads the FIFO /tmp/console so
+  # run_tool.sh can script the C2 session (see tools/dnscat2/entrypoint.sh).
+  dnscat2-server:
+    profiles: ["dnscat2"]
+    build: ./dnscat2
+    image: leakmate-dnscat2:latest
+    container_name: dnscat2-server
+    environment:
+      ROLE: server
+      DOMAIN: "${DNSCAT_DOMAIN:-d.tunnel.test}"
+      DNSCAT_SECRET: "${DNSCAT_SECRET:-leakmate-lab}"
+      DNSCAT_AUTO_COMMAND: "${DNSCAT_AUTO_COMMAND:-}"
+    tty: true
+    networks:
+      lab:
+        ipv4_address: 172.28.0.21
+    restart: on-failure
+
+  # The "compromised host" for dnscat2: a C2 beacon (command session) through the
+  # resolver. DNSCAT_DELAY is dnscat2's own throttle (--delay, milliseconds).
+  dnscat2-client:
+    profiles: ["dnscat2"]
+    image: leakmate-dnscat2:latest
+    container_name: dnscat2-client
+    environment:
+      ROLE: client
+      DOMAIN: "${DNSCAT_DOMAIN:-d.tunnel.test}"
+      DNSCAT_SECRET: "${DNSCAT_SECRET:-leakmate-lab}"
+      RESOLVER: 172.28.0.2
+      DNSCAT_DELAY: "${DNSCAT_DELAY:-1000}"
+      DNSCAT_STEADY: "${DNSCAT_STEADY:-0}"
+      DNSCAT_TYPE: "${DNSCAT_TYPE:-}"
+    networks:
+      lab:
+        ipv4_address: 172.28.0.31
+    dns: ["172.28.0.2"]
+    depends_on: [dnscat2-server]
+    restart: on-failure

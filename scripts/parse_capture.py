@@ -27,6 +27,7 @@ import socket
 import struct
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import dpkt
 import dpkt.dns as dns
@@ -51,6 +52,7 @@ QTYPE = {
     2: "NS",
     5: "CNAME",
     6: "SOA",
+    10: "NULL",
     12: "PTR",
     15: "MX",
     16: "TXT",
@@ -71,6 +73,10 @@ LAB_IPS = {
     "172.28.0.43": "dnsexfiltrator",
     "172.28.0.42": "dns2tcp",
     "172.28.0.44": "dns2tcp",
+    "172.28.0.20": "iodine",
+    "172.28.0.30": "iodine",
+    "172.28.0.21": "dnscat2",
+    "172.28.0.31": "dnscat2",
 }
 
 
@@ -107,7 +113,43 @@ def _ipv4(raw: bytes) -> str:
 
 def _qname(q) -> str:
     """Decoded query name, lower-cased, no trailing dot."""
+    if isinstance(q.name, bytes):
+        # From _raw_question: one character per wire byte. bytes.lower() only touches
+        # ASCII, so the 8-bit payload bytes survive unchanged.
+        return q.name.lower().decode("latin-1").rstrip(".")
     return str(q.name).lower().rstrip(".")
+
+
+def _raw_question(payload: bytes):
+    """Header and first question of a DNS message dpkt refused, or None.
+
+    dpkt decodes every name as UTF-8 and raises on anything else. iodine's upstream
+    codec (Base128) puts raw 8-bit bytes in the labels, so without this nearly every
+    iodine query was counted as "truncated" and dropped. The result mimics the few
+    dpkt fields parse_pcap reads; the name stays as bytes (see _qname).
+    """
+    if len(payload) < 12:
+        return None
+    ident, flags, qdcount = struct.unpack(">HHH", payload[:6])
+    if qdcount < 1:
+        return None
+    off, labels = 12, []
+    while True:
+        if off >= len(payload):
+            return None
+        n = payload[off]
+        off += 1
+        if n == 0:
+            break
+        if n & 0xC0 or off + n > len(payload):  # no compression pointer in a first question
+            return None
+        labels.append(payload[off : off + n])
+        off += n
+    if off + 4 > len(payload):
+        return None
+    (qtype,) = struct.unpack(">H", payload[off : off + 2])
+    question = SimpleNamespace(name=b".".join(labels), type=qtype)
+    return SimpleNamespace(id=ident, qr=(flags >> 15) & 1, rcode=flags & 0xF, qd=[question])
 
 
 def parse_pcap(path: Path, tools: dict[str, str], dataset: str, throttle: str, stats: dict | None = None) -> list[dict]:
@@ -133,8 +175,10 @@ def parse_pcap(path: Path, tools: dict[str, str], dataset: str, throttle: str, s
             try:
                 msg = dns.DNS(dns_payload)
             except Exception:
-                bump("truncated")
-                continue
+                msg = _raw_question(dns_payload)
+                if msg is None:
+                    bump("truncated")
+                    continue
             if not msg.qd:
                 continue
             # msg.qr is the decoded 0/1 field, not the 0x8000 header bit, so compare on
@@ -152,8 +196,10 @@ def parse_pcap(path: Path, tools: dict[str, str], dataset: str, throttle: str, s
             try:
                 msg = dns.DNS(payload)
             except Exception:
-                bump("truncated")  # already counted in pass 1; pass 2 mirrors it
-                continue
+                msg = _raw_question(payload)
+                if msg is None:
+                    bump("truncated")  # already counted in pass 1; pass 2 mirrors it
+                    continue
             if msg.qr or not msg.qd:
                 continue
             q = msg.qd[0]
@@ -236,7 +282,7 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("pcap", type=Path)
     ap.add_argument("--out", type=Path, help="rows here: .ndjson/.csv, or .parquet (omit with --summary)")
-    ap.add_argument("--tool", help="label traffic from this tool's lab address (dns2tcp | dnsexfiltrator)")
+    ap.add_argument("--tool", help="label traffic from this tool's lab address (dns2tcp | dnsexfiltrator | iodine | dnscat2)")
     ap.add_argument("--tools-map", default="", help="comma list of ip=tool, overrides --tool")
     ap.add_argument("--dataset", default="testbed", help="dataset column value")
     ap.add_argument("--throttle", default="", help="throttle column value, e.g. 5qps")
