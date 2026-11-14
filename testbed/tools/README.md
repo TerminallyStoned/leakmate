@@ -17,7 +17,7 @@ flags:
 | dns2tcp       | bootstrap + **sub-second bursts**; 512 B/s shows up as bursts, not 512 B/s of queries. Measured: 68 queries inside 1 s. |
 | dnsexfiltrator| one TXT query per chunk, paced by the client, so `--rate` really is queries/second. Measured at `--rate 5`: 84 queries / 16.6 s = **5.06 qps**. |
 
-That difference matters for E5 (low-and-slow detection) and for time-to-detect: a
+That difference matters for Experiment 5 (low-and-slow detection) and for time-to-detect: a
 burst-vs-paced tunnel is a different signal.
 
 ## Topology

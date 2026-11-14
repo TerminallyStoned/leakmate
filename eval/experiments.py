@@ -16,6 +16,25 @@ DATA_ROOT = Path("data/processed")
 SYNTHETIC = Path("data/sample/synthetic_queries.parquet")  # scripts/make_synthetic_sample.py
 TRAIN_FRAC = 0.7
 
+# What people read. Code, file names and the contract keep the short IDs.
+NAMES = {
+    "E1": "Experiment 1 (within-testbed)",
+    "E2": "Experiment 2 (CIC benchmark)",
+    "E3": "Experiment 3 (leave-one-tool-out)",
+    "E4": "Experiment 4 (cross-dataset)",
+    "E5": "Experiment 5 (low-and-slow)",
+    "S": "Experiment S (shuffled vs time split)",
+}
+EXP_HELP = "experiment ID: " + "; ".join(f"{k} = {v}" for k, v in NAMES.items())
+
+
+def experiment_name(run_name: str) -> str:
+    """'E3_iodine' -> 'Experiment 3 (leave-one-tool-out) - iodine'; unknown names pass through."""
+    exp, _, tag = run_name.partition("_")
+    if exp not in NAMES:
+        return run_name
+    return f"{NAMES[exp]} - {tag.replace('_', ' ')}" if tag else NAMES[exp]
+
 
 def load_queries(dataset: str, root: Path = DATA_ROOT) -> pd.DataFrame:
     path = SYNTHETIC if dataset == "synthetic" else root / dataset / "queries.parquet"

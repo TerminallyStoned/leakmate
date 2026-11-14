@@ -26,7 +26,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from eval.experiments import DATA_ROOT, get_split
+from eval.experiments import DATA_ROOT, EXP_HELP, get_split
 from eval.results_io import write_result
 
 ALIASES = {"m3": ["m3_cnn", "m3_bilstm"], "m1": ["m1_xgb"], "rf": ["rf_baseline"], "iforest": ["iforest_baseline"]}
@@ -132,8 +132,8 @@ def main():
         help="m1, rf, iforest, m3 (= m3_cnn + m3_bilstm), or any models/<name>.py. "
         "M2 runs through python -m models.m2_run (needs the Tranco list)",
     )
-    ap.add_argument("--exp", required=True, help="E1 E2 E3 E4_cic2testbed E4_testbed2cic E5 S")
-    ap.add_argument("--holdout", help="tool to hold out for E3 (all tools if omitted)")
+    ap.add_argument("--exp", required=True, help=EXP_HELP + " (Experiment 4 takes E4_cic2testbed or E4_testbed2cic)")
+    ap.add_argument("--holdout", help="tool to hold out in Experiment 3, leave-one-tool-out (all tools if omitted)")
     ap.add_argument(
         "--dataset",
         default="testbed",

@@ -30,16 +30,18 @@ Selection rule: best F1 with false-positive rate < 1% and latency < 10 ms per qu
 > (autoencoder as M2, the leakage/language-model detector as M3); the report uses the board's numbering.
 
 ## Experiments
-| ID | Experiment |
+| ID (in code) | Experiment |
 |---|---|
-| E1 | Within-testbed (train and test on our testbed data) |
-| E2 | CIC benchmark, compared with published results |
-| E3 | Leave-one-tool-out (unseen tools, RQ2) |
-| E4 | Cross-dataset (CIC ↔ testbed) |
-| E5 | Low-and-slow tunnels |
-| S  | Shuffled vs time-based split (how much shuffling inflates scores) |
+| `E1` | Experiment 1 (within-testbed): train and test on our testbed data |
+| `E2` | Experiment 2 (CIC benchmark): compared with published results |
+| `E3` | Experiment 3 (leave-one-tool-out): unseen tools, RQ2 |
+| `E4` | Experiment 4 (cross-dataset): CIC ↔ testbed |
+| `E5` | Experiment 5 (low-and-slow): slow, throttled tunnels |
+| `S` | Experiment S (shuffled vs time split): how much shuffling inflates scores |
 
-All splits are time/session based, never shuffled rows (except in S).
+All splits are time/session based, never shuffled rows (except in Experiment S).
+The short IDs are only what you type (`--exp E3`) and what files are named (`results/m1/E2.json`);
+summaries, figures and docs use the full names.
 
 ## Data
 - **CIC-Bell-DNS-EXF-2021** (University of New Brunswick): public benchmark, DNSExfiltrator attacks.
@@ -157,7 +159,7 @@ Writes `data/raw/benign/<run id>/<ip>.ndjson` sidecars in the query-table schema
 Contracts) plus `run.json`; `check_benign.py` runs automatically and enforces the card's
 acceptance bar. `--no-send` plans the lookups offline. Details: `testbed/benign/README.md`.
 
-## Results so far (E2, CIC)
+## Results so far (Experiment 2, CIC benchmark)
 From the shared evaluation module (`python -m eval.summarise`); M2 latency measured on an RTX 4060.
 
 | Model | F1 | ROC-AUC | Latency / query |
@@ -168,15 +170,15 @@ From the shared evaluation module (`python -m eval.summarise`); M2 latency measu
 
 M1 results: see `docs/m1.md`.
 
-CIC contains one tool and no throttling, so it is near-trivially separable; E3–E5 on the testbed are the
+CIC contains one tool and no throttling, so it is near-trivially separable; Experiments 3–5 (leave-one-tool-out, cross-dataset, low-and-slow) on the testbed are the
 real test.
 
 ## Timeline (SGT)
 | Phase | Dates | Focus |
 |---|---|---|
 | 1 | 12–14 Nov | Contracts, parser, eval module, all models built on CIC |
-| 2 | 15–17 Nov | Testbed captures, E1–E4, checkpoint 16 Nov 21:00 |
-| 3 | 18 Nov | E5, ablations, **results freeze 18 Nov 23:59** (git tag `results-freeze`) |
+| 2 | 15–17 Nov | Testbed captures, Experiments 1–4, checkpoint 16 Nov 21:00 |
+| 3 | 18 Nov | Experiment 5 (low-and-slow), ablations, **results freeze 18 Nov 23:59** (git tag `results-freeze`) |
 | 4 | 19–22 Nov | Live detector, dashboard, report, slides, user manual, submit 22 Nov |
 
 Hard deadline 23 Nov 23:59 (late penalty 20%/day). No live demo: the dashboard and live detector are
