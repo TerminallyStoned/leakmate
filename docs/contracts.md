@@ -91,7 +91,7 @@ Splits that hold out whole groups (leave-one-session-out, `GroupKFold`) group on
 
 ### Throttle
 
-`throttle` records the delay the testbed script configured, so E5 can bin results by it:
+`throttle` records the delay the testbed script configured, so Experiment 5 (low-and-slow) can bin results by it:
 DNSExfiltrator `t=<ms>` (default 0), dnscat2 `--delay <ms>` (default 1000), and iodine `-I <s>` multiplied by 1000
 (default 4 s).
 
@@ -139,18 +139,18 @@ Example with made-up values, cut to 3 test rows:
 | `n_train`, `n_test` | int | yes | row counts |
 | `scores` | list[float] | yes | raw score per test row, higher = more suspicious |
 | `labels` | list[int] | yes | 0/1 per test row |
-| `tools` | list[str] | yes | `tool` per test row (per-tool breakdowns and E3) |
+| `tools` | list[str] | yes | `tool` per test row (per-tool breakdowns and Experiment 3, leave-one-tool-out) |
 | `src_hosts` | list[str] | yes | `src_host` per test row (per-host metrics) |
 | `train_time_s` | number | yes | wall-clock training time |
 | `latency_ms_per_query` | number | yes | mean time to score one query (batch of 1) |
 | `score_meaning` | str | yes | what the score is, e.g. `XGBoost P(tunnel)` |
 | `config` | dict | yes | every setting needed to rerun |
 | `created_utc` | str | yes | ISO 8601 with time zone, `datetime.now(timezone.utc).isoformat(timespec="seconds")` |
-| `session_ids` | list[str] | **before E3/E5** | `session_id` per test row (per-session metrics) |
-| `ts` | list[float] | **before E3/E5** | `ts` per test row (E5 time to detect) |
+| `session_ids` | list[str] | **before Experiments 3 and 5** | `session_id` per test row (per-session metrics) |
+| `ts` | list[float] | **before Experiments 3 and 5** | `ts` per test row (Experiment 5 time to detect) |
 
 All per-row lists have length `n_test`, in the same order. Any other key (`feature_cols`, `shap`, `info_bits`,
-`score_time_s`, …) is allowed. `session_ids` and `ts` are optional now and become required before E3/E5 runs.
+`score_time_s`, …) is allowed. `session_ids` and `ts` are optional now and become required before Experiment 3 and 5 runs.
 
 ## Changing the contract
 
@@ -190,7 +190,7 @@ ODCS handles extensions the same way, with `customProperties` kept apart from th
    - add a changelog entry below.
 
    For a **major** change the PR also lists what must be regenerated or rerun (for example "rebuild the CIC parquet,
-   rerun E2"), and its owners do that before it merges. `python contracts.py data/processed/*/queries.parquet results/*/*.json`
+   rerun Experiment 2"), and its owners do that before it merges. `python contracts.py data/processed/*/queries.parquet results/*/*.json`
    must print `ok` for every file.
 4. **Deprecate before removing** where time allows: mark the field deprecated in a minor release, and remove it in
    the next major one. Semantic Versioning requires deprecations to be announced in a minor release.
