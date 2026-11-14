@@ -1,6 +1,6 @@
 """Shared pcap reader for CIC and testbed captures: one row per DNS query, contract columns.
 
-Both datasets go through this one reader so E4 (cross-dataset) compares traffic, not two
+Both datasets go through this one reader so Experiment 4 (cross-dataset) compares traffic, not two
 parsers' quirks. Only labelling differs: the caller passes tool_of(src_host, qname).
 """
 
