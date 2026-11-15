@@ -60,7 +60,7 @@ measured on the machine that ran Stage 2 — the two machines are the same class
    (Neo, as eval owner) should reconcile the constant with the proposal before the E5 verdict
    goes in the report.
 4. **M2 does not belong on the CPU box.** Its 4,000-row run scored 54.8 ms/query, and the
-   40,000-row E2 run was still running after 85 minutes when this was written; the Stage-2 M2
+   40,000-row E2 run was still going after an hour when this was written; the Stage-2 M2
    numbers were produced on a Colab T4. For E5, either measure M2 on the GPU and say so, or
    keep it in the table with a footnote — reporting a CPU figure next to GPU figures from the
    same models would be the mistake.
