@@ -19,7 +19,9 @@
 # `-I` (whole seconds, so it is rounded up). Use it for low-and-slow runs (--delay 5000
 # is one dnscat2 query every 5 s). dnscat2 `--rate N` is shorthand for --delay 1000/N.
 # On iodine, --delay also sends the payload as one small chunk per delay, so the tunnel
-# carries a few queries per delay instead of a steady stream.
+# carries a few queries per delay instead of a steady stream. dnsexfiltrator has no delay
+# option, so its throttle is always 1000/--rate. dns2tcp records 0: its DNS is a bootstrap
+# burst, so the pacing in --rate lands on the TCP transfer only.
 # --qtype (iodine, dnscat2) forces the DNS record type, e.g. TXT, CNAME, MX, NULL.
 # --encoding (iodine) forces the downstream encoding: Base32, Base64, Base64u, Base128, Raw.
 # --minutes on iodine/dnscat2 keeps the tunnel and the capture open until that many
@@ -211,6 +213,7 @@ case "$TOOL" in
     # --rate is queries/second, the unit the card names. The file is generated on the
     # client container so the source host label matches a real compromised host.
     [[ -n "$RATE" ]] || RATE=5
+    THROTTLE="$((1000 / RATE))"  # the client waits 1/rate between chunks: the contract's ms
     docker exec dnsexfiltrator-cli python3 -c "
 import os, pathlib
 pathlib.Path('/out/payload.bin').write_bytes(os.urandom($SIZE))
@@ -235,6 +238,8 @@ PY
 
   dns2tcp)
     # The tool chunks TCP itself, so --rate is applied as a bandwidth cap on the transfer.
+    # THROTTLE stays 0 (see the header): labelling these rows as throttled would teach E5
+    # that a burst of 384 queries in 0.2 s is a slow tunnel.
     [[ -n "$RATE" ]] || RATE=2048
     docker exec dns2tcpd sh -c "head -c $SIZE /dev/urandom > /out/blob.bin && ls -l /out/blob.bin"
     [[ "$CAPTURE" -eq 1 ]] && start_capture dns2tcpd "$PCAP"
@@ -380,16 +385,22 @@ done | nc -N $IODINE_GATEWAY 9000"
 esac
 
 if [[ "$CAPTURE" -eq 1 && -n "$PCAP" ]]; then
-  # One command closes the card's loop: capture, then prove it parses into the contract
-  # table. dpkt lives in the M2 requirements, so degrade to printing the command if absent.
-  ROWS="$OUT/${TOOL}.ndjson"
-  PARSE_ARGS=(--tool "$TOOL")
-  case "$TOOL" in iodine | dnscat2) PARSE_ARGS+=(--throttle "$THROTTLE") ;; esac
-  if python3 -c "import dpkt" 2>/dev/null; then
-    python3 "$REPO_ROOT/scripts/parse_capture.py" "$PCAP" --out "$ROWS" "${PARSE_ARGS[@]}" \
-      || { echo "parse_capture failed on $PCAP" >&2; exit 1; }
-    echo "parsed $(wc -l < "$ROWS") rows -> $ROWS"
+  # One command closes the card's loop: capture, then prove the group parser turns it into a
+  # contract table. parser/testbed.py labels by sender address and validates through
+  # contracts.validate_queries, so a failure here means the capture is not usable.
+  ROWS="$OUT/${TOOL}_queries.parquet"
+  PARSE_ARGS=(--capture "$PCAP@${THROTTLE}" --out "$ROWS")
+  case "$TOOL" in
+    # .43/.44 are in parser/testbed.py; the two card-#6 clients come from here.
+    iodine) PARSE_ARGS+=(--tools-map 172.28.0.45=iodine) ;;
+    dnscat2) PARSE_ARGS+=(--tools-map 172.28.0.46=dnscat2) ;;
+  esac
+  # Needs dpkt + pandas; degrade to printing the command when the venv is not installed.
+  if python3 -c "import dpkt, pandas" 2>/dev/null; then
+    (cd "$REPO_ROOT" && python3 -m parser testbed "${PARSE_ARGS[@]}") \
+      || { echo "python -m parser testbed failed on $PCAP" >&2; exit 1; }
+    echo "parsed -> $ROWS"
   else
-    echo "next: python3 scripts/parse_capture.py $PCAP --out /tmp/${TOOL}.ndjson ${PARSE_ARGS[*]}"
+    echo "next: python3 -m parser testbed ${PARSE_ARGS[*]} (run from the repo root)"
   fi
 fi

@@ -39,7 +39,7 @@ Everything here lives in `testbed/tools/docker-compose.yml`, joins the running
 | `dnscat2-client`     | `dnscat2`      | 172.28.0.31  | dnscat2 C client, C2 beacon **through the resolver**         |
 
 Static IPs are deliberate: the parser labels traffic by source address, and
-`scripts/parse_capture.py` keeps that mapping in one place (`--tools-map`).
+`parser/testbed.py` keeps that mapping in one place (`LAB_IPS` plus `--tools-map`).
 
 Why clients point at the tool server instead of 172.28.0.2: card 5 forwards **all** of
 `tunnel.test` to `attacker-ns`, and the capture that matters is the one where the tunnel
@@ -137,7 +137,7 @@ Acceptance, as run on 14 Nov 2026 (one-minute capture of each tool, parsed with
 Things worth knowing before trusting a capture:
 
 * iodine switches its upstream codec to Base128, so query names carry raw 8-bit bytes
-  and the record type is NULL. `scripts/parse_capture.py` keeps them as one character per
+  and the record type is NULL. `parser/pcap.py` keeps them as one character per
   byte (latin-1); a UTF-8-only reader drops almost every iodine query.
 * dnscat2 sends an `--exec` command string as the session name in its first packet, and a
   long one makes the client abort on an assertion. Keep console `exec` commands short.
@@ -178,34 +178,35 @@ traffic crosses that interface in both directions) and `--out` receives
   record fall outside the capture window because tcpdump is killed while writing. The
   parser says so (`WARN dropped a trailing …partial record`) instead of hiding it.
 
-Parsing is `scripts/parse_capture.py` (dpkt) → the CONTRACTS query table plus `resp_size`
-and `rcode` joined from the matching reply. It emits exactly the contract columns, so its
-output is a drop-in for Yehan's card-9 parser; when that lands this script becomes a
-specialisation of it rather than a second source of truth.
+Parsing is `python -m parser testbed` (`parser/testbed.py`, dpkt): it labels every query by
+its sender address, joins the matching reply for `resp_size`/`rcode`, stamps `source_file`
+and `split`, and validates the table through `contracts.validate_queries` before writing,
+so a capture that does not parse fails loudly instead of landing in a dataset.
 
-## From captures to a model
+## From captures to a dataset
 
-The rows are half a dataset: `eval/experiments.py` (card #10) wants one Parquet query table
-per dataset. `scripts/build_queries_parquet.py` is that bridge — concatenate the benign run
-and the tool captures into `data/processed/testbed/queries.parquet`:
+One command builds the table `eval/experiments.py` reads. Pass every capture window once —
+for benign traffic use the capture taken at the resolver, not the run's sidecar, because the
+two are views of the same lookups and their timestamps differ by `dig` latency (measured
+44 ms, tail over half a second), which no merge can tell apart from duplicate traffic:
 
 ```bash
-python3 scripts/parse_capture.py testbed/out/dns2tcp_<utc>.pcap --out testbed/out/dns2tcp.ndjson --tool dns2tcp
-python3 scripts/build_queries_parquet.py \
-    --add data/raw/benign/<run id> \
-    --add testbed/out/dns2tcp.ndjson --add testbed/out/dnsexfiltrator.ndjson \
+python -m parser testbed \
+    --capture data/raw/testbed/<run id>/benign.pcap \
+    --capture testbed/out/dns2tcp_<utc>.pcap \
+    --capture testbed/out/dnsexfiltrator_<utc>.pcap \
+    --capture testbed/out/dnsexfiltrator_slow_<utc>.pcap@200 \
     --out data/processed/testbed/queries.parquet
-python -m eval.run --model m1 --exp E1        # once eval/ merges
+python -m parser features --dataset testbed
+python -m eval.run --model m1 --exp E1
 ```
 
-Pass **one source per capture window**. A benign sidecar and the pcap of that same run are
-two views of one traffic and their timestamps differ by `dig` latency (measured 44 ms, tail
-over half a second), so no fuzzy merge can separate them from two genuinely identical
-lookups; the script instead warns when two sources overlap. A test loads the output through
-`eval.experiments.get_split` and is skipped until card #10 merges.
+`@<ms>` is that capture's throttle in milliseconds (0 when absent): dnsexfiltrator is
+1000/--rate, iodine/dnscat2 take it from `--delay`, and dns2tcp is 0 because its pacing
+lands on the TCP transfer, not on DNS.
 
 ## Tests
 
 ```bash
-python3 -m pytest testbed/tools/tests -q      # offline: synthetic pcaps, no docker
+python3 -m pytest tests/test_testbed.py -q    # offline: hand-built lab captures, no docker
 ```

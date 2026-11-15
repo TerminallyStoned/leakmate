@@ -69,7 +69,7 @@ models/       model code, one file per model: train / score / save / load
   host_features.py     per-host sliding-window features (past-only)
   m1_run.py            M1/RF train + score, writes results JSON + SHAP outputs
 contracts.py  validator + session/qtype helpers for the shared contracts (docs/contracts.md)
-scripts/      make_synthetic_sample.py, parse_capture.py (quick capture check used by run_tool.sh), build_queries_parquet.py (old sidecar merge), cic_to_queries.py (old path, calls parser/cic.py)
+scripts/      make_synthetic_sample.py, make_fake_data.py, check_setup.py, cic_to_queries.py (old path, calls parser/cic.py)
 notebooks/    m2_dnsbert_colab.ipynb (Colab GPU run), m1_xgb_colab.ipynb (Colab CPU run)
 results/      <model>/<experiment>.json in the shared results format
 docs/         per-component notes (m2.md)

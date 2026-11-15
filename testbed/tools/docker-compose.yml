@@ -8,7 +8,7 @@ name: leakmate-tools
 #   testbed/run_tool.sh --tool dns2tcp --size 65536 --rate 40
 #   testbed/run_tool.sh --tool dnsexfiltrator --size 4096 --rate 5
 #
-# Static IPs are deliberate: scripts/parse_capture.py labels a query by its source address,
+# Static IPs are deliberate: parser/testbed.py labels a query by its source address,
 # so the tunnel hosts have to be predictable. They sit at the top of the /16, far from where
 # Docker hands out addresses to the victim and the benign replicas.
 #

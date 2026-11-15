@@ -4,7 +4,6 @@
     python -m parser features --dataset cic
     python -m parser testbed --capture TOOL.pcap --capture SLOW.pcap@200 --capture RESOLVER.pcap
     python -m parser features --dataset testbed
-    python -m parser pcap CAPTURE.pcap --summary      # quick per-capture check (scripts/parse_capture.py)
 
 Every subcommand passes its remaining arguments to its module, so
 `python -m parser cic --help` shows that module's options.
@@ -14,15 +13,11 @@ from __future__ import annotations
 
 import importlib
 import sys
-from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-
-# subcommand -> (module, one-line help); bare names live in scripts/
+# subcommand -> (module, one-line help)
 STAGES = {
     "cic": ("parser.cic", "CIC-Bell-DNS-EXF-2021 pcaps -> data/processed/cic/queries.parquet"),
     "features": ("parser.features", "queries.parquet -> features.parquet (per-query + per-host)"),
-    "pcap": ("parse_capture", "one testbed pcap -> contract rows (.ndjson/.csv/.parquet)"),
     "testbed": ("parser.testbed", "testbed pcaps -> data/processed/testbed/queries.parquet"),
 }
 
@@ -42,7 +37,6 @@ def main(argv: list[str] | None = None) -> int:
     if stage not in STAGES:
         print(f"unknown stage {stage!r}\n\n{usage()}", file=sys.stderr)
         return 2
-    sys.path.insert(0, str(ROOT / "scripts"))
     mod = importlib.import_module(STAGES[stage][0])
     sys.argv = [f"python -m parser {stage}", *rest]
     return mod.main() or 0
