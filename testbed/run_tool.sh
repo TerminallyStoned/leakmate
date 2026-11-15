@@ -154,9 +154,13 @@ PROFILE="$TOOL"
 
 start_capture() {
   local container="$1"
-  # A run that failed earlier can leave its tcpdump behind; stop it before starting ours.
-  docker exec "$container" sh -c 'pkill tcpdump' 2>/dev/null || true
-  docker exec -d "$container" sh -c "rm -f /tmp/cap.pcap; tcpdump -qi eth0 -w /tmp/cap.pcap udp >/dev/null 2>&1"
+  # No pkill/pgrep in these images, and a `docker exec -d` capture that nothing stops
+  # keeps running and block-buffers /tmp/cap.pcap: five such runs piled up during testing
+  # and each pcap was whatever the oldest writer had flushed. So the PID is recorded and
+  # killed with the shell builtin, and any previous capture is stopped first.
+  docker exec "$container" sh -c '[ -f /tmp/cap.pid ] && kill -INT "$(cat /tmp/cap.pid)" 2>/dev/null; true'
+  sleep 1
+  docker exec -d "$container" sh -c "rm -f /tmp/cap.pcap /tmp/cap.pid; tcpdump -qi eth0 -w /tmp/cap.pcap udp >/dev/null 2>&1 & echo \$! > /tmp/cap.pid; wait"
   sleep 1 # tcpdump needs a moment to attach; a fast transfer would otherwise finish unseen
   START_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   echo "capturing udp on $container"
@@ -165,8 +169,9 @@ start_capture() {
 stop_capture() {
   local container="$1" file="$2"
   sleep 2 # let the last packets reach tcpdump before it is stopped
-  docker exec "$container" sh -c 'pkill tcpdump' 2>/dev/null || true
-  sleep 1
+  # SIGINT: tcpdump's interrupt path flushes and closes the savefile.
+  docker exec "$container" sh -c 'kill -INT "$(cat /tmp/cap.pid)" 2>/dev/null; true'
+  sleep 2
   END_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   docker cp "$container:/tmp/cap.pcap" "$file"
   QUERIES="$(docker exec "$container" sh -c "tcpdump -nr /tmp/cap.pcap 'udp dst port 53' 2>/dev/null | wc -l" | tr -d '[:space:]')"
@@ -225,11 +230,12 @@ print('payload', $SIZE, 'bytes')
     sleep 1
     [[ "$CAPTURE" -eq 1 ]] && stop_capture dnsexfiltrator-ns "$PCAP"
     # The receiver writes a zip; prove the round trip rather than trusting exit codes.
-    docker exec dnsexfiltrator-ns python3 - <<'PY'
+    # -i matters: without it the heredoc never reaches stdin and this check silently passes.
+    docker exec -i dnsexfiltrator-ns python3 - <<'PY'
 import pathlib, sys, zipfile
-p = pathlib.Path("/out/payload.zip")
+p = pathlib.Path("/out/payload.bin.zip")
 if not p.exists():
-    sys.exit("FAIL receiver never wrote /out/payload.zip")
+    sys.exit("FAIL receiver never wrote /out/payload.bin.zip")
 with zipfile.ZipFile(p) as zf:
     data = zf.read(zf.namelist()[0])
 print(f"PASS reassembled {len(data)} bytes from {p}")

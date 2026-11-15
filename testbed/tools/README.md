@@ -166,17 +166,28 @@ TOOL_OUT=/tmp/toolout ./run_tool.sh --tool dnsexfiltrator --size 12288 --rate 5 
 traffic crosses that interface in both directions) and `--out` receives
 `<tool>_<utc>.pcap`. `run_tool.sh` then parses it and fails if the parse fails.
 
-## Acceptance, as run on 13 Nov 2026
+## Acceptance, as re-run on 15 Nov 2026
 
-* dns2tcp: `run_tool.sh --tool dns2tcp --size 100000 --rate 2000 --capture` →
-  `PASS 100000 bytes through the DNS tunnel (md5 f267194223bc5706e3466074c4ad68d6)`,
-  `pulled 100000 bytes in 50.0s (2000 B/s)`, then `parsed 384 rows`.
+Re-run after the capture scripts were replaced by `parser/testbed.py`, so the rows below
+are the group's contract-validated table, not the old stopgap sidecar. Both runs passed
+`python contracts.py <file>` (`ok`) with `label=1`, `tool=<tool>`, `dataset=testbed`.
+
+* dns2tcp: `run_tool.sh --tool dns2tcp --size 32768 --rate 2000 --capture` →
+  `pulled 32768 bytes in 16.4s (2000 B/s)`,
+  `PASS 32768 bytes through the DNS tunnel (md5 c0d80dd554d7cb58840c124b283db680)`,
+  `→ …/dns2tcp_queries.parquet: 130 rows`. All 130 are TXT/NOERROR, `throttle=0`, and they
+  sit in a sub-second burst: the DNS volume is the tunnel's bootstrap, the 2 KB/s cap is TCP.
 * dnsexfiltrator: `--size 12288 --rate 5 --capture` → `init ok; sending 88 chunks`,
-  `done: 89 queries`, 4 KB payload reassembled on the server and byte-identical to the
-  source inside the zip, `parsed 84 rows`.
-* 84 < 89 is honest bookkeeping, not loss: the last query's reply and a 12-byte trailing
-  record fall outside the capture window because tcpdump is killed while writing. The
-  parser says so (`WARN dropped a trailing …partial record`) instead of hiding it.
+  `done: 89 queries`, `PASS reassembled 12288 bytes from /out/payload.bin.zip`,
+  `→ …/dnsexfiltrator_queries.parquet: 89 rows` (89 sent = 89 parsed), span 17.1 s =
+  **5.2 queries/s**, `throttle=200` (ms, from `--rate 5`).
+* Two capture bugs were found by comparing the parse against what the tool reported, and
+  both are fixed here rather than documented as noise: the images have no `pkill`, so the
+  `docker exec -d` capture was never stopped and each run read a stale, block-buffered
+  `/tmp/cap.pcap` (dnsexfiltrator under-reported 84 of 89 queries, dns2tcp over-reported
+  134 of 130 because five writers had shared the file); and the receiver check ran without
+  `-i`, so its heredoc never reached Python and it printed neither PASS nor FAIL. The PID is
+  now recorded and signalled, and the check is `docker exec -i`.
 
 Parsing is `python -m parser testbed` (`parser/testbed.py`, dpkt): it labels every query by
 its sender address, joins the matching reply for `resp_size`/`rcode`, stamps `source_file`
