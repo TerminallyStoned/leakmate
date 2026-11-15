@@ -4,7 +4,7 @@ Two tunnel tools, each a pair of containers on the card-5 `lab` network, driven 
 interface so captures can be scripted the same way for all four tools:
 
 ```bash
-testbed/run_tool.sh --tool <dns2tcp|dnsexfiltrator|iodine|dnscat2> --size <bytes> --rate <bytes-per-second> [--delay MS] [--qtype T] [--encoding E] [--minutes M] [--capture] [--out DIR]
+testbed/run_tool.sh --tool <dns2tcp|dnsexfiltrator|iodine|dnscat2> --size <bytes> --rate <bytes-per-second> [--delay MS] [--qtype T] [--encoding E] [--minutes M] [--capture] [--out DIR] [--manifest FILE] [--with-benign N]
 ```
 
 `--size`/`--rate` are the same words Justin's card-6 tools take, but read them
@@ -66,7 +66,7 @@ compromised host. At the tool server every query would appear to come from the r
 | ---- | ------ | ------- |
 | `--size` | random bytes sent over TCP to the tunnel gateway; the server counts them | a random file the operator **downloads** from the victim; md5 must match on the server |
 | `--rate` | bytes/second, paced with `pv` | queries/second (1-20), shorthand for `--delay 1000/N` |
-| `--delay` | milliseconds, rounded up to whole seconds for `iodine -I` | milliseconds, passed as `dnscat --delay <ms> --steady` |
+| `--delay` | milliseconds between payload chunks, and (rounded up to whole seconds) the idle poll interval `iodine -I` | milliseconds, passed as `dnscat --delay <ms> --steady` |
 | `--qtype` | `iodine -T`: NULL, PRIVATE, TXT, SRV, MX, CNAME, A | dnscat2 `type=`: TXT, CNAME, MX, A, AAAA (comma list allowed) |
 | `--encoding` | `iodine -O` downstream encoding: Base32, Base64, Base64u, Base128, Raw (ignored by iodine for NULL) | not supported |
 | `--minutes` | keep tunnel and capture open until that long after the transfer started | same |
@@ -74,8 +74,45 @@ compromised host. At the tool server every query would appear to come from the r
 `--delay` (or dnscat2's `--rate`) is the value written to the contract's `throttle`
 column; without it the tool default applies and `throttle` is 0. The client container is
 recreated when a setting changes. For low-and-slow runs use `--delay`: on dnscat2 it is
-exact (one query per delay); on iodine pace the data with a small `--rate` as well,
-because `-I` only sets how often the idle tunnel polls.
+exact (one query per delay). On iodine `-I` only sets how often the idle tunnel polls, so
+`--delay` also sends the payload as one chunk per delay, sized to average `--rate`
+bytes/second. Measured on 15 Nov 2026 with `--size 320 --rate 8 --delay 5000`: 2 queries
+every 5 s. Pacing the same data with `pv` alone gave 16 queries/s, because every byte it
+lets through becomes its own query.
+
+### Capture runs: `capture_matrix.sh`
+
+```bash
+testbed/capture_matrix.sh --dry-run    # list the runs
+testbed/capture_matrix.sh --quick      # 4 short runs to check the setup (about 4 minutes)
+testbed/capture_matrix.sh              # the full matrix: 30 runs
+```
+
+Each row of the matrix at the top of the script is one `run_tool.sh --capture` run: three
+payload sizes, two throttles and two encodings per tool, plus three low-and-slow runs per
+tool (one query or chunk every 5 s or 10 s). Edit the rows, or pass your own file with
+`--matrix`. A failed run is logged and the rest carry on.
+
+Benign traffic runs for the whole matrix (`--benign-hosts`, default 2, at `--benign-qps`
+10 in total) and is captured at the resolver by a helper container, since the resolver
+image has no tcpdump. That capture leaves out the two tool clients, whose queries are
+already in their own pcaps.
+
+Everything lands under `data/raw/`:
+
+| path | what |
+| ---- | ---- |
+| `tools/<tool>_<size>_<rate>_<encoding>_<utc>.pcap` | one per run; `<rate>` is `r<--rate>` and/or `d<--delay>ms`, `<encoding>` is the forced record type and encoding or `default` |
+| `benign/benign_<n>h_with-tools_<utc>/resolver.pcap` | the benign lookups, plus the generator's own sidecars |
+| `manifest.csv` | one row per pcap: tool, client IP, size, rate, `throttle_ms`, record type, encoding, benign hosts, start and end (UTC), query count, bytes, sha256, git commit |
+| `logs/matrix_<utc>.log` | the full output of every run |
+
+`run_tool.sh --capture --manifest <file>` writes the same row for any of the four tools,
+so the dns2tcp and DNSExfiltrator runs can share the manifest. The script ends by printing
+the `python -m parser testbed` command for the captures it just made, with each capture's
+`@<throttle ms>` and the `--tools-map 172.28.0.30=iodine,172.28.0.31=dnscat2` the parser
+needs for these two tools. Checked on 15 Nov 2026: the quick matrix parsed into 2,931 rows
+(iodine 646, dnscat2 125, benign 2,160) and passed `python contracts.py`.
 
 **The dnscat2 run is a scripted C2 session**, not a bulk copy. The `dnscat2-client`
 container beacons in as a command session and `run_tool.sh` plays the operator on the

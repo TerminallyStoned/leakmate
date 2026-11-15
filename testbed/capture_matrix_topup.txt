@@ -1,0 +1,11 @@
+# Second pass for testbed/capture_matrix.sh --matrix: larger payloads and longer
+# low-and-slow runs, to bring the iodine + dnscat2 total to about 50k tunnel queries.
+# Columns: tool size rate delay qtype encoding minutes   ("-" = tool default)
+iodine 1048576 2048 - - - -
+iodine 1048576 - - TXT Base32 -
+iodine 2048 8 30000 - - -
+dnscat2 1048576 10 - - - -
+dnscat2 262144 10 - TXT - -
+dnscat2 262144 2 - - - -
+dnscat2 16384 - 5000 - - -
+dnscat2 8192 - 10000 TXT - -

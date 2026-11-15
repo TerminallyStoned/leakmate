@@ -18,15 +18,20 @@
 # value the contract's `throttle` column records: dnscat2 `--delay <ms> --steady`, iodine
 # `-I` (whole seconds, so it is rounded up). Use it for low-and-slow runs (--delay 5000
 # is one dnscat2 query every 5 s). dnscat2 `--rate N` is shorthand for --delay 1000/N.
+# On iodine, --delay also sends the payload as one small chunk per delay, so the tunnel
+# carries a few queries per delay instead of a steady stream.
 # --qtype (iodine, dnscat2) forces the DNS record type, e.g. TXT, CNAME, MX, NULL.
 # --encoding (iodine) forces the downstream encoding: Base32, Base64, Base64u, Base128, Raw.
 # --minutes on iodine/dnscat2 keeps the tunnel and the capture open until that many
 # minutes have passed since the transfer started.
 #
-# --capture writes <out>/<tool>_<utc>.pcap. dns2tcp and dnsexfiltrator capture inside the
-# tool's server container, because their clients resolve the tool server directly.
-# iodine and dnscat2 go through the resolver, so they capture on the client container,
-# where the query's source address is the compromised host.
+# --capture writes <out>/<tool>_<size>_<rate>_<encoding>_<utc>.pcap, e.g.
+# dnscat2_2048_d5000ms_TXT_20261115T101500Z.pcap (r = --rate, d = --delay). dns2tcp and
+# dnsexfiltrator capture inside the tool's server container, because their clients resolve
+# the tool server directly. iodine and dnscat2 go through the resolver, so they capture on
+# the client container, where the query's source address is the compromised host.
+# --manifest FILE appends one CSV row per capture (settings, times, query count, sha256).
+# --with-benign N only records in that row how many benign hosts ran alongside.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -50,9 +55,12 @@ ENCODING=""
 THROTTLE=0
 IODINE_GATEWAY=10.0.0.1
 RUN_TIMEOUT="${RUN_TIMEOUT:-1800}" # seconds to wait for a dnscat2 download to finish
+MANIFEST=""
+BENIGN_HOSTS=0
+MANIFEST_HEADER="file,tool,client_ip,size_bytes,rate,rate_unit,throttle_ms,qtype,encoding,minutes,benign_hosts,start_utc,end_utc,queries,pcap_bytes,sha256,git"
 
 usage() {
-  sed -n '2,31p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+  sed -n '2,34p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
   exit "${1:-0}"
 }
 
@@ -69,6 +77,8 @@ while [[ $# -gt 0 ]]; do
     --base32) BASE32=1; shift ;;
     --capture) CAPTURE=1; shift ;;
     --out) OUT="$2"; shift 2 ;;
+    --manifest) MANIFEST="$2"; shift 2 ;;
+    --with-benign) BENIGN_HOSTS="$2"; shift 2 ;;
     --help | -h) usage 0 ;;
     *) echo "unknown argument: $1" >&2; usage 2 ;;
   esac
@@ -83,6 +93,18 @@ esac
 [[ -z "$DELAY" || "$DELAY" =~ ^[0-9]+$ ]] || { echo "--delay must be an integer (milliseconds)" >&2; exit 2; }
 
 [[ -z "$MINUTES" || "$MINUTES" =~ ^[0-9]+$ ]] || { echo "--minutes must be an integer" >&2; exit 2; }
+[[ "$BENIGN_HOSTS" =~ ^[0-9]+$ ]] || { echo "--with-benign must be an integer" >&2; exit 2; }
+
+# What the user asked for, kept for the pcap name and the manifest: the cases below fill
+# in defaults and turn a dnscat2 --rate into a delay.
+RATE_ARG="$RATE"
+DELAY_ARG="$DELAY"
+case "$TOOL" in
+  dns2tcp) CLIENT_IP=172.28.0.44 RATE_UNIT="bytes/s" ;;
+  dnsexfiltrator) CLIENT_IP=172.28.0.43 RATE_UNIT="queries/s" ;;
+  iodine) CLIENT_IP=172.28.0.30 RATE_UNIT="bytes/s" ;;
+  dnscat2) CLIENT_IP=172.28.0.31 RATE_UNIT="queries/s" ;;
+esac
 
 # iodine and dnscat2 take their throttle and record type when the client starts, so the
 # values are handed to compose as environment; `up` below recreates the client when they
@@ -130,8 +152,11 @@ PROFILE="$TOOL"
 
 start_capture() {
   local container="$1"
+  # A run that failed earlier can leave its tcpdump behind; stop it before starting ours.
+  docker exec "$container" sh -c 'pkill tcpdump' 2>/dev/null || true
   docker exec -d "$container" sh -c "rm -f /tmp/cap.pcap; tcpdump -qi eth0 -w /tmp/cap.pcap udp >/dev/null 2>&1"
   sleep 1 # tcpdump needs a moment to attach; a fast transfer would otherwise finish unseen
+  START_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   echo "capturing udp on $container"
 }
 
@@ -140,13 +165,45 @@ stop_capture() {
   sleep 2 # let the last packets reach tcpdump before it is stopped
   docker exec "$container" sh -c 'pkill tcpdump' 2>/dev/null || true
   sleep 1
+  END_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   docker cp "$container:/tmp/cap.pcap" "$file"
-  echo "capture -> $file ($(wc -c <"$file") bytes)"
+  QUERIES="$(docker exec "$container" sh -c "tcpdump -nr /tmp/cap.pcap 'udp dst port 53' 2>/dev/null | wc -l" | tr -d '[:space:]')"
+  echo "capture -> $file ($(wc -c <"$file") bytes, ${QUERIES:-?} DNS queries)"
+  manifest_row "$file"
 }
 
+# One CSV row per capture. The file column is relative to the manifest's own folder, so
+# the manifest still points at the right files after the folder is copied to the Drive.
+manifest_row() {
+  [[ -n "$MANIFEST" ]] || return 0
+  local file="$1" rel
+  mkdir -p "$(dirname "$MANIFEST")"
+  [[ -s "$MANIFEST" ]] || echo "$MANIFEST_HEADER" >"$MANIFEST"
+  rel="$(realpath --relative-to="$(dirname "$MANIFEST")" "$file")"
+  echo "$rel,$TOOL,$CLIENT_IP,$SIZE,${RATE_ARG:-default},$RATE_UNIT,$THROTTLE,${QTYPE:-default},$ENC_LABEL,${MINUTES:-},$BENIGN_HOSTS,$START_UTC,$END_UTC,${QUERIES:-},$(wc -c <"$file"),$(sha256sum "$file" | cut -d' ' -f1),$(git -C "$REPO_ROOT" rev-parse --short HEAD 2>/dev/null || true)" >>"$MANIFEST"
+  echo "manifest row -> $MANIFEST"
+}
+
+# <rate> in the pcap name: r<--rate> and/or d<--delay>ms as given, "default" for neither.
+RATE_LABEL="${RATE_ARG:+r$RATE_ARG}"
+[[ -z "$DELAY_ARG" ]] || RATE_LABEL="${RATE_LABEL:+$RATE_LABEL-}d${DELAY_ARG}ms"
+RATE_LABEL="${RATE_LABEL:-default}"
+case "$TOOL" in
+  dnsexfiltrator) ENC_LABEL="$([[ "$BASE32" -eq 1 ]] && echo base32 || echo base64)" ;;
+  iodine) ENC_LABEL="${ENCODING:-default}" ;;
+  *) ENC_LABEL="default" ;;
+esac
+# <encoding> in the name also carries a forced record type, e.g. TXT-Base32 or TXT.
+NAME_ENC="$ENC_LABEL"
+if [[ -n "$QTYPE" ]]; then
+  if [[ "$ENC_LABEL" == "default" ]]; then NAME_ENC="$QTYPE"; else NAME_ENC="$QTYPE-$ENC_LABEL"; fi
+fi
+
 PCAP=""
+START_UTC="" END_UTC="" QUERIES=""
 if [[ "$CAPTURE" -eq 1 ]]; then
-  PCAP="$OUT/${TOOL}_$(date -u +%Y%m%dT%H%M%SZ).pcap"
+  mkdir -p "$OUT"
+  PCAP="$OUT/${TOOL}_${SIZE}_${RATE_LABEL}_${NAME_ENC}_$(date -u +%Y%m%dT%H%M%SZ).pcap"
 fi
 
 case "$TOOL" in
@@ -223,9 +280,28 @@ echo \"PASS \$got bytes through the DNS tunnel (md5 \$(md5sum /tmp/got.bin | cut
     docker exec iodine-server sh -c 'pkill -x nc 2>/dev/null; rm -f /tmp/got.count'
     docker exec -d iodine-server sh -c 'nc -l 9000 | wc -c > /tmp/got.count'
     sleep 1
-    PACE=""
-    if ((RATE > 0)); then PACE="pv -qL $RATE |"; fi
-    docker exec iodine-client sh -c "head -c $SIZE /dev/urandom | $PACE nc -N $IODINE_GATEWAY 9000"
+    if [[ -n "$DELAY_ARG" ]]; then
+      # Low-and-slow: pv would dribble single bytes, and every byte is a query (measured:
+      # 8 B/s gave 16 queries/s). Instead one chunk goes out per --delay, sized so the
+      # average is still --rate bytes/s (64-byte chunks when no rate is given).
+      CHUNK="$((RATE > 0 ? RATE * DELAY_ARG / 1000 : 64))"
+      ((CHUNK >= 1)) || CHUNK=1
+      ((CHUNK <= 512)) || CHUNK=512
+      PAUSE="$((DELAY_ARG / 1000)).$(printf '%03d' "$((DELAY_ARG % 1000))")"
+      echo "sending $CHUNK bytes every ${DELAY_ARG} ms (about $((SIZE / CHUNK * DELAY_ARG / 1000))s)"
+      docker exec iodine-client sh -c "
+head -c $SIZE /dev/urandom > /tmp/payload.bin
+k=0
+while [ \$((k * $CHUNK)) -lt $SIZE ]; do
+  dd if=/tmp/payload.bin bs=$CHUNK skip=\$k count=1 2>/dev/null
+  k=\$((k + 1))
+  sleep $PAUSE
+done | nc -N $IODINE_GATEWAY 9000"
+    else
+      PACE=""
+      if ((RATE > 0)); then PACE="pv -qL $RATE |"; fi
+      docker exec iodine-client sh -c "head -c $SIZE /dev/urandom | $PACE nc -N $IODINE_GATEWAY 9000"
+    fi
     got=""
     for _ in $(seq 1 15); do
       got="$(docker exec iodine-server sh -c 'cat /tmp/got.count 2>/dev/null' | tr -d '[:space:]')"

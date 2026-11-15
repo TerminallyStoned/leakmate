@@ -122,6 +122,7 @@ The user manual is built from these commands.
 | Testbed network | `cd testbed && docker compose up -d` | ✅ |
 | Benign traffic | `testbed/benign/run_benign.sh --hosts 4 --minutes 10 --docker` | ✅ |
 | Tunnel traffic | `testbed/run_tool.sh --tool dns2tcp --size 100000 --rate 2000 --capture` | dns2tcp, DNSExfiltrator, iodine, dnscat2 ✅ (`testbed/tools/README.md`) |
+| Capture runs | `testbed/capture_matrix.sh` (iodine + dnscat2 matrix with benign alongside), or `testbed/run_tool.sh ... --capture --manifest data/raw/manifest.csv` for any tool | ✅ (see "Quick start (capture runs)") |
 | Parse CIC | `python -m parser cic --raw data/raw/cic --out data/processed/cic/queries.parquet` | ✅ |
 | CIC features | `python -m parser features --dataset cic` -> `data/processed/cic/features.parquet` | ✅ |
 | Parse testbed | `python -m parser testbed --capture <tool>.pcap[@<throttle ms>] ... --capture <resolver>.pcap` | ✅ (benign from a resolver capture) |
@@ -158,6 +159,43 @@ python3 -m pytest testbed/benign/tests -q                            # from the 
 Writes `data/raw/benign/<run id>/<ip>.ndjson` sidecars in the query-table schema (see
 Contracts) plus `run.json`; `check_benign.py` runs automatically and enforces the card's
 acceptance bar. `--no-send` plans the lookups offline. Details: `testbed/benign/README.md`.
+
+## Quick start (capture runs)
+```bash
+cd testbed && docker compose up -d       # the lab network
+./capture_matrix.sh --dry-run            # list the runs
+./capture_matrix.sh                      # iodine + dnscat2 matrix, benign traffic alongside
+```
+What to know when capturing or using captures, for any tool:
+
+- **File names.** `run_tool.sh --capture` writes `<tool>_<size>_<rate>_<encoding>_<utc>.pcap`.
+  `<rate>` is `r<--rate>` and/or `d<--delay>ms`; `<encoding>` is the forced record type and
+  encoding, or `default`.
+- **Manifest.** Add `--manifest data/raw/manifest.csv` to any `run_tool.sh --capture` run and
+  it appends one row: tool, client IP, size, rate, `throttle_ms`, record type, encoding, start
+  and end time (UTC), query count, sha256. The manifest is the only file under `data/raw/`
+  that is committed; the pcaps go to the shared Drive, laid out as `tools/` and `benign/`
+  next to the manifest, so its `file` column still resolves.
+- **Parsing.** The `throttle_ms` column is the `@<throttle ms>` to put after each capture,
+  and the parser needs the client addresses of iodine and dnscat2 passed in:
+  ```bash
+  python -m parser testbed \
+      --capture data/raw/tools/<tool capture>.pcap@<throttle_ms> ... \
+      --capture data/raw/benign/<run id>/resolver.pcap \
+      --tools-map 172.28.0.30=iodine,172.28.0.31=dnscat2
+  ```
+  `capture_matrix.sh` prints this command in full for the captures it just made.
+- **Benign capture.** The resolver container has no tcpdump. `capture_matrix.sh` captures at
+  the resolver from a helper container that shares its network; to do the same by hand:
+  ```bash
+  docker run -d --name resolver-capture --network container:resolver --cap-add NET_ADMIN --cap-add NET_RAW \
+      --entrypoint tcpdump leakmate-iodine:latest -qi eth0 -w /tmp/resolver.pcap udp port 53
+  docker stop resolver-capture && docker cp resolver-capture:/tmp/resolver.pcap . && docker rm resolver-capture
+  ```
+- **One run at a time.** Tool clients are live beacons, so a second run in the lab lands in
+  the first run's capture. Stop the tool profiles when done (`testbed/tools/README.md`).
+
+Details and measured query rates: `testbed/tools/README.md`.
 
 ## Results so far (Experiment 2, CIC benchmark)
 From the shared evaluation module (`python -m eval.summarise`); M2 latency measured on an RTX 4060.

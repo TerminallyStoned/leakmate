@@ -6,7 +6,9 @@ __pycache__/
 
 # Datasets, captures and model weights stay off-repo: reproducible or shared on Drive.
 # run_benign.sh writes data/raw/, domains.py caches the Tranco list in data/external/.
-data/raw/
+data/raw/*
+# The capture manifest is the one file under data/raw/ that is committed.
+!data/raw/manifest.csv
 data/external/
 data/sample/
 data/processed/
