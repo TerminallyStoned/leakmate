@@ -131,8 +131,9 @@ def fake_queries(root: Path, n: int = 6000, seed: int = 0) -> None:
                     "label": int(tunnel),
                     "tool": tool,
                     "dataset": dataset,
-                    # delay between tunnel queries in ms; 0 = tool default (contract)
-                    "throttle": int(rng.choice([0, 0, 0, 2000])) if tunnel else 0,
+                    # delay between tunnel queries in ms; 0 = tool default (contract). 5000 is
+                    # a low-and-slow run for Experiment 5 (eval.experiments.LOW_AND_SLOW_MS).
+                    "throttle": int(rng.choice([0, 0, 0, 5000])) if tunnel else 0,
                 }
             )
         df = pd.DataFrame(rows)
