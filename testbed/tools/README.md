@@ -98,6 +98,12 @@ Benign traffic runs for the whole matrix (`--benign-hosts`, default 2, at `--ben
 image has no tcpdump. That capture leaves out the two tool clients, whose queries are
 already in their own pcaps.
 
+The resolver is on two networks, lab and upstream, and Docker does not fix which one is
+`eth0`. The helper therefore captures on the interface that holds the resolver's lab
+address (172.28.0.2). The script waits for the first lookup from a lab host before it
+starts the runs, and a benign capture with no such lookup fails the session and is not
+added to the manifest.
+
 Everything lands under `data/raw/`:
 
 | path | what |
@@ -131,9 +137,16 @@ seconds, and its `throttle` stays 0.
 Without it the last few queries of a short capture were still in tcpdump's buffer when it
 was stopped (7 of 11 queries kept in a test on 15 Nov 2026, 11 of 11 with `-U`).
 
-Checked on 16 Nov 2026: all 60 captures in `data/raw/manifest.csv` parsed into 315,743
-rows (benign 201,906, iodine 36,072, DNSExfiltrator 31,320, dns2tcp 25,867, dnscat2
-20,578) and passed `python contracts.py`.
+Checked on 16 Nov 2026: the 59 captures in `data/raw/manifest.csv` parse into 225,561
+rows (benign 111,724, iodine 36,072, DNSExfiltrator 31,320, dns2tcp 25,867, dnscat2
+20,578) and pass `python contracts.py`.
+
+One capture is left out of the manifest and the dataset:
+`benign/benign_4h_with-tools_20261115T140757Z/resolver.pcap`. An earlier version of the
+script captured on `eth0`, which in that session was the resolver's upstream side. Every
+query in it comes from the resolver (172.19.0.2 to 1.1.1.1 / 8.8.8.8), so the four benign
+hosts cannot be told apart and lookups answered from the cache are missing. Benign is
+therefore 111,724 queries against the 200,000 target.
 
 **The dnscat2 run is a scripted C2 session**, not a bulk copy. The `dnscat2-client`
 container beacons in as a command session and `run_tool.sh` plays the operator on the

@@ -33,6 +33,7 @@ QUICK=0
 MATRIX_FILE=""
 IODINE_IP=172.28.0.30
 DNSCAT_IP=172.28.0.31
+RESOLVER_IP=172.28.0.2 # the resolver's address on the lab network
 
 # Columns: tool size rate delay qtype encoding minutes   ("-" = leave at the tool default)
 #   iodine  rate = bytes/s; delay = ms between chunks and between idle polls (low-and-slow)
@@ -163,6 +164,7 @@ mkdir -p "$RAW/tools" "$RAW/logs"
 say() { echo "[$(date -u +%H:%M:%SZ)] $*" | tee -a "$LOG"; }
 
 BENIGN_UP=0
+BENIGN_FAILED=0
 BENIGN_START=""
 start_benign() {
   ((BENIGN_HOSTS > 0)) || return 0
@@ -173,20 +175,51 @@ start_benign() {
     || say "WARN benign --prepare failed; the generator uses its bundled domain list"
   # The generator stops by itself after BENIGN_MINUTES; a day is longer than any matrix,
   # and stop_benign ends it when the last run is done.
-  export BENIGN_MINUTES=1440 BENIGN_TARGET_QPS="$BENIGN_QPS" BENIGN_OUT="$BENIGN_DIR" RESOLVER_IP=172.28.0.2
+  export BENIGN_MINUTES=1440 BENIGN_TARGET_QPS="$BENIGN_QPS" BENIGN_OUT="$BENIGN_DIR" RESOLVER_IP
   "${CORE[@]}" --profile benign up -d --build --scale benign="$BENIGN_HOSTS" benign >>"$LOG" 2>&1 \
     || { say "FAIL could not start the benign generator (see $LOG)"; exit 1; }
   # The resolver image has no tcpdump, so the capture runs in a helper container that
   # shares the resolver's network. The tool clients are left out of it: their queries are
   # already in their own per-run pcaps and must not be counted twice.
+  # The resolver sits on two networks (lab and upstream) and Docker does not fix which of
+  # them is eth0, so the capture runs on the interface that holds the resolver's lab
+  # address. On the upstream side every query comes from the resolver itself, the lab
+  # hosts are not visible, and lookups answered from the cache are missing.
   docker rm -f resolver-capture >/dev/null 2>&1
   docker run -d --name resolver-capture --network container:resolver \
-    --cap-add NET_ADMIN --cap-add NET_RAW --entrypoint tcpdump leakmate-iodine:latest \
-    -qi eth0 -w /tmp/resolver.pcap "udp port 53 and not host $IODINE_IP and not host $DNSCAT_IP" >>"$LOG" 2>&1 \
+    --cap-add NET_ADMIN --cap-add NET_RAW --entrypoint sh leakmate-iodine:latest -c '
+      ifc="$(ip -o -4 addr show | sed -n "s/^[0-9]*: *\([^ ]*\) *inet $1\/.*/\1/p" | head -n 1)"
+      [ -n "$ifc" ] || { echo "no interface holds $2" >&2; exit 1; }
+      echo "capturing on $ifc ($2)" >&2
+      exec tcpdump -U -qi "$ifc" -w /tmp/resolver.pcap "$3"' \
+    sh "${RESOLVER_IP//./\\.}" "$RESOLVER_IP" \
+    "udp port 53 and host $RESOLVER_IP and not host $IODINE_IP and not host $DNSCAT_IP" >>"$LOG" 2>&1 \
     || { say "FAIL could not start the resolver capture (see $LOG)"; exit 1; }
   BENIGN_UP=1
   BENIGN_START="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  say "benign: $BENIGN_HOSTS hosts at ~$BENIGN_QPS lookups/s, capturing at the resolver"
+  # Do not start hours of runs on a capture that sees no lab host: wait for the first
+  # benign lookup to show up in it.
+  local seen=0 try
+  for try in $(seq 1 12); do
+    sleep 5
+    seen="$(lab_queries /tmp/resolver.pcap docker exec resolver-capture tcpdump)"
+    ((${seen:-0} > 0)) && break
+  done
+  if ((${seen:-0} == 0)); then
+    docker logs resolver-capture >>"$LOG" 2>&1
+    say "FAIL the resolver capture saw no lookup from a lab host in 60 s (see $LOG)"
+    exit 1
+  fi
+  say "benign: $BENIGN_HOSTS hosts at ~$BENIGN_QPS lookups/s, $(docker logs resolver-capture 2>&1 | grep -m1 'capturing on' || echo 'capturing at the resolver')"
+}
+
+# lab_queries <pcap path as the command sees it> <command that runs tcpdump...>
+# Counts lookups sent to the resolver's lab address by anyone but the resolver.
+lab_queries() {
+  local pcap="$1"
+  shift
+  "$@" -nr "$pcap" "udp dst port 53 and dst host $RESOLVER_IP and not src host $RESOLVER_IP" 2>/dev/null \
+    | wc -l | tr -d '[:space:]'
 }
 
 stop_benign() {
@@ -200,15 +233,18 @@ stop_benign() {
   docker cp resolver-capture:/tmp/resolver.pcap "$pcap" >>"$LOG" 2>&1
   docker rm -f resolver-capture >/dev/null 2>&1
   "${CORE[@]}" --profile benign rm -f benign >>"$LOG" 2>&1
-  if [[ -s "$pcap" ]]; then
-    # Queries from clients only: the resolver's own forwarded lookups are not counted.
-    queries="$(docker run --rm -v "$BENIGN_DIR:/cap:ro" --entrypoint sh leakmate-iodine:latest \
-      -c "tcpdump -nr /cap/resolver.pcap 'udp dst port 53 and not src host 172.28.0.2' 2>/dev/null | wc -l" | tr -d '[:space:]')"
+  # Queries from lab hosts only: the resolver's own forwarded lookups are not counted.
+  [[ -s "$pcap" ]] && queries="$(lab_queries /cap/resolver.pcap docker run --rm -v "$BENIGN_DIR:/cap:ro" --entrypoint tcpdump leakmate-iodine:latest)"
+  if [[ -s "$pcap" ]] && ((${queries:-0} == 0)); then
+    BENIGN_FAILED=1
+    say "FAIL $pcap holds no lookup from a lab host; it is not added to the manifest"
+  elif [[ -s "$pcap" ]]; then
     [[ -s "$MANIFEST" ]] || echo "file,tool,client_ip,size_bytes,rate,rate_unit,throttle_ms,qtype,encoding,minutes,benign_hosts,start_utc,end_utc,queries,pcap_bytes,sha256,git" >"$MANIFEST"
     echo "benign/$BENIGN_ID/resolver.pcap,benign,,0,$BENIGN_QPS,queries/s,0,default,default,,$BENIGN_HOSTS,$BENIGN_START,$end,$queries,$(wc -c <"$pcap"),$(sha256sum "$pcap" | cut -d' ' -f1),$(git -C "$REPO_ROOT" rev-parse --short HEAD 2>/dev/null || true)" >>"$MANIFEST"
     say "benign capture -> $pcap ($queries client queries)"
   else
-    say "WARN no benign capture was written"
+    BENIGN_FAILED=1
+    say "FAIL no benign capture was written"
   fi
 }
 trap 'stop_benign' EXIT
@@ -219,12 +255,12 @@ trap 'say "interrupted"; exit 130' INT TERM
 docker compose -f "$SCRIPT_DIR/tools/docker-compose.yml" --profile iodine --profile dnscat2 build >>"$LOG" 2>&1 \
   || { say "FAIL could not build the tool images (see $LOG)"; exit 1; }
 say "${#RUNS[@]} runs, log $LOG"
+SESSION_START="$(date +%s)" # before the benign capture starts, so its manifest row counts as this session's
 start_benign
 
 export RUN_TIMEOUT="${RUN_TIMEOUT:-3600}" # the largest dnscat2 download at 2 queries/s takes about 20 min
 OK=0
 FAILED=()
-SESSION_START="$(date +%s)"
 for i in "${!RUNS[@]}"; do
   read -r -a ARGS <<<"$(tool_args "${RUNS[$i]}")"
   say "run $((i + 1))/${#RUNS[@]}: ${ARGS[*]}"
@@ -260,4 +296,4 @@ for r in rows:
     print(f"  --capture data/raw/{r['file']}{'@' + str(ms) if ms else ''} \\")
 print(f"  --tools-map {iodine_ip}=iodine,{dnscat_ip}=dnscat2")
 PY
-[[ ${#FAILED[@]} -eq 0 ]]
+[[ ${#FAILED[@]} -eq 0 && $BENIGN_FAILED -eq 0 ]]

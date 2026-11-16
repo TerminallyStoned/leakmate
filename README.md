@@ -186,10 +186,13 @@ What to know when capturing or using captures, for any tool:
   ```
   `capture_matrix.sh` prints this command in full for the captures it just made.
 - **Benign capture.** The resolver container has no tcpdump. `capture_matrix.sh` captures at
-  the resolver from a helper container that shares its network; to do the same by hand:
+  the resolver from a helper container that shares its network. The resolver has two
+  interfaces (lab and upstream) and either can be `eth0`, so capture on the one that holds
+  its lab address, 172.28.0.2; the upstream side shows only the resolver's own forwarded
+  queries. To do the same by hand:
   ```bash
   docker run -d --name resolver-capture --network container:resolver --cap-add NET_ADMIN --cap-add NET_RAW \
-      --entrypoint tcpdump leakmate-iodine:latest -qi eth0 -w /tmp/resolver.pcap udp port 53
+      --entrypoint sh leakmate-iodine:latest -c 'exec tcpdump -U -qi "$(ip -o -4 addr show | sed -n "s/^[0-9]*: *\([^ ]*\) *inet 172\.28\.0\.2\/.*/\1/p")" -w /tmp/resolver.pcap "udp port 53 and host 172.28.0.2"'
   docker stop resolver-capture && docker cp resolver-capture:/tmp/resolver.pcap . && docker rm resolver-capture
   ```
 - **One run at a time.** Tool clients are live beacons, so a second run in the lab lands in
