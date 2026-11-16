@@ -114,6 +114,27 @@ the `python -m parser testbed` command for the captures it just made, with each 
 needs for these two tools. Checked on 15 Nov 2026: the quick matrix parsed into 2,931 rows
 (iodine 646, dnscat2 125, benign 2,160) and passed `python contracts.py`.
 
+The dns2tcp and DNSExfiltrator rows live in their own file, 19 runs that take about two
+hours:
+
+```bash
+testbed/capture_matrix.sh --matrix testbed/capture_matrix_dns2tcp_dnsexfiltrator.txt --benign-hosts 4 --benign-qps 15
+```
+
+For DNSExfiltrator, `--rate` is queries/second and `--delay` is the gap between queries in
+milliseconds (give one or the other); either one is written to `throttle`. Its encoding
+column takes `base32`, and base64 is the default. dns2tcp takes `--size` and `--rate`
+only. It sends in bursts, so a low `--rate` is slow in bytes but is not one query every N
+seconds, and its `throttle` stays 0.
+
+`--capture` runs tcpdump with `-U`, so every packet is written to the pcap as it arrives.
+Without it the last few queries of a short capture were still in tcpdump's buffer when it
+was stopped (7 of 11 queries kept in a test on 15 Nov 2026, 11 of 11 with `-U`).
+
+Checked on 16 Nov 2026: all 60 captures in `data/raw/manifest.csv` parsed into 315,743
+rows (benign 201,906, iodine 36,072, DNSExfiltrator 31,320, dns2tcp 25,867, dnscat2
+20,578) and passed `python contracts.py`.
+
 **The dnscat2 run is a scripted C2 session**, not a bulk copy. The `dnscat2-client`
 container beacons in as a command session and `run_tool.sh` plays the operator on the
 server console: `ping`, `download` of the `--size` file, then `exec id` and

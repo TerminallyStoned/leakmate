@@ -7,6 +7,7 @@
 #   testbed/capture_matrix.sh                       # the full matrix
 #   testbed/capture_matrix.sh --tools dnscat2       # one tool only
 #   testbed/capture_matrix.sh --matrix my_runs.txt  # your own rows (same columns)
+#   testbed/capture_matrix.sh --matrix testbed/capture_matrix_dns2tcp_dnsexfiltrator.txt
 #
 # Output, all under data/raw/ (not committed, apart from the manifest):
 #   tools/<tool>_<size>_<rate>_<encoding>_<utc>.pcap   one per run, taken on the tool client
@@ -24,7 +25,7 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 RAW="$REPO_ROOT/data/raw"
-TOOLS="iodine,dnscat2"
+TOOLS="" # empty = every row of the matrix
 BENIGN_HOSTS=2
 BENIGN_QPS=10
 DRY=0
@@ -36,6 +37,8 @@ DNSCAT_IP=172.28.0.31
 # Columns: tool size rate delay qtype encoding minutes   ("-" = leave at the tool default)
 #   iodine  rate = bytes/s; delay = ms between chunks and between idle polls (low-and-slow)
 #   dnscat2 rate = queries/s OR delay = ms between queries (not both)
+#   dnsexfiltrator  same as dnscat2; encoding = base32 or - (base64)
+#   dns2tcp rate = bytes/s only
 #   minutes = keep the tunnel and capture open at least this long after the transfer starts
 full_matrix() {
   cat <<'EOF'
@@ -86,7 +89,7 @@ EOF
 }
 
 usage() {
-  sed -n '2,21p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+  sed -n '2,22p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
   exit "${1:-0}"
 }
 
@@ -117,11 +120,11 @@ fi
 RUNS=()
 while read -r tool size rate delay qtype enc minutes _; do
   [[ -z "${tool:-}" || "$tool" == \#* ]] && continue
-  [[ ",$TOOLS," == *",$tool,"* ]] || continue
+  [[ -z "$TOOLS" || ",$TOOLS," == *",$tool,"* ]] || continue
   [[ -n "${minutes:-}" ]] || { echo "matrix row needs 7 columns: $tool $size ..." >&2; exit 2; }
   RUNS+=("$tool $size $rate $delay $qtype $enc $minutes")
 done <<<"$ROWS"
-((${#RUNS[@]} > 0)) || { echo "no runs selected (--tools $TOOLS)" >&2; exit 2; }
+((${#RUNS[@]} > 0)) || { echo "no runs selected (--tools ${TOOLS:-all})" >&2; exit 2; }
 
 # One matrix row -> the run_tool.sh arguments.
 tool_args() {
@@ -131,7 +134,12 @@ tool_args() {
   [[ "$rate" == "-" ]] || a+=(--rate "$rate")
   [[ "$delay" == "-" ]] || a+=(--delay "$delay")
   [[ "$qtype" == "-" ]] || a+=(--qtype "$qtype")
-  [[ "$enc" == "-" ]] || a+=(--encoding "$enc")
+  if [[ "$tool" == "dnsexfiltrator" ]]; then
+    # Its only encoding switch is --base32; base64 is the default.
+    [[ "$enc" == "base32" ]] && a+=(--base32)
+  elif [[ "$enc" != "-" ]]; then
+    a+=(--encoding "$enc")
+  fi
   [[ "$minutes" == "-" ]] || a+=(--minutes "$minutes")
   echo "${a[*]}"
 }

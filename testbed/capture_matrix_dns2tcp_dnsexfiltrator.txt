@@ -1,0 +1,26 @@
+# dns2tcp + DNSExfiltrator rows for testbed/capture_matrix.sh --matrix.
+# Columns: tool size rate delay qtype encoding minutes   ("-" = tool default)
+#
+# DNSExfiltrator, 3 sizes x 20 / 5 queries per second (base64), and 20 queries/s in base32
+dnsexfiltrator 65536 20 - - - -
+dnsexfiltrator 262144 20 - - - -
+dnsexfiltrator 1048576 20 - - - -
+dnsexfiltrator 65536 5 - - - -
+dnsexfiltrator 262144 5 - - - -
+dnsexfiltrator 1048576 5 - - - -
+dnsexfiltrator 65536 20 - - base32 -
+dnsexfiltrator 262144 20 - - base32 -
+dnsexfiltrator 1048576 20 - - base32 -
+# DNSExfiltrator low-and-slow: one query every 5 s / 10 s / 30 s
+dnsexfiltrator 16384 - 5000 - - -
+dnsexfiltrator 8192 - 10000 - base32 -
+dnsexfiltrator 4096 - 30000 - - -
+# dns2tcp, 3 sizes x 16384 / 2048 bytes per second (the tool has no encoding switch)
+dns2tcp 262144 16384 - - - -
+dns2tcp 1048576 16384 - - - -
+dns2tcp 4194304 16384 - - - -
+dns2tcp 262144 2048 - - - -
+dns2tcp 1048576 2048 - - - -
+# dns2tcp at a trickle: it sends in bursts, so this is slow in bytes, not one query per N s
+dns2tcp 16384 64 - - - -
+dns2tcp 8192 16 - - - -
