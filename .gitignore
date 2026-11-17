@@ -12,6 +12,7 @@ data/raw/*
 data/external/
 data/sample/
 data/processed/
+data/processed_nozone/
 models/weights/
 artifacts/
 checkpoints/

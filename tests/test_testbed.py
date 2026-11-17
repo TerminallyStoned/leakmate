@@ -4,7 +4,7 @@ import pytest
 from test_parser import _dns, _pcap, _query, _reply
 
 from eval.experiments import LOW_AND_SLOW_MS, get_split
-from parser import testbed
+from parser import mask, testbed
 
 SERVER, RESOLVER, UPSTREAM = "172.28.0.3", "172.28.0.2", "1.1.1.1"
 TOOLS = {"172.28.0.44": "dns2tcp", "172.28.0.43": "dnsexfiltrator", "172.28.0.45": "iodine", "172.28.0.46": "dnscat2"}
@@ -106,3 +106,11 @@ def test_runs_keep_their_own_source_file(tmp_path):
         _resolver_capture(p)
         caps.append((p, 0))
     assert set(testbed.build(caps, {}).source_file) == {"run_a/resolver.pcap", "run_b/resolver.pcap"}
+
+
+def test_mask_hides_the_lab_zone(tmp_path):
+    for name, sub in [("+KACsgK3BA.dns2tcp.tunnel.test", "+KACsgK3BA"), ("paaygw1y.i.tunnel.test", "paaygw1y"),
+                      ("a.b.exfil.tunnel.test", "a.b"), ("www.cloudflare.com", "www"), ("cloudflare.com", "")]:
+        assert mask.mask_domain(name) == f"{sub}.{mask.MASK}".lstrip(".")
+    masked = mask.mask_table(testbed.build(_captures(tmp_path), TOOLS))  # validates against the contract
+    assert masked.qname.str.endswith(mask.MASK).all() and not masked.qname.str.contains("tunnel").any()
