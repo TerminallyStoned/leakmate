@@ -71,3 +71,42 @@ def test_continued_pretraining_keeps_tokenizer(tmp_path):
                                                       batch_size=16, log_every=1000, device="cpu"))
     assert cont.tokenizer.get_vocab() == base.tokenizer.get_vocab()
     assert cont.cfg["tokenizer"] == "bpe" and cont.cfg["hidden"] == base.cfg["hidden"]
+
+
+def test_m2_run_main_writes_result_and_hostavg_per_model_folder(tmp_path):
+    import json
+
+    from models import m2_run
+    from scripts.make_synthetic_sample import make_sample
+
+    data = tmp_path / "q.parquet"
+    make_sample(600, seed=1).to_parquet(data)
+    m2_run.main(["--model", "iforest", "--exp", "E1", "--data", str(data), "--out", str(tmp_path / "res"),
+                 "--latency-n", "2", "--save-model", str(tmp_path / "if.joblib")])
+    base = json.loads((tmp_path / "res/iforest/E1.json").read_text())
+    avg = json.loads((tmp_path / "res/iforest_hostavg/E1.json").read_text())
+    assert base["model"] == "iforest" and avg["model"] == "iforest_hostavg"
+    assert base["threshold"] is not None and avg["threshold"] is not None
+    assert len(base["scores"]) == len(avg["scores"]) == base["n_test"] == len(base["session_ids"])
+    # reuse the saved model: no training, same test rows
+    m2_run.main(["--model", "iforest", "--exp", "E1", "--data", str(data), "--out", str(tmp_path / "res2"),
+                 "--latency-n", "2", "--load-model", str(tmp_path / "if.joblib")])
+    again = json.loads((tmp_path / "res2/iforest/E1.json").read_text())
+    np.testing.assert_allclose(again["scores"], base["scores"], rtol=1e-6)
+    assert again["train_time_s"] == 0.0
+
+
+def test_migrate_layout_moves_variants_into_model_folders(tmp_path):
+    import json
+
+    from scripts.m2_phase2 import migrate_layout
+
+    (tmp_path / "m2").mkdir()
+    for stem, model in [("E1", "m2"), ("E3_iodine_hostavg", "m2_hostavg"),
+                        ("E3_iodine_ablation1_char_hostavg", "m2_ablation1_char_hostavg")]:
+        (tmp_path / "m2" / f"{stem}.json").write_text(json.dumps({"model": model}))
+    migrate_layout(tmp_path)
+    assert (tmp_path / "m2/E1.json").exists()
+    assert (tmp_path / "m2_hostavg/E3_iodine.json").exists()
+    assert (tmp_path / "m2_ablation1_char_hostavg/E3_iodine.json").exists()
+    assert sorted(p.name for p in (tmp_path / "m2").iterdir()) == ["E1.json"]
