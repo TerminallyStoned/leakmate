@@ -77,10 +77,7 @@ def _val_split(df: pd.DataFrame, frac: float):
         # captures and each tool's captures were recorded on different days, so the last
         # rows overall were tunnel traffic only and the threshold had no benign scores
         # to be set on.
-        group = df["tool"] if "tool" in df.columns else df["label"]
-        rank = df.groupby(group)["ts"].rank(method="first")
-        size = df.groupby(group)["ts"].transform("size")
-        is_val = rank > (size * (1 - frac)).astype(int)
+        is_val = df.groupby("tool")["ts"].rank(method="first", pct=True) > 1 - frac
         tr, va = df[~is_val], df[is_val]
     return tr, va
 
@@ -124,7 +121,7 @@ def pick_threshold(y_val: np.ndarray, s_val: np.ndarray, target_fpr: float) -> f
 
 def train_model(build_net, arch: str, train_df: pd.DataFrame, cfg: dict) -> M3Model:
     """Supervised training with class weighting, early stopping on validation loss,
-    and a decision threshold set on validation benign traffic."""
+    and a decision threshold set on the validation slice (pick_threshold)."""
     cfg = {**DEFAULTS, **(cfg or {})}
     torch.manual_seed(cfg["seed"])
     rng = np.random.default_rng(cfg["seed"])
