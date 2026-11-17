@@ -2,7 +2,7 @@
 
 **Question.** Every testbed tunnel name ends in its tool's zone under `tunnel.test` (all 113,837 tunnel rows),
 and no benign name does (0 of 111,724). The lab is built that way on purpose, for containment
-(`testbed/attacker-ns/named.conf`). The catch is that any model reading the whole name can label a query from
+(`testbed/attacker-ns/named.conf`). So any model reading the whole name can label a query from
 its last labels alone. This ablation retrains on names with that zone hidden and checks how much of each
 testbed score survives.
 
@@ -13,8 +13,7 @@ only the last two labels would leave the tool label (`d`, `i`, `exfil`, `dns2tcp
 Example: `aGVsbG8.d.tunnel.test` -> `aGVsbG8.masked.domain`, `www.cloudflare.com` -> `www.masked.domain`.
 
 The rows, splits, labels and test sets are the same as in the original table; only the names change. Each
-model is trained twice with the same code (main at `7d8e97e`): once on the original table, once on the masked
-one.
+model is trained twice with the same code, once per table.
 
 ```bash
 python -m parser.mask
@@ -52,13 +51,12 @@ Recall and ROC-AUC are 1.0 in every run, on both tables. False positives out of 
 | Experiment 3, iodine held out | 311 | 5 |
 
 ## What it shows
-- **The suffix explains M3's perfect Experiment 3 results.** With the zone hidden, M3 misses a held-out
-  dns2tcp entirely and catches only about 75% of a held-out iodine. The CNN catches about a third of dnscat2
-  and half of DNSExfiltrator. The suffix explanation in `docs/m3.md` is now measured, not just likely.
+- **The suffix explains M3's perfect Experiment 3 results.** With the zone hidden, recall on the held-out tool
+  falls from 1.0 to between 0.000 and 0.945, depending on the tool and model.
 - **M3's Experiment 1 result is real.** When a tool is in training, its encoded subdomains alone are enough
   (recall at least 0.998, at most 6 false positives).
-- **M3's scores still rank well; its threshold is what fails on a new tool.** For dnscat2 and DNSExfiltrator,
-  ROC-AUC stays at 0.995 or above while recall at the validation threshold drops. The threshold is picked on
+- **For dnscat2 and DNSExfiltrator, M3 still ranks well; its threshold is what fails.** ROC-AUC stays at 0.995
+  or above while recall at the validation threshold drops. The threshold is picked on
   validation rows from the training tools, so it is too strict for a tool the model has not seen. Recall at 1%
   FPR shows what a better-placed threshold could recover. Experiment 4 shows the same gap (`docs/m3.md`).
 - **The BiLSTM generalises better than the CNN** on every held-out tool.
@@ -75,8 +73,10 @@ Recall and ROC-AUC are 1.0 in every run, on both tables. False positives out of 
 - Experiment 4 (cross-dataset) remains the strongest test of generalisation for every model.
 
 ## Limits
-- Not rerun masked: Experiment 5 (low-and-slow) for M3, and M2 (DNS-BERT + Isolation Forest), which also reads
-  the name. M3's original Experiment 5 result (all 457 slow tunnels caught) carries the same suffix and should
-  not be quoted as evidence about slowness.
+- Not rerun masked: Experiment 5 (low-and-slow) for M3. M3's original Experiment 5 result (all 457 slow tunnels
+  caught) carries the same suffix and should not be quoted as evidence about slowness.
+- M2 (DNS-BERT + Isolation Forest) also reads the name. Its masked Experiment 1 + 3 runs are set up in the team
+  Colab notebook but have no results yet.
 - One seed per run. GPU training is not bit-for-bit repeatable (`docs/m3.md`).
-- Result JSONs are not committed; they are in `nz.zip` in the team's shared data folder.
+- Result JSONs are not committed. M3's come from one Colab run (`nz.zip`); M1 reruns in minutes with the
+  commands above.
