@@ -46,3 +46,28 @@ def test_iforest_trains_on_benign_only(tmp_path):
     assert s[10:].min() > s[:10].max()
     iforest_baseline.save(m, tmp_path / "if.joblib")
     assert iforest_baseline.load(tmp_path / "if.joblib")["cols"] == m["cols"]
+
+
+def test_hold_out_benign_takes_latest_rows_of_every_capture():
+    from models.m2_run import hold_out_benign
+    df = pd.DataFrame({"ts": list(range(20)) * 2, "label": [0] * 40,
+                       "source_file": ["a.pcap"] * 20 + ["b.pcap"] * 20})
+    train, val = hold_out_benign(df, 0.1)
+    assert sorted(val["source_file"].value_counts().to_dict().items()) == [("a.pcap", 2), ("b.pcap", 2)]
+    assert set(val["ts"]) == {18, 19} and not set(val.index) & set(train.index)
+
+
+def test_host_average_is_past_only_and_per_host():
+    from models.m2_run import host_average
+    df = pd.DataFrame({"ts": [0.0, 10.0, 20.0, 100.0, 5.0], "src_host": ["h1", "h1", "h1", "h1", "h2"]})
+    avg = host_average(df, [1.0, 3.0, 5.0, 7.0, 100.0], window_s=15)
+    np.testing.assert_allclose(avg, [1.0, 2.0, 4.0, 7.0, 100.0])  # h2 never mixes into h1
+
+
+def test_continued_pretraining_keeps_tokenizer(tmp_path):
+    base = _tiny("bpe")
+    m2_dnsbert.save(base, tmp_path / "base")
+    cont = m2_dnsbert.train(_df(BENIGN[:50], 0), dict(init_from=str(tmp_path / "base"), max_steps=5,
+                                                      batch_size=16, log_every=1000, device="cpu"))
+    assert cont.tokenizer.get_vocab() == base.tokenizer.get_vocab()
+    assert cont.cfg["tokenizer"] == "bpe" and cont.cfg["hidden"] == base.cfg["hidden"]
