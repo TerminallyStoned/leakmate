@@ -19,6 +19,7 @@ Every run also writes <run>_hostavg.json (per-host averaging).
 With --skip-existing, runs whose results (and saved model) exist are skipped, so after a
 Colab disconnect the same command picks up where it stopped.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -43,7 +44,8 @@ def run(args: list[str], skip_if: list[Path] | None = None) -> None:
 
 
 def build_testbed(raw: Path, manifest: Path) -> None:
-    rows = list(csv.DictReader(open(manifest, encoding="utf-8")))
+    with open(manifest, encoding="utf-8") as f:
+        rows = list(csv.DictReader(f))
     caps, tools = [], {}
     for r in rows:
         if any(x in r["file"] for x in EXCLUDE):
@@ -70,14 +72,20 @@ def main(argv=None):
     ap.add_argument("--batch-size", type=int, default=512)
     ap.add_argument("--weights", default="models/weights", help="where the trained models are saved")
     ap.add_argument("--out", default="results", help="results folder (writes <out>/m2/...)")
-    ap.add_argument("--with-e2", action="store_true",
-                    help="also rerun Experiment 2 (CIC) with the per-capture threshold hold-out (needs --tranco)")
+    ap.add_argument(
+        "--with-e2",
+        action="store_true",
+        help="also rerun Experiment 2 (CIC) with the per-capture threshold hold-out (needs --tranco)",
+    )
     ap.add_argument("--only-e2", action="store_true", help="run only Experiment 2 (implies --with-e2)")
     ap.add_argument("--tranco", default="data/external/tranco.csv", help="Tranco CSV for Experiment 2")
     ap.add_argument("--tranco-n", type=int, default=200_000)
     ap.add_argument("--e2-epochs", type=int, default=3, help="Experiment 2 training epochs (Phase 1 used 3)")
-    ap.add_argument("--skip-existing", action="store_true",
-                    help="skip runs whose results (and saved model) already exist, e.g. after a Colab disconnect")
+    ap.add_argument(
+        "--skip-existing",
+        action="store_true",
+        help="skip runs whose results (and saved model) already exist, e.g. after a Colab disconnect",
+    )
     ap.add_argument("--extra", default="", help="extra arguments for every run (tests: '--dataset synthetic')")
     a = ap.parse_args(argv)
 
@@ -97,28 +105,86 @@ def main(argv=None):
         if a.with_e2 or a.only_e2:
             e2_tag = "" if tok == "bpe" else "ablation1_char"
             cic_model = f"{a.weights}/m2_{tok}_cic"
-            run(["-m", "models.m2_run", "--model", "m2", "--exp", "E2", "--tokenizer", tok,
-                 "--batch-size", str(a.batch_size), "--out", a.out, "--epochs", str(a.e2_epochs),
-                 "--tranco", a.tranco, "--tranco-n", str(a.tranco_n), "--save-model", cic_model,
-                 *(["--tag", e2_tag] if e2_tag else []), *extra],
-                done("E2", e2_tag, cic_model))
+            run(
+                [
+                    "-m",
+                    "models.m2_run",
+                    "--model",
+                    "m2",
+                    "--exp",
+                    "E2",
+                    "--tokenizer",
+                    tok,
+                    "--batch-size",
+                    str(a.batch_size),
+                    "--out",
+                    a.out,
+                    "--epochs",
+                    str(a.e2_epochs),
+                    "--tranco",
+                    a.tranco,
+                    "--tranco-n",
+                    str(a.tranco_n),
+                    "--save-model",
+                    cic_model,
+                    *(["--tag", e2_tag] if e2_tag else []),
+                    *extra,
+                ],
+                done("E2", e2_tag, cic_model),
+            )
             if a.only_e2:
                 continue
         tag_name = "" if tok == "bpe" else "ablation1_char"
         tag = ["--tag", tag_name] if tag_name else []
         testbed_model = f"{a.weights}/m2_{tok}_testbed"
         scratch_model = f"{a.weights}/m2_{tok}_testbed_scratch"
-        common = ["-m", "models.m2_run", "--model", "m2", "--batch-size", str(a.batch_size), "--out", a.out,
-                  *tag, *extra]
-        run([*common, "--exp", "E1", "--init-from", phase1, "--lr", str(a.continue_lr),
-             "--epochs", str(a.continue_epochs), "--save-model", testbed_model],
-            done("E1", tag_name, testbed_model))
+        common = [
+            "-m",
+            "models.m2_run",
+            "--model",
+            "m2",
+            "--batch-size",
+            str(a.batch_size),
+            "--out",
+            a.out,
+            *tag,
+            *extra,
+        ]
+        run(
+            [
+                *common,
+                "--exp",
+                "E1",
+                "--init-from",
+                phase1,
+                "--lr",
+                str(a.continue_lr),
+                "--epochs",
+                str(a.continue_epochs),
+                "--save-model",
+                testbed_model,
+            ],
+            done("E1", tag_name, testbed_model),
+        )
         for tool in TOOLS:
-            run([*common, "--exp", "E3", "--holdout", tool, "--load-model", testbed_model],
-                done(f"E3_{tool}", tag_name))
+            run(
+                [*common, "--exp", "E3", "--holdout", tool, "--load-model", testbed_model], done(f"E3_{tool}", tag_name)
+            )
         run([*common, "--exp", "E4_cic2testbed", "--load-model", phase1], done("E4_cic2testbed", tag_name))
-        run([*common, "--exp", "E4_testbed2cic", "--tokenizer", tok, "--epochs", str(a.scratch_epochs),
-             "--save-model", scratch_model], done("E4_testbed2cic", tag_name, scratch_model))
+        run(
+            [
+                *common,
+                "--exp",
+                "E4_testbed2cic",
+                "--tokenizer",
+                tok,
+                "--epochs",
+                str(a.scratch_epochs),
+                "--save-model",
+                scratch_model,
+            ],
+            done("E4_testbed2cic", tag_name, scratch_model),
+        )
     run(["contracts.py", *sorted(str(p) for p in out_m2.glob("E[1234]*.json"))])
 
 
