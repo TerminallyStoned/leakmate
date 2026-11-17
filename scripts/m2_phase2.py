@@ -13,6 +13,8 @@ What each run does (one tokenizer at a time; character runs carry the tag ablati
   E4_cic2testbed  the Phase 1 model (CIC benign + Tranco, never saw the testbed) scores testbed test
   E4_testbed2cic  a new model trained from scratch on testbed benign only (no Tranco, which overlaps
                   CIC's scripted top-site lookups) scores CIC test
+  E2 (--with-e2)  Experiment 2 again (CIC benchmark): a new model trained on CIC benign + Tranco with the
+                  per-capture threshold hold-out, replacing the Phase 1 E2 files (same threshold rule as E1-E4)
 Every run also writes <run>_hostavg.json (per-host averaging).
 With --skip-existing, runs whose results (and saved model) exist are skipped, so after a
 Colab disconnect the same command picks up where it stopped.
@@ -68,6 +70,12 @@ def main(argv=None):
     ap.add_argument("--batch-size", type=int, default=512)
     ap.add_argument("--weights", default="models/weights", help="where the trained models are saved")
     ap.add_argument("--out", default="results", help="results folder (writes <out>/m2/...)")
+    ap.add_argument("--with-e2", action="store_true",
+                    help="also rerun Experiment 2 (CIC) with the per-capture threshold hold-out (needs --tranco)")
+    ap.add_argument("--only-e2", action="store_true", help="run only Experiment 2 (implies --with-e2)")
+    ap.add_argument("--tranco", default="data/external/tranco.csv", help="Tranco CSV for Experiment 2")
+    ap.add_argument("--tranco-n", type=int, default=200_000)
+    ap.add_argument("--e2-epochs", type=int, default=3, help="Experiment 2 training epochs (Phase 1 used 3)")
     ap.add_argument("--skip-existing", action="store_true",
                     help="skip runs whose results (and saved model) already exist, e.g. after a Colab disconnect")
     ap.add_argument("--extra", default="", help="extra arguments for every run (tests: '--dataset synthetic')")
@@ -86,6 +94,16 @@ def main(argv=None):
 
     for tok in a.tokenizers:
         phase1 = a.phase1_bpe if tok == "bpe" else a.phase1_char
+        if a.with_e2 or a.only_e2:
+            e2_tag = "" if tok == "bpe" else "ablation1_char"
+            cic_model = f"{a.weights}/m2_{tok}_cic"
+            run(["-m", "models.m2_run", "--model", "m2", "--exp", "E2", "--tokenizer", tok,
+                 "--batch-size", str(a.batch_size), "--out", a.out, "--epochs", str(a.e2_epochs),
+                 "--tranco", a.tranco, "--tranco-n", str(a.tranco_n), "--save-model", cic_model,
+                 *(["--tag", e2_tag] if e2_tag else []), *extra],
+                done("E2", e2_tag, cic_model))
+            if a.only_e2:
+                continue
         tag_name = "" if tok == "bpe" else "ablation1_char"
         tag = ["--tag", tag_name] if tag_name else []
         testbed_model = f"{a.weights}/m2_{tok}_testbed"
@@ -101,7 +119,7 @@ def main(argv=None):
         run([*common, "--exp", "E4_cic2testbed", "--load-model", phase1], done("E4_cic2testbed", tag_name))
         run([*common, "--exp", "E4_testbed2cic", "--tokenizer", tok, "--epochs", str(a.scratch_epochs),
              "--save-model", scratch_model], done("E4_testbed2cic", tag_name, scratch_model))
-    run(["contracts.py", *sorted(str(p) for p in out_m2.glob("E[134]*.json"))])
+    run(["contracts.py", *sorted(str(p) for p in out_m2.glob("E[1234]*.json"))])
 
 
 if __name__ == "__main__":
