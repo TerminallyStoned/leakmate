@@ -110,3 +110,13 @@ def test_migrate_layout_moves_variants_into_model_folders(tmp_path):
     assert (tmp_path / "m2_hostavg/E3_iodine.json").exists()
     assert (tmp_path / "m2_ablation1_char_hostavg/E3_iodine.json").exists()
     assert sorted(p.name for p in (tmp_path / "m2").iterdir()) == ["E1.json"]
+
+
+def test_val_threshold_is_tie_aware():
+    from models.m2_run import val_threshold
+
+    # 2% of held-out benign share the 99th-percentile score (a repeated name)
+    val = np.concatenate([np.linspace(0, 1, 980), np.full(20, 1.5)])
+    t = val_threshold(val, 0.01)
+    assert (val >= t).mean() <= 0.01  # a plain np.quantile(val, 0.99) would flag all 20 tied rows (2%)
+    assert (np.quantile(val, 0.99) <= val).mean() > 0.01

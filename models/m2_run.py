@@ -39,6 +39,7 @@ try:
     import pandas as pd
 
     from eval.experiments import EXP_HELP, get_split
+    from eval.metrics import threshold_at_fpr
     from models import iforest_baseline, m1_features, m2_dnsbert
 except ModuleNotFoundError as e:
     raise SystemExit(
@@ -86,6 +87,14 @@ def hold_out_benign(train_df: pd.DataFrame, val_frac: float):
             val_idx.extend(g.index[-n_val:])
     val = benign.loc[val_idx]
     return train_df.drop(index=val.index), val
+
+
+def val_threshold(val_scores, fpr: float) -> float:
+    """Lowest threshold that flags at most `fpr` of the held-out benign rows, counting score >= threshold
+    as an alert (eval.metrics.threshold_at_fpr, the eval module's own rule). Tie-aware: benign names that
+    repeat share one score, and a plain quantile can land on such a tie and flag all of them."""
+    v = np.asarray(val_scores, dtype=float)
+    return threshold_at_fpr(np.zeros(len(v)), v, fpr)
 
 
 def host_average(df: pd.DataFrame, scores, window_s: float) -> np.ndarray:
@@ -233,7 +242,7 @@ def main(argv=None):
     score_s = time.time() - t0
     lat = latency_ms(mod, model, test_df, a.latency_n)
     val_scores = mod.score(model, val_df) if len(val_df) else np.array([])
-    threshold = float(np.quantile(val_scores, 1 - a.fpr)) if len(val_df) else None
+    threshold = val_threshold(val_scores, a.fpr) if len(val_df) else None
 
     used_cfg = model.cfg if hasattr(model, "cfg") else model["cfg"]
     used_cfg = {k: v for k, v in used_cfg.items() if k != "extra_benign"}
@@ -264,7 +273,10 @@ def main(argv=None):
     meaning = (
         "pseudo-log-perplexity (mean masked-token NLL)" if a.model == "m2" else "negative IsolationForest score_samples"
     )
-    src = f"validation: latest {a.val_frac:.0%} of each capture's benign train rows, {1 - a.fpr:.0%} quantile"
+    src = (
+        f"validation: latest {a.val_frac:.0%} of each capture's benign train rows, "
+        f"eval.metrics.threshold_at_fpr at {a.fpr:.0%} FPR"
+    )
     runs = [("", scores, threshold, meaning, extra)]
     if a.host_window > 0:
         hs = host_average(test_df, scores, a.host_window)
@@ -273,7 +285,7 @@ def main(argv=None):
             (
                 "_hostavg",
                 hs,
-                float(np.quantile(hv, 1 - a.fpr)) if len(hv) else None,
+                val_threshold(hv, a.fpr) if len(hv) else None,
                 f"{meaning}, mean over the same host's past {a.host_window:g} s",
                 {},
             )
