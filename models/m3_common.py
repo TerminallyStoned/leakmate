@@ -33,7 +33,7 @@ DEFAULTS = {
     "weight_decay": 1e-4,
     "val_frac": 0.1,  # last 10% of training sessions (by time) for early stopping + threshold
     "patience": 2,
-    "target_fpr": 0.01,  # threshold chosen on validation benign traffic
+    "target_fpr": 0.01,  # see pick_threshold: chosen on validation data
     "seed": 0,
 }
 
@@ -72,10 +72,16 @@ def _val_split(df: pd.DataFrame, frac: float):
     is_val = df["session_id"].isin(val_ids)
     tr, va = df[~is_val], df[is_val]
     if va["label"].nunique() < 2 or tr["label"].nunique() < 2:
-        # Too few sessions per class: fall back to the last rows by time.
-        df = df.sort_values("ts")
-        cut = int(len(df) * (1 - frac))
-        tr, va = df.iloc[:cut], df.iloc[cut:]
+        # The latest sessions are all one class: fall back to the last rows by time,
+        # taken separately for benign and for each tool. On the testbed the benign
+        # captures and each tool's captures were recorded on different days, so the last
+        # rows overall were tunnel traffic only and the threshold had no benign scores
+        # to be set on.
+        group = df["tool"] if "tool" in df.columns else df["label"]
+        rank = df.groupby(group)["ts"].rank(method="first")
+        size = df.groupby(group)["ts"].transform("size")
+        is_val = rank > (size * (1 - frac)).astype(int)
+        tr, va = df[~is_val], df[is_val]
     return tr, va
 
 
@@ -94,6 +100,26 @@ def _predict(net: nn.Module, x: np.ndarray, bs: int = 2048) -> np.ndarray:
     dev = next(net.parameters()).device
     out = [torch.sigmoid(net(xb.to(dev))).cpu().numpy() for xb, _ in _batches(x, None, bs, shuffle=False)]
     return np.concatenate(out) if out else np.zeros(0)
+
+
+def pick_threshold(y_val: np.ndarray, s_val: np.ndarray, target_fpr: float) -> float:
+    """Decision threshold chosen on VALIDATION data only (never the test set).
+
+    lo = lowest threshold that keeps validation benign false positives <= target_fpr
+    hi = score that still catches 99% of validation tunnel queries
+    When the two classes are well separated (hi > lo), any threshold in between gives the
+    same validation result, so take the middle of the gap. Sitting at `lo`, right on top of
+    the benign scores, flagged about 9% of later benign traffic on CIC (E2) even though
+    ROC-AUC was 1.0. If the classes overlap (hi <= lo), keep `lo`, which honours target_fpr.
+    """
+    y_val = np.asarray(y_val)
+    s_val = np.asarray(s_val, dtype=float)
+    lo = threshold_at_fpr(y_val, s_val, target_fpr)
+    tunnel = s_val[y_val == 1]
+    if tunnel.size == 0:
+        return lo
+    hi = float(np.quantile(tunnel, 0.01))
+    return (lo + hi) / 2 if hi > lo else lo
 
 
 def train_model(build_net, arch: str, train_df: pd.DataFrame, cfg: dict) -> M3Model:
@@ -145,7 +171,7 @@ def train_model(build_net, arch: str, train_df: pd.DataFrame, cfg: dict) -> M3Mo
     if best_state is not None:
         net.load_state_dict(best_state)
 
-    threshold = threshold_at_fpr(yva, _predict(net, xva), cfg["target_fpr"])
+    threshold = pick_threshold(yva, _predict(net, xva), cfg["target_fpr"])
     return M3Model(net=net, arch=arch, cfg=cfg, threshold=threshold, history=history)
 
 
