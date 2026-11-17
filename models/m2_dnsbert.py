@@ -51,6 +51,7 @@ DEFAULT_CFG = {
     "warmup_ratio": 0.05,
     "weight_decay": 0.01,
     "seed": 42,
+    "init_from": None,         # continued pre-training: path of a saved model (e.g. <ckpt>/last)
     "ckpt_dir": None,          # e.g. /content/drive/MyDrive/leakmate/m2_ckpt (Colab)
     "ckpt_every": 1000,        # steps
     "score_batch_rows": 4096,  # masked copies per forward pass when scoring
@@ -140,6 +141,14 @@ def train(train_df: pd.DataFrame, cfg: dict | None = None) -> M2Model:
         tok, model = m.tokenizer, m.model
         state = torch.load(ckpt / "last" / "trainer_state.pt", map_location=dev, weights_only=False)
         print(f"[m2] resuming from {ckpt/'last'} at step {state['step']}")
+    elif cfg.get("init_from"):
+        # continued pre-training (Phase 2): start from a trained model and keep its tokenizer,
+        # so the vocabulary and architecture stay those of the starting model
+        m = load(cfg["init_from"], device=str(dev))
+        tok, model = m.tokenizer, m.model
+        for k in ["tokenizer", "vocab_size", "max_len", "num_layers", "hidden", "heads", "intermediate"]:
+            cfg[k] = m.cfg[k]
+        print(f"[m2] continuing pre-training from {cfg['init_from']}")
     else:
         tok = build_tokenizer(names, cfg["tokenizer"], cfg["vocab_size"], cfg["max_len"])
         bcfg = BertConfig(vocab_size=len(tok), hidden_size=cfg["hidden"], num_hidden_layers=cfg["num_layers"],
