@@ -21,6 +21,8 @@ Every run also writes the per-host-averaged variant. Results: <out>/<model>/<run
 m2/E3_iodine.json, m2_hostavg/E3_iodine.json, m2_ablation1_char/E3_iodine.json.
 --skip-existing skips runs whose results (and saved model) exist, so after a Colab disconnect the
 same command picks up where it stopped; --rerun NAME forces those runs again.
+--rescore re-scores every M2 run with the models already saved in --weights (no training), e.g. after
+a change to the threshold rule; each result keeps the training time of the run that trained its model.
 """
 
 from __future__ import annotations
@@ -87,6 +89,43 @@ def migrate_layout(out: Path) -> None:
             print(f"moved {f} -> {dest}")
 
 
+def rescore(a, out: Path, extra: list[str]) -> None:
+    """Re-score every M2 run with its saved model (no training); keep each run's recorded training time."""
+    for tok in a.tokenizers:
+        model = "m2" if tok == "bpe" else "m2_ablation1_char"
+        tag = [] if tok == "bpe" else ["--tag", "ablation1_char"]
+        w = {k: f"{a.weights}/m2_{tok}_{k}" for k in ("cic", "testbed", "testbed_scratch")}
+        runs = [("E2", ["--exp", "E2"], w["cic"]), ("E1", ["--exp", "E1"], w["testbed"])]
+        runs += [(f"E3_{t}", ["--exp", "E3", "--holdout", t], w["testbed"]) for t in TOOLS]
+        runs += [("E4_cic2testbed", ["--exp", "E4_cic2testbed"], w["cic"])]
+        runs += [("E4_testbed2cic", ["--exp", "E4_testbed2cic"], w["testbed_scratch"])]
+        for name, exp, saved in runs:
+            if not (Path(saved) / "m2_config.json").exists():
+                raise SystemExit(f"{saved}: saved model not found; run the normal Phase 2 command first")
+            old = out / model / f"{name}.json"
+            keep = ["--train-time-s", str(json.loads(old.read_text())["train_time_s"])] if old.exists() else []
+            run(
+                [
+                    "-m",
+                    "models.m2_run",
+                    "--model",
+                    "m2",
+                    "--tokenizer",
+                    tok,
+                    "--batch-size",
+                    str(a.batch_size),
+                    "--out",
+                    a.out,
+                    *tag,
+                    *exp,
+                    "--load-model",
+                    saved,
+                    *keep,
+                    *extra,
+                ]
+            )
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--phase1-bpe", help="Phase 1 BPE model folder (e.g. <ckpt_bpe_v2>/last)")
@@ -113,10 +152,13 @@ def main(argv=None):
     )
     ap.add_argument("--rerun", nargs="*", default=[], help="run names to redo even with --skip-existing")
     ap.add_argument("--migrate-layout", action="store_true", help="move old <run>_<variant>.json results first")
+    ap.add_argument(
+        "--rescore", action="store_true", help="M2: re-score all runs with the saved models in --weights (no training)"
+    )
     ap.add_argument("--extra", default="", help="extra arguments for every run (tests: '--dataset synthetic')")
     a = ap.parse_args(argv)
-    if not a.iforest_only and not (a.phase1_bpe and a.phase1_char):
-        ap.error("--phase1-bpe and --phase1-char are required unless --iforest-only")
+    if not (a.iforest_only or a.rescore) and not (a.phase1_bpe and a.phase1_char):
+        ap.error("--phase1-bpe and --phase1-char are required unless --iforest-only or --rescore")
 
     out, extra = Path(a.out), a.extra.split()
     if a.migrate_layout:
@@ -129,7 +171,9 @@ def main(argv=None):
             return None
         return [out / model / f"{name}.json"] + ([Path(saved) / "m2_config.json"] if saved else [])
 
-    if not a.iforest_only:
+    if a.rescore:
+        rescore(a, out, extra)
+    elif not a.iforest_only:
         for tok in a.tokenizers:
             model = "m2" if tok == "bpe" else "m2_ablation1_char"
             tag = [] if tok == "bpe" else ["--tag", "ablation1_char"]

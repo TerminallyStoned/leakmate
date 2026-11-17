@@ -160,6 +160,11 @@ def main(argv=None):
         "models: Experiment 3 reuses the Experiment 1 model)",
     )
     ap.add_argument("--init-from", help="M2: continue pre-training from this saved model (e.g. <ckpt>/last)")
+    ap.add_argument(
+        "--train-time-s",
+        type=float,
+        help="with --load-model: training time to record (rescoring a model trained in an earlier run)",
+    )
     ap.add_argument("--tranco", help="Tranco CSV for extra benign names (M2 only)")
     ap.add_argument("--tranco-n", type=int, default=200_000)
     ap.add_argument("--tokenizer", choices=["bpe", "char"], default="bpe")
@@ -222,7 +227,8 @@ def main(argv=None):
                 f"--load-model {a.load_model} uses the {model.cfg.get('tokenizer')!r} tokenizer, "
                 f"but --tokenizer is {a.tokenizer!r}; pass the matching --tokenizer"
             )
-        train_s = 0.0  # reused; its training time is in the run that trained it
+        # reused: its training time is in the run that trained it, unless a rescore passes it on
+        train_s = a.train_time_s if a.train_time_s is not None else 0.0
     else:
         model = mod.train(train_df, cfg)
         train_s = time.time() - t0
