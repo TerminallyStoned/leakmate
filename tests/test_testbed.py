@@ -1,9 +1,9 @@
-"""parser/testbed.py on hand-built lab captures: four tools, a slow run, and benign at the resolver."""
+"""parser/testbed.py on hand-built lab captures: four tools, a paced and a slow run, benign at the resolver."""
 
 import pytest
 from test_parser import _dns, _pcap, _query, _reply
 
-from eval.experiments import get_split
+from eval.experiments import LOW_AND_SLOW_MS, get_split
 from parser import testbed
 
 SERVER, RESOLVER, UPSTREAM = "172.28.0.3", "172.28.0.2", "1.1.1.1"
@@ -47,12 +47,14 @@ def _captures(tmp_path):
         p.parent.mkdir(exist_ok=True)
         _tool_capture(p, ip, t0=k * 100.0, torn=tool == "dns2tcp")
         caps.append((p, 0))
-    slow = tmp_path / "tools" / "dnsexfiltrator_slow.pcap"
+    slow = tmp_path / "tools" / "dnsexfiltrator_slow.pcap"  # low-and-slow: one query every 5 s
     _tool_capture(slow, "172.28.0.43", t0=500.0)
+    paced = tmp_path / "tools" / "dnscat2_paced.pcap"  # an ordinary run that still has a throttle
+    _tool_capture(paced, "172.28.0.46", t0=600.0)
     res = tmp_path / "benign" / "resolver.pcap"
     res.parent.mkdir()
     _resolver_capture(res)
-    return [*caps, (slow, 200), (res, 0)]
+    return [*caps, (slow, LOW_AND_SLOW_MS), (paced, 200), (res, 0)]
 
 
 def test_testbed_table(tmp_path):
@@ -60,12 +62,13 @@ def test_testbed_table(tmp_path):
     assert df.groupby("tool").size().to_dict() == {
         "benign": 10,  # resolver's forwarded copies dropped
         "dns2tcp": 10,  # retransmission dropped, torn last record ignored
-        "dnscat2": 10,
+        "dnscat2": 20,
         "dnsexfiltrator": 20,
         "iodine": 10,
     }
-    assert df[df.throttle > 0].source_file.str.endswith("/dnsexfiltrator_slow.pcap").all()
-    assert (df[df.source_file.str.endswith("_slow.pcap") & (df.label == 1)].throttle == 200).all()
+    assert set(df[df.throttle > 0].source_file) == {"tools/dnsexfiltrator_slow.pcap", "tools/dnscat2_paced.pcap"}
+    assert (df[df.source_file.str.endswith("_slow.pcap") & (df.label == 1)].throttle == LOW_AND_SLOW_MS).all()
+    assert (df[df.source_file.str.endswith("_paced.pcap") & (df.label == 1)].throttle == 200).all()
     assert (df[df.tool == "benign"].throttle == 0).all() and (df.resp_size > 0).all() and (df.rcode == 0).all()
 
 
@@ -81,7 +84,10 @@ def test_experiment_splits(tmp_path):
         tr, te, *_ = get_split("E3", root, holdout_tool=tool)
         assert tool not in set(tr.tool) and tool in set(te.tool)
     tr, te, *_ = get_split("E5", root)
-    assert (tr.throttle == 0).all() and (te.throttle > 0).any()
+    assert set(tr.throttle) == {0, 200}  # ordinary runs train, the paced dnscat2 run included
+    assert set(tr.tool) == {"benign", *TOOLS.values()}  # so no tool is missing from training
+    assert set(te[te.label == 1].source_file) == {"tools/dnsexfiltrator_slow.pcap"}  # only the slow run is tested
+    assert (te[te.label == 1].throttle >= LOW_AND_SLOW_MS).all() and (te.label == 0).any()  # with benign alongside
 
 
 def test_capture_behind_resolver_fails_loudly(tmp_path):

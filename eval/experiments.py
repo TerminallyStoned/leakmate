@@ -15,6 +15,11 @@ import pandas as pd
 DATA_ROOT = Path("data/processed")
 SYNTHETIC = Path("data/sample/synthetic_queries.parquet")  # scripts/make_synthetic_sample.py
 TRAIN_FRAC = 0.7
+# Experiment 5 (low-and-slow): a tunnel run is "slow" when its configured delay between
+# queries (the `throttle` column, ms) is at least this. The capture runs use 0-500 ms for
+# ordinary runs (dnscat2 and DNSExfiltrator always pace their queries) and 5,000-30,000 ms,
+# one query every 5-30 s, for the low-and-slow runs.
+LOW_AND_SLOW_MS = 5000
 
 # What people read. Code, file names and the contract keep the short IDs.
 NAMES = {
@@ -85,7 +90,7 @@ def get_split(exp: str, root: Path = DATA_ROOT, holdout_tool: str | None = None,
       E1  within-testbed                    E2  CIC benchmark
       E3  leave-one-tool-out (holdout_tool; file E3_<tool>)
       E4_cic2testbed / E4_testbed2cic       (experiment E4)
-      E5  low-and-slow: train on throttle == 0 tunnels, test on throttle > 0
+      E5  low-and-slow: train on tunnels with throttle < LOW_AND_SLOW_MS, test on the rest
       S   shuffled-row split (compare with E1, or E2 when dataset="cic")
 
     dataset="synthetic" runs any experiment on the 1,000-row contract sample (tests only).
@@ -115,9 +120,11 @@ def get_split(exp: str, root: Path = DATA_ROOT, holdout_tool: str | None = None,
         return tr, te, "E4", exp, f"train={src};test={dst}"
     if exp == "E5":
         tr, te, desc = default_split(load_queries(ds("testbed"), root))
-        tr = tr[(tr["label"] == 0) | (tr["throttle"] == 0)]
-        te = te[(te["label"] == 0) | (te["throttle"] > 0)]
-        return tr, te, "E5", "E5", f"{desc};train throttle==0;test throttle>0"
+        # Ordinary runs of every tool stay in training, whatever their pacing; only the
+        # low-and-slow runs are held out, so the test measures slowness, not an unseen tool.
+        tr = tr[(tr["label"] == 0) | (tr["throttle"] < LOW_AND_SLOW_MS)]
+        te = te[(te["label"] == 0) | (te["throttle"] >= LOW_AND_SLOW_MS)]
+        return tr, te, "E5", "E5", f"{desc};train throttle<{LOW_AND_SLOW_MS}ms;test throttle>={LOW_AND_SLOW_MS}ms"
     if exp in ("S", "S_shuffled"):
         tr, te, desc = shuffled_split(load_queries(dataset, root))
         return tr, te, "S", "S", desc
