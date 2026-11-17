@@ -22,7 +22,7 @@ DNS traffic behind a dashboard.
 |---|---|---|---|---|
 | **M1** | XGBoost on per-query + per-host features, SHAP explanations | supervised | Random Forest | ✅ Phase 1 code ([`docs/m1.md`](docs/m1.md)) |
 | **M2** | DNS-BERT: small BERT trained only on benign names; flags high pseudo-perplexity | benign-only | Isolation Forest | ✅ Phase 1 done |
-| **M3** | Character-level CNN on the raw query name | supervised | BiLSTM | code in `models/m3_*.py`, no results yet |
+| **M3** | Character-level CNN on the raw query name | supervised | BiLSTM | ✅ Experiments 1–5 run ([`docs/m3.md`](docs/m3.md)) |
 
 Selection rule: best F1 with false-positive rate < 1% and latency < 10 ms per query.
 
