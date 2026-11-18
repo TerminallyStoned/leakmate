@@ -21,7 +21,7 @@ DNS traffic behind a dashboard.
 ## Models
 | | Model | Supervision | Baseline | Status |
 |---|---|---|---|---|
-| **M1** | XGBoost on per-query + per-host features, SHAP explanations | supervised | Random Forest | ✅ Experiments 1–5 run ([`docs/m1.md`](docs/m1.md)). M1 and RF now set their threshold on validation data; the result files predate that and need one rerun |
+| **M1** | XGBoost on per-query + per-host features, SHAP explanations | supervised | Random Forest | ✅ Experiments 1–5 run with a validation threshold ([`docs/m1.md`](docs/m1.md)) |
 | **M2** | DNS-BERT: small BERT trained only on benign names; flags high pseudo-perplexity | benign-only | Isolation Forest | ✅ Experiments 1–5, ablations 1 and 2, error analysis ([`docs/m2.md`](docs/m2.md)) |
 | **M3** | Character-level CNN on the raw query name | supervised | BiLSTM | ✅ Experiments 1–5, error analysis ([`docs/m3.md`](docs/m3.md)) |
 
@@ -229,11 +229,12 @@ Read these before quoting a number:
   runs with the domain hidden (`docs/suffix-ablation.md`).
 - **CIC is easy.** It has one tool and no throttling, so every model is near perfect on Experiment 2. Experiments 3
   to 5 (leave-one-tool-out, cross-dataset, low-and-slow) are the real test.
-- **The summary tables need one rebuild.** They were written before M2 and the Isolation Forest got their
-  Experiment 5 files, and before M1 and RF had a validation threshold, so the M1 and RF rows are at a threshold set
-  on the test data (`docs/m1.md`). Rerun M1 and RF, then `python -m eval.summarise`, before the freeze tag.
-- **Latency depends on the machine.** The runs were timed on different machines (M1 and RF on a laptop CPU, M2 and
-  M3 on a Colab T4), so compare latency only after all models are timed on one machine.
+- **A perfect ROC-AUC is not a perfect detector.** With dnscat2 held out, M1 reaches ROC-AUC 1.0 but
+  catches only 22% of it at its own threshold (`docs/m1.md`). Quote recall at the model's threshold next to ROC-AUC.
+- **Ties in the selection table.** Several models reach F1 1.0 on Experiments 1 and 5; `selection.csv` then lists
+  whichever comes first, not the fastest.
+- **Latency depends on the machine.** M1 and RF were timed on a Colab CPU (2 cores), M2 and M3 on a Colab T4 GPU.
+  M1 sits close to the 10 ms limit (median 9.1 ms, two runs over it), so its pass or fail depends on the machine.
 
 ## Timeline (SGT)
 | Phase | Dates | Focus |

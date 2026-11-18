@@ -1,193 +1,256 @@
 {
  "n_rows": 5000,
  "space": "log-odds (exact TreeSHAP via xgboost pred_contribs)",
- "base_value": -0.0016438812017440796,
+ "base_value": -0.0017172342631965876,
  "mean_abs_shap": {
-  "n_upper": 7.993694,
-  "qlen_wire": 2.364134,
-  "entropy": 0.455131,
-  "resp_size": 0.119159,
-  "h_ent_mean": 0.024528,
-  "n_digits": 0.014345,
-  "h_ent_std": 0.008337,
+  "n_upper": 8.345874,
+  "qlen_wire": 2.359955,
+  "entropy": 0.273646,
+  "n_digits": 0.0,
   "n_special": 0.0,
-  "h_qpm": 0.0,
   "digit_ratio": 0.0,
-  "h_uniq_ratio": 0.0
+  "resp_size": 0.0,
+  "h_qpm": 0.0,
+  "h_uniq_ratio": 0.0,
+  "h_ent_mean": 0.0,
+  "h_ent_std": 0.0
  },
  "mean_shap_by_label": {
   "0": {
-   "entropy": -0.397875,
-   "n_digits": -2.8e-05,
-   "n_upper": -7.993855,
+   "entropy": -0.251395,
+   "n_digits": 0.0,
+   "n_upper": -8.344956,
    "n_special": 0.0,
    "digit_ratio": 0.0,
-   "resp_size": -0.161647,
-   "qlen_wire": -2.366956,
+   "resp_size": 0.0,
+   "qlen_wire": -2.379887,
    "h_qpm": 0.0,
    "h_uniq_ratio": 0.0,
-   "h_ent_mean": -0.055372,
-   "h_ent_std": 0.000459
+   "h_ent_mean": 0.0,
+   "h_ent_std": 0.0
   },
   "1": {
-   "entropy": 0.483593,
-   "n_digits": 0.021516,
-   "n_upper": 7.994133,
+   "entropy": 0.284631,
+   "n_digits": 0.0,
+   "n_upper": 8.345838,
    "n_special": 0.0,
    "digit_ratio": 0.0,
-   "resp_size": 0.097696,
-   "qlen_wire": 2.362593,
+   "resp_size": 0.0,
+   "qlen_wire": 2.349998,
    "h_qpm": 0.0,
    "h_uniq_ratio": 0.0,
-   "h_ent_mean": 0.009072,
-   "h_ent_std": 0.01226
+   "h_ent_mean": 0.0,
+   "h_ent_std": 0.0
   }
  },
  "mean_abs_shap_by_tool": {
   "benign": {
-   "entropy": 0.397875,
-   "n_digits": 2.8e-05,
-   "n_upper": 7.993855,
+   "entropy": 0.251395,
+   "n_digits": 0.0,
+   "n_upper": 8.344956,
    "n_special": 0.0,
    "digit_ratio": 0.0,
-   "resp_size": 0.161998,
-   "qlen_wire": 2.366956,
+   "resp_size": 0.0,
+   "qlen_wire": 2.379887,
    "h_qpm": 0.0,
    "h_uniq_ratio": 0.0,
-   "h_ent_mean": 0.055372,
-   "h_ent_std": 0.000499
+   "h_ent_mean": 0.0,
+   "h_ent_std": 0.0
   },
   "dnsexfiltrator": {
-   "entropy": 0.483826,
-   "n_digits": 0.021518,
-   "n_upper": 7.994133,
+   "entropy": 0.284782,
+   "n_digits": 0.0,
+   "n_upper": 8.345838,
    "n_special": 0.0,
    "digit_ratio": 0.0,
-   "resp_size": 0.097696,
-   "qlen_wire": 2.362593,
+   "resp_size": 0.0,
+   "qlen_wire": 2.349998,
    "h_qpm": 0.0,
    "h_uniq_ratio": 0.0,
-   "h_ent_mean": 0.009074,
-   "h_ent_std": 0.012264
+   "h_ent_mean": 0.0,
+   "h_ent_std": 0.0
   }
  },
  "examples": {
   "top_scored_tunnels": [
    {
-    "qname": "37670.p8i45jtjhRO3zGMc3A_5QXrp5kMz4S3m-Yp",
-    "score": 0.9999829530715942,
-    "top": [
-     {
-      "feature": "n_upper",
-      "value": 10.0,
-      "shap": 7.99407434463501
-     },
-     {
-      "feature": "qlen_wire",
-      "value": 267.0,
-      "shap": 2.3717050552368164
-     },
-     {
-      "feature": "entropy",
-      "value": 4.686581882561329,
-      "shap": 0.49396151304244995
-     }
-    ]
-   },
-   {
-    "qname": "41617.YZ5etB8mtJKZ3pQ8kXxz2DCQ1Yy5J-ctpEV",
-    "score": 0.9999829530715942,
-    "top": [
-     {
-      "feature": "n_upper",
-      "value": 15.0,
-      "shap": 7.99407434463501
-     },
-     {
-      "feature": "qlen_wire",
-      "value": 267.0,
-      "shap": 2.335638999938965
-     },
-     {
-      "feature": "entropy",
-      "value": 4.784142858171085,
-      "shap": 0.47813254594802856
-     }
-    ]
-   },
-   {
-    "qname": "29824.9Zq-BnuKENco5VztkIkW6DfBMXY4KRX1X4U",
-    "score": 0.9999829530715942,
-    "top": [
-     {
-      "feature": "n_upper",
-      "value": 18.0,
-      "shap": 7.99407434463501
-     },
-     {
-      "feature": "qlen_wire",
-      "value": 267.0,
-      "shap": 2.3717050552368164
-     },
-     {
-      "feature": "entropy",
-      "value": 4.881703833780842,
-      "shap": 0.47813254594802856
-     }
-    ]
-   },
-   {
-    "qname": "31044.yuRyJ_TZDBXMKSnm5wfU8I12SB8vrk8TN-T",
+    "qname": "25276.Q_7kWyi9USmWAkSg8VvTNDYSI7H0LgQri-e",
     "score": 0.9999829530715942,
     "top": [
      {
       "feature": "n_upper",
       "value": 17.0,
-      "shap": 7.99407434463501
+      "shap": 8.346070289611816
      },
      {
       "feature": "qlen_wire",
       "value": 267.0,
-      "shap": 2.335638999938965
-     },
-     {
-      "feature": "entropy",
-      "value": 4.881703833780842,
-      "shap": 0.47813254594802856
-     }
-    ]
-   },
-   {
-    "qname": "29207.J710Rit4OnvPdmO5FnsFOI_S31GQlo_2ZbB",
-    "score": 0.9999829530715942,
-    "top": [
-     {
-      "feature": "n_upper",
-      "value": 14.0,
-      "shap": 7.99407434463501
-     },
-     {
-      "feature": "qlen_wire",
-      "value": 267.0,
-      "shap": 2.3717050552368164
+      "shap": 2.3497018814086914
      },
      {
       "feature": "entropy",
       "value": 4.8329233459759635,
-      "shap": 0.49396151304244995
+      "shap": 0.2851332724094391
+     }
+    ]
+   },
+   {
+    "qname": "37891.Ui1Ul_ZbcYJyQEnuYiv2z9eu7CwoNhsce9c",
+    "score": 0.9999829530715942,
+    "top": [
+     {
+      "feature": "n_upper",
+      "value": 10.0,
+      "shap": 8.346070289611816
+     },
+     {
+      "feature": "qlen_wire",
+      "value": 267.0,
+      "shap": 2.3497018814086914
+     },
+     {
+      "feature": "entropy",
+      "value": 4.784142858171085,
+      "shap": 0.2851332724094391
+     }
+    ]
+   },
+   {
+    "qname": "153.q4OM6PqymTjBKgV-w0WdH4LusfakFrbYb2Aql",
+    "score": 0.9999829530715942,
+    "top": [
+     {
+      "feature": "n_upper",
+      "value": 13.0,
+      "shap": 8.346070289611816
+     },
+     {
+      "feature": "qlen_wire",
+      "value": 265.0,
+      "shap": 2.3497018814086914
+     },
+     {
+      "feature": "entropy",
+      "value": 5.144018163101902,
+      "shap": 0.2851332724094391
+     }
+    ]
+   },
+   {
+    "qname": "35100.cEelT8ssTL_f2b4oFGAo163kMIPhot-jeYl",
+    "score": 0.9999829530715942,
+    "top": [
+     {
+      "feature": "n_upper",
+      "value": 11.0,
+      "shap": 8.346070289611816
+     },
+     {
+      "feature": "qlen_wire",
+      "value": 267.0,
+      "shap": 2.3497018814086914
+     },
+     {
+      "feature": "entropy",
+      "value": 4.900115724077511,
+      "shap": 0.2851332724094391
+     }
+    ]
+   },
+   {
+    "qname": "29482.nzVxLwveH0Kvui5PevRa2ZKeS105A16wrV6",
+    "score": 0.9999829530715942,
+    "top": [
+     {
+      "feature": "n_upper",
+      "value": 11.0,
+      "shap": 8.346070289611816
+     },
+     {
+      "feature": "qlen_wire",
+      "value": 267.0,
+      "shap": 2.3497018814086914
+     },
+     {
+      "feature": "entropy",
+      "value": 4.66816999226466,
+      "shap": 0.2851332724094391
      }
     ]
    }
   ],
   "top_scored_benign": [
    {
-    "qname": "settings-win.data.microsoft.com",
-    "score": 2.1745663616457023e-05,
+    "qname": "cram.com",
+    "score": 1.7071815818781033e-05,
     "top": [
      {
-      "feature": "h_ent_std",
+      "feature": "n_digits",
       "value": 0.0,
-      "shap": 0.1367017924785614
+      "shap": 0.0
+     },
+     {
+      "feature": "n_special",
+      "value": 0.0,
+      "shap": 0.0
+     },
+     {
+      "feature": "resp_size",
+      "value": 90.0,
+      "shap": 0.0
+     }
+    ]
+   },
+   {
+    "qname": "abomalak2019.com",
+    "score": 1.7071815818781033e-05,
+    "top": [
+     {
+      "feature": "n_digits",
+      "value": 4.0,
+      "shap": 0.0
+     },
+     {
+      "feature": "n_special",
+      "value": 0.0,
+      "shap": 0.0
+     },
+     {
+      "feature": "resp_size",
+      "value": 50.0,
+      "shap": 0.0
+     }
+    ]
+   },
+   {
+    "qname": "franquiciasdemexico.org.mx",
+    "score": 1.7071815818781033e-05,
+    "top": [
+     {
+      "feature": "n_digits",
+      "value": 0.0,
+      "shap": 0.0
+     },
+     {
+      "feature": "n_special",
+      "value": 0.0,
+      "shap": 0.0
+     },
+     {
+      "feature": "resp_size",
+      "value": 60.0,
+      "shap": 0.0
+     }
+    ]
+   },
+   {
+    "qname": "miet-check.de",
+    "score": 1.7071815818781033e-05,
+    "top": [
+     {
+      "feature": "n_digits",
+      "value": 0.0,
+      "shap": 0.0
      },
      {
       "feature": "n_special",
@@ -195,20 +258,20 @@
       "shap": 0.0
      },
      {
-      "feature": "h_qpm",
-      "value": 1.0,
+      "feature": "resp_size",
+      "value": 47.0,
       "shap": 0.0
      }
     ]
    },
    {
-    "qname": "v10.events.data.microsoft.com",
-    "score": 2.1745663616457023e-05,
+    "qname": "stripo.email",
+    "score": 1.7071815818781033e-05,
     "top": [
      {
-      "feature": "h_ent_std",
-      "value": 0.12809923031122794,
-      "shap": 0.1367017924785614
+      "feature": "n_digits",
+      "value": 0.0,
+      "shap": 0.0
      },
      {
       "feature": "n_special",
@@ -216,71 +279,8 @@
       "shap": 0.0
      },
      {
-      "feature": "h_qpm",
-      "value": 3.0,
-      "shap": 0.0
-     }
-    ]
-   },
-   {
-    "qname": "v10.events.data.microsoft.com",
-    "score": 2.1745663616457023e-05,
-    "top": [
-     {
-      "feature": "h_ent_std",
-      "value": 0.0,
-      "shap": 0.1367017924785614
-     },
-     {
-      "feature": "n_special",
-      "value": 0.0,
-      "shap": 0.0
-     },
-     {
-      "feature": "h_qpm",
-      "value": 1.0,
-      "shap": 0.0
-     }
-    ]
-   },
-   {
-    "qname": "msedge.api.cdp.microsoft.com",
-    "score": 2.1745663616457023e-05,
-    "top": [
-     {
-      "feature": "h_ent_std",
-      "value": 0.08474392997916776,
-      "shap": 0.1367017924785614
-     },
-     {
-      "feature": "n_special",
-      "value": 0.0,
-      "shap": 0.0
-     },
-     {
-      "feature": "h_qpm",
-      "value": 2.0,
-      "shap": 0.0
-     }
-    ]
-   },
-   {
-    "qname": "ctldl.windowsupdate.com",
-    "score": 2.1745663616457023e-05,
-    "top": [
-     {
-      "feature": "h_ent_std",
-      "value": 0.0,
-      "shap": 0.1367017924785614
-     },
-     {
-      "feature": "n_special",
-      "value": 0.0,
-      "shap": 0.0
-     },
-     {
-      "feature": "h_qpm",
-      "value": 1.0,
+      "feature": "resp_size",
+      "value": 46.0,
       "shap": 0.0
      }
     ]

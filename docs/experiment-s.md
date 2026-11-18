@@ -18,25 +18,28 @@ python -m models.m1_run --model m1 --exp S --split shuffled --tag testbed --no-s
 python -m eval.run --model m1 --exp E1
 ```
 
-## Results (17 Nov)
+## Results (18 Nov rerun)
+All four files were rerun on 18 Nov with M1's validation threshold (`docs/m1.md`), on one machine.
 
-| Dataset | Split | F1 | FPR | Recall | ROC-AUC | Recall at 1% FPR | FP / test rows |
-|---|---|---|---|---|---|---|---|
-| CIC | time | 0.9982 | 0.0073 | 1.0000 | 1.0000 | 1.0000 | 274 / 113,078 |
-| CIC | shuffled | 0.9993 | 0.0028 | 1.0000 | 1.0000 | 1.0000 | 106 / 113,070 |
-| Testbed | time | 0.9971 | 0.0060 | 1.0000 | 1.0000 | 1.0000 | 200 / 67,699 |
-| Testbed | shuffled | 0.9966 | 0.0068 | 1.0000 | 1.0000 | 1.0000 | 230 / 67,669 |
-| Testbed, per-query features only | time | 0.9952 | 0.0099 | 1.0000 | 1.0000 | 1.0000 | 332 / 67,699 |
-| Testbed, per-query features only | shuffled | 0.9951 | 0.0100 | 1.0000 | 1.0000 | 1.0000 | 335 / 67,669 |
+| Dataset | Split | F1 | FPR | Recall | ROC-AUC | Recall at 1% FPR | FP / test rows | Missed tunnels |
+|---|---|---|---|---|---|---|---|---|
+| CIC | time | 1.0000 | 0.0000 | 1.0000 | 1.0000 | 1.0000 | 0 / 113,078 | 1 / 75,323 |
+| CIC | shuffled | 1.0000 | 0.0000 | 1.0000 | 1.0000 | 1.0000 | 0 / 113,070 | 0 / 75,551 |
+| Testbed | time | 1.0000 | 0.0000 | 1.0000 | 1.0000 | 1.0000 | 0 / 67,699 | 0 / 34,180 |
+| Testbed | shuffled | 1.0000 | 0.0000 | 1.0000 | 1.0000 | 1.0000 | 0 / 67,669 | 0 / 34,073 |
+
+The 17 Nov version of this table also had two "per-query features only" testbed rows (F1 0.9952 time, 0.9951
+shuffled, ROC-AUC 1.0 for both). Those runs have no file in `results/` and were not redone; their F1 and
+false-positive counts were at a threshold set on the test data.
 
 ## What it shows
 
-- **No measurable inflation for M1 on either dataset.** Both splits give ROC-AUC 1.0 and recall 1.0.
-  The F1 and false-positive gaps are under 0.005 and go in opposite directions on CIC (+0.0011 F1
-  when shuffled) and the testbed (−0.0005 F1 when shuffled).
-- **The false-positive differences are threshold placement, not the model.** These runs have no
-  threshold of their own (`threshold_source: test_fallback`), so the evaluation module sets one on
-  the test set at about 1% FPR. The ranking metrics, which don't depend on a threshold, are identical.
+- **No measurable inflation for M1 on either dataset.** Both splits give ROC-AUC 1.0 and recall 1.0, and
+  the only error in the four runs is one missed CIC tunnel query under the time split.
+- **The earlier false-positive differences were threshold placement, not the model.** Before 18 Nov these
+  runs had no threshold of their own, so the evaluation module set one on the test set at about 1% FPR,
+  which produced 106 to 274 false positives per run. With the threshold chosen on validation data there
+  are none. The ranking metrics, which don't depend on a threshold, were identical then and are now.
 - **The reason is saturation, not that shuffling is harmless.** Within one dataset, tunnel and benign
   queries are separable from the query name alone. Even the weaker per-query-only model scores 1.0
   ROC-AUC under both splits. With no headroom, shuffling has nothing to inflate.
@@ -48,5 +51,4 @@ python -m eval.run --model m1 --exp E1
 ## Limits
 
 - One model (M1) and one seed. M3 (char-CNN/BiLSTM) was not run, as the card allowed.
-- The CIC pair dates from 13 Nov (same code version for both files). The testbed shuffled run is from
-  17 Nov; its time-split partner is the 18 Nov freeze file.
+- All four files are from the 18 Nov rerun (same code version, same machine).

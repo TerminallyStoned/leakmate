@@ -13,6 +13,9 @@ iforest,E4_cic2testbed,Experiment 4 (cross-dataset) - cic2testbed,dnscat2,1.0
 iforest,E4_cic2testbed,Experiment 4 (cross-dataset) - cic2testbed,dnsexfiltrator,1.0
 iforest,E4_cic2testbed,Experiment 4 (cross-dataset) - cic2testbed,iodine,0.9413774002954209
 iforest,E4_testbed2cic,Experiment 4 (cross-dataset) - testbed2cic,dnsexfiltrator,1.0
+iforest,E5,Experiment 5 (low-and-slow),dnscat2,1.0
+iforest,E5,Experiment 5 (low-and-slow),dnsexfiltrator,1.0
+iforest,E5,Experiment 5 (low-and-slow),iodine,1.0
 iforest_hostavg,E1,Experiment 1 (within-testbed),dns2tcp,1.0
 iforest_hostavg,E1,Experiment 1 (within-testbed),dnscat2,1.0
 iforest_hostavg,E1,Experiment 1 (within-testbed),dnsexfiltrator,1.0
@@ -27,19 +30,22 @@ iforest_hostavg,E4_cic2testbed,Experiment 4 (cross-dataset) - cic2testbed,dnscat
 iforest_hostavg,E4_cic2testbed,Experiment 4 (cross-dataset) - cic2testbed,dnsexfiltrator,1.0
 iforest_hostavg,E4_cic2testbed,Experiment 4 (cross-dataset) - cic2testbed,iodine,1.0
 iforest_hostavg,E4_testbed2cic,Experiment 4 (cross-dataset) - testbed2cic,dnsexfiltrator,1.0
+iforest_hostavg,E5,Experiment 5 (low-and-slow),dnscat2,1.0
+iforest_hostavg,E5,Experiment 5 (low-and-slow),dnsexfiltrator,1.0
+iforest_hostavg,E5,Experiment 5 (low-and-slow),iodine,1.0
 m1,E1,Experiment 1 (within-testbed),dns2tcp,1.0
 m1,E1,Experiment 1 (within-testbed),dnscat2,1.0
 m1,E1,Experiment 1 (within-testbed),dnsexfiltrator,1.0
 m1,E1,Experiment 1 (within-testbed),iodine,1.0
-m1,E2,Experiment 2 (CIC benchmark),dnsexfiltrator,1.0
-m1_ablation_cic_leaky,E2,Experiment 2 (CIC benchmark),dnsexfiltrator,1.0
-m1_ablation_query_only,E2,Experiment 2 (CIC benchmark),dnsexfiltrator,1.0
+m1,E2,Experiment 2 (CIC benchmark),dnsexfiltrator,0.999986723842651
+m1_ablation_cic_leaky,E2,Experiment 2 (CIC benchmark),dnsexfiltrator,0.999986723842651
+m1_ablation_query_only,E2,Experiment 2 (CIC benchmark),dnsexfiltrator,0.999986723842651
 m1,E3_dns2tcp,Experiment 3 (leave-one-tool-out) - dns2tcp,dns2tcp,1.0
-m1,E3_dnscat2,Experiment 3 (leave-one-tool-out) - dnscat2,dnscat2,1.0
+m1,E3_dnscat2,Experiment 3 (leave-one-tool-out) - dnscat2,dnscat2,0.21805241022322872
 m1,E3_dnsexfiltrator,Experiment 3 (leave-one-tool-out) - dnsexfiltrator,dnsexfiltrator,1.0
-m1,E3_iodine,Experiment 3 (leave-one-tool-out) - iodine,iodine,1.0
+m1,E3_iodine,Experiment 3 (leave-one-tool-out) - iodine,iodine,0.9990768094534712
 m1,E4_cic2testbed,Experiment 4 (cross-dataset) - cic2testbed,dns2tcp,1.0
-m1,E4_cic2testbed,Experiment 4 (cross-dataset) - cic2testbed,dnscat2,0.0009705596894208993
+m1,E4_cic2testbed,Experiment 4 (cross-dataset) - cic2testbed,dnscat2,0.0
 m1,E4_cic2testbed,Experiment 4 (cross-dataset) - cic2testbed,dnsexfiltrator,1.0
 m1,E4_cic2testbed,Experiment 4 (cross-dataset) - cic2testbed,iodine,0.7463072378138847
 m1,E4_testbed2cic,Experiment 4 (cross-dataset) - testbed2cic,dnsexfiltrator,0.9985927273210042
@@ -65,6 +71,9 @@ m2,E4_cic2testbed,Experiment 4 (cross-dataset) - cic2testbed,dnscat2,0.996117761
 m2,E4_cic2testbed,Experiment 4 (cross-dataset) - cic2testbed,dnsexfiltrator,1.0
 m2,E4_cic2testbed,Experiment 4 (cross-dataset) - cic2testbed,iodine,0.8228397341211225
 m2,E4_testbed2cic,Experiment 4 (cross-dataset) - testbed2cic,dnsexfiltrator,1.0
+m2,E5,Experiment 5 (low-and-slow),dnscat2,0.4067796610169492
+m2,E5,Experiment 5 (low-and-slow),dnsexfiltrator,1.0
+m2,E5,Experiment 5 (low-and-slow),iodine,0.2878228782287823
 m2_ablation1_char,E1,Experiment 1 (within-testbed),dns2tcp,1.0
 m2_ablation1_char,E1,Experiment 1 (within-testbed),dnscat2,0.6549660304108703
 m2_ablation1_char,E1,Experiment 1 (within-testbed),dnsexfiltrator,1.0
@@ -79,6 +88,9 @@ m2_ablation1_char,E4_cic2testbed,Experiment 4 (cross-dataset) - cic2testbed,dnsc
 m2_ablation1_char,E4_cic2testbed,Experiment 4 (cross-dataset) - cic2testbed,dnsexfiltrator,1.0
 m2_ablation1_char,E4_cic2testbed,Experiment 4 (cross-dataset) - cic2testbed,iodine,0.9987998522895125
 m2_ablation1_char,E4_testbed2cic,Experiment 4 (cross-dataset) - testbed2cic,dnsexfiltrator,1.0
+m2_ablation1_char,E5,Experiment 5 (low-and-slow),dnscat2,0.576271186440678
+m2_ablation1_char,E5,Experiment 5 (low-and-slow),dnsexfiltrator,1.0
+m2_ablation1_char,E5,Experiment 5 (low-and-slow),iodine,1.0
 m2_ablation1_char_hostavg,E1,Experiment 1 (within-testbed),dns2tcp,1.0
 m2_ablation1_char_hostavg,E1,Experiment 1 (within-testbed),dnscat2,1.0
 m2_ablation1_char_hostavg,E1,Experiment 1 (within-testbed),dnsexfiltrator,1.0
@@ -93,6 +105,9 @@ m2_ablation1_char_hostavg,E4_cic2testbed,Experiment 4 (cross-dataset) - cic2test
 m2_ablation1_char_hostavg,E4_cic2testbed,Experiment 4 (cross-dataset) - cic2testbed,dnsexfiltrator,1.0
 m2_ablation1_char_hostavg,E4_cic2testbed,Experiment 4 (cross-dataset) - cic2testbed,iodine,1.0
 m2_ablation1_char_hostavg,E4_testbed2cic,Experiment 4 (cross-dataset) - testbed2cic,dnsexfiltrator,1.0
+m2_ablation1_char_hostavg,E5,Experiment 5 (low-and-slow),dnscat2,1.0
+m2_ablation1_char_hostavg,E5,Experiment 5 (low-and-slow),dnsexfiltrator,1.0
+m2_ablation1_char_hostavg,E5,Experiment 5 (low-and-slow),iodine,1.0
 m2_hostavg,E1,Experiment 1 (within-testbed),dns2tcp,1.0
 m2_hostavg,E1,Experiment 1 (within-testbed),dnscat2,1.0
 m2_hostavg,E1,Experiment 1 (within-testbed),dnsexfiltrator,1.0
@@ -107,6 +122,9 @@ m2_hostavg,E4_cic2testbed,Experiment 4 (cross-dataset) - cic2testbed,dnscat2,1.0
 m2_hostavg,E4_cic2testbed,Experiment 4 (cross-dataset) - cic2testbed,dnsexfiltrator,1.0
 m2_hostavg,E4_cic2testbed,Experiment 4 (cross-dataset) - cic2testbed,iodine,1.0
 m2_hostavg,E4_testbed2cic,Experiment 4 (cross-dataset) - testbed2cic,dnsexfiltrator,1.0
+m2_hostavg,E5,Experiment 5 (low-and-slow),dnscat2,1.0
+m2_hostavg,E5,Experiment 5 (low-and-slow),dnsexfiltrator,1.0
+m2_hostavg,E5,Experiment 5 (low-and-slow),iodine,1.0
 m3_bilstm,E1,Experiment 1 (within-testbed),dns2tcp,1.0
 m3_bilstm,E1,Experiment 1 (within-testbed),dnscat2,1.0
 m3_bilstm,E1,Experiment 1 (within-testbed),dnsexfiltrator,1.0
@@ -147,14 +165,14 @@ rf,E1,Experiment 1 (within-testbed),dnsexfiltrator,1.0
 rf,E1,Experiment 1 (within-testbed),iodine,1.0
 rf,E2,Experiment 2 (CIC benchmark),dnsexfiltrator,1.0
 rf,E3_dns2tcp,Experiment 3 (leave-one-tool-out) - dns2tcp,dns2tcp,1.0
-rf,E3_dnscat2,Experiment 3 (leave-one-tool-out) - dnscat2,dnscat2,1.0
+rf,E3_dnscat2,Experiment 3 (leave-one-tool-out) - dnscat2,dnscat2,0.9581041734066645
 rf,E3_dnsexfiltrator,Experiment 3 (leave-one-tool-out) - dnsexfiltrator,dnsexfiltrator,1.0
-rf,E3_iodine,Experiment 3 (leave-one-tool-out) - iodine,iodine,1.0
-rf,E4_cic2testbed,Experiment 4 (cross-dataset) - cic2testbed,dns2tcp,1.0
-rf,E4_cic2testbed,Experiment 4 (cross-dataset) - cic2testbed,dnscat2,0.9241345842769331
+rf,E3_iodine,Experiment 3 (leave-one-tool-out) - iodine,iodine,0.9992614475627769
+rf,E4_cic2testbed,Experiment 4 (cross-dataset) - cic2testbed,dns2tcp,0.8044822256568779
+rf,E4_cic2testbed,Experiment 4 (cross-dataset) - cic2testbed,dnscat2,0.0
 rf,E4_cic2testbed,Experiment 4 (cross-dataset) - cic2testbed,dnsexfiltrator,1.0
 rf,E4_cic2testbed,Experiment 4 (cross-dataset) - cic2testbed,iodine,0.7463072378138847
 rf,E4_testbed2cic,Experiment 4 (cross-dataset) - testbed2cic,dnsexfiltrator,1.0
 rf,E5,Experiment 5 (low-and-slow),dnscat2,1.0
 rf,E5,Experiment 5 (low-and-slow),dnsexfiltrator,1.0
-rf,E5,Experiment 5 (low-and-slow),iodine,1.0
+rf,E5,Experiment 5 (low-and-slow),iodine,0.988929889298893
