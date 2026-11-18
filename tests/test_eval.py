@@ -93,6 +93,16 @@ def test_old_latency_name_still_loads(tmp_path):
     assert load_result(p)["latency_ms_per_query"] == 2.0
 
 
+def test_result_records_where_it_ran(tmp_path):
+    import json
+
+    from eval.results_io import write_result
+
+    p = write_result(tmp_path / "r.json", [0.1, 0.9], [0, 1], 1.0, 2.0, {})
+    env = json.loads(p.read_text())["env"]
+    assert env["python"] and env["cpu"] and env["packages"]["numpy"] and env["packages"]["pandas"]
+
+
 def test_run_identity_uses_json_keys():
     from eval.results_io import run_identity
 

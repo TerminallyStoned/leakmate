@@ -3,9 +3,37 @@
 from __future__ import annotations
 
 import json
+import platform
+import sys
+from importlib import metadata
 from pathlib import Path
 
 import numpy as np
+
+# Libraries whose versions change scores (a threshold can sit in a dense band of scores, so a
+# small numeric difference between versions moves many rows across it; see issue #35).
+ENV_PACKAGES = ("numpy", "pandas", "scikit-learn", "xgboost", "torch", "transformers")
+
+
+def environment() -> dict:
+    """Where a run happened: Python and library versions, the CPU, and the GPU torch can see (None if torch
+    was not imported or there is no GPU; a CPU-only run on a GPU machine still lists the GPU)."""
+    versions = {}
+    for pkg in ENV_PACKAGES:
+        try:
+            versions[pkg] = metadata.version(pkg)
+        except metadata.PackageNotFoundError:
+            pass
+    cpu = platform.processor()
+    try:  # Linux and Colab leave platform.processor() empty or vague
+        lines = Path("/proc/cpuinfo").read_text().splitlines()
+        cpu = next(ln.split(":", 1)[1].strip() for ln in lines if ln.startswith("model name"))
+    except (OSError, StopIteration):
+        pass
+    torch = sys.modules.get("torch")  # only if this run already imported it
+    gpu = torch.cuda.get_device_name(0) if torch is not None and torch.cuda.is_available() else None
+    return {"python": platform.python_version(), "packages": versions, "cpu": cpu or platform.machine(), "gpu": gpu}
+
 
 # The fields the evaluation module itself needs. The full contract (docs/contracts.md
 # section 3) requires more; writers check that with contracts.py (write_result(validate=True)).
@@ -41,6 +69,7 @@ def write_result(
         "train_time_s": float(train_time_s),
         "latency_ms_per_query": float(latency_ms_per_query),
         "config": config,
+        "env": environment(),
     }
     for k, v in extra.items():
         if v is None:

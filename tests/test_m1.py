@@ -185,6 +185,7 @@ def test_runner_writes_contract_json(tmp_path):
         assert len(res["scores"]) == len(res["session_ids"]) == len(res["ts"]) == res["n_test"]
         assert res["split"] == "split_column" and "qtype_code" in res["dropped_cols"]
         assert 0.0 < res["threshold"] < 1.0 and res["threshold_source"].startswith("validation") and res["n_val"] > 0
+        assert res["env"]["packages"]["xgboost"] and res["env"]["packages"]["scikit-learn"] and res["env"]["cpu"]
     shap_json = json.loads((tmp_path / "res" / "m1" / "shap" / "E2_shap.json").read_text())
     assert shap_json["mean_abs_shap"] and shap_json["examples"]["top_scored_tunnels"]
     # per-group ablation flag and E4-style separate test table
