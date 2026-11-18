@@ -87,6 +87,7 @@ def test_m2_run_main_writes_result_and_hostavg_per_model_folder(tmp_path):
     avg = json.loads((tmp_path / "res/iforest_hostavg/E1.json").read_text())
     assert base["model"] == "iforest" and avg["model"] == "iforest_hostavg"
     assert base["threshold"] is not None and avg["threshold"] is not None
+    assert base["env"]["packages"]["scikit-learn"] and avg["env"] == base["env"]
     assert len(base["scores"]) == len(avg["scores"]) == base["n_test"] == len(base["session_ids"])
     # reuse the saved model: no training, same test rows
     m2_run.main(["--model", "iforest", "--exp", "E1", "--data", str(data), "--out", str(tmp_path / "res2"),

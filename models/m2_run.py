@@ -40,6 +40,7 @@ try:
 
     from eval.experiments import EXP_HELP, get_split
     from eval.metrics import threshold_at_fpr
+    from eval.results_io import environment
     from models import iforest_baseline, m1_features, m2_dnsbert, m2_supervised
 except ModuleNotFoundError as e:
     raise SystemExit(
@@ -285,6 +286,7 @@ def main(argv=None):
         "n_val_benign": int(len(val_df)),
         "config": used_cfg,
         "created_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "env": environment(),
     }
     meaning = {
         "m2": "pseudo-log-perplexity (mean masked-token NLL)",

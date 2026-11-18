@@ -42,6 +42,7 @@ try:
 
     from contracts import CONTRACT_VERSION, EXPERIMENTS, validate
     from eval.experiments import EXP_HELP
+    from eval.results_io import environment
     from models import m1_features, m1_xgb, rf_baseline
 except ModuleNotFoundError as e:
     raise SystemExit(f"Missing package '{e.name}'. Install the M1 packages with:\n"
@@ -229,6 +230,7 @@ def main(argv=None):
         "config": {k: v for k, v in model["cfg"].items()},
         "created_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "contract_version": CONTRACT_VERSION,
+        "env": environment(),
     }
     res["n_val"] = model.get("n_val")
     if model.get("threshold") is not None:  # chosen on the validation slice; absent = eval falls back to the test set
