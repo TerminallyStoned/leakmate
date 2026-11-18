@@ -81,6 +81,9 @@ Per-query FPR goes from 0.19-0.21% to 0.83% for both tokenizers; with host avera
 0.13% (character). Recall at 1% FPR equals recall in every M2 row. Both tokenizers miss exactly the same 2,748
 iodine queries on the masked table.
 
+Experiment 5 (low-and-slow, 457 slow tunnel queries), original -> masked: BPE 0.425 -> 0.573, character
+0.891 -> 0.567, both with host averaging 1.000 -> 1.000, Isolation Forest 1.000 -> 1.000 (`docs/m2.md`).
+
 The Isolation Forest does not change: recall 1.0 and ROC-AUC at least 0.9998 in every run; false positives
 306 -> 293 per query, and 0 -> 0 with host averaging.
 
@@ -121,7 +124,8 @@ The Isolation Forest does not change: recall 1.0 and ROC-AUC at least 0.9998 in 
 - Experiment 4 (cross-dataset) remains the strongest test of generalisation for every model.
 
 ## Limits
-- M2 was rerun masked for Experiments 1 and 3 only. It has no Experiment 5 run, masked or original.
+- M2's Experiment 5 (masked and original) is derived from its Experiment 1 results (`scripts/m2_e5.py`, same model
+  and threshold, since M2 trains on benign only); results in `m2_freeze.zip`, numbers in `docs/m2.md`.
 - One seed per run. GPU training is not bit-for-bit repeatable (`docs/m3.md`).
 - Result JSONs are not committed. M3's come from Colab runs (`nz.zip` for Experiments 1 and 3; `nz_e5.zip` for
   Experiment 5, in `m3/` of the "leakmate captures" Drive folder); M2's come from Colab too (`m2nz.zip`, in the
