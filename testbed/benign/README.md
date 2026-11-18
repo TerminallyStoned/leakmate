@@ -112,6 +112,9 @@ Verified runs, 12 Nov 2026:
 "Parses cleanly" is only meaningful against the capture, so the join was checked directly:
 `tcpdump -qi eth0 -w cap.pcap 'udp port 53'` inside the `resolver` container (Alpine: `apk add
 tcpdump`) while the profile ran, then parsed with `dpkt` and compared per source address.
+In that run `eth0` was the resolver's lab side. That is not guaranteed: the resolver has a lab and an
+upstream interface and either can be `eth0`, so for a new capture pick the interface that holds
+172.28.0.2 (`testbed/tools/README.md`; `testbed/capture_matrix.sh` does this itself).
 
 | 10-minute lab run | sidecar | pcap |
 | ----------------- | ---------------------------------------- | ---------------------------------------- |
