@@ -100,7 +100,8 @@ def test_result_records_where_it_ran(tmp_path):
 
     p = write_result(tmp_path / "r.json", [0.1, 0.9], [0, 1], 1.0, 2.0, {})
     env = json.loads(p.read_text())["env"]
-    assert env["python"] and env["cpu"] and env["packages"]["numpy"] and env["packages"]["pandas"]
+    assert env["python"] and env["cpu"] and env["packages"]["numpy"] and env["packages"]["pyarrow"]
+    assert "pip" not in env["packages"]  # only what the requirements files name, not every installed package
 
 
 def test_run_identity_uses_json_keys():

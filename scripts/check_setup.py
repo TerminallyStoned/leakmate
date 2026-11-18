@@ -41,14 +41,20 @@ def _version_tuple(v: str) -> tuple[int, ...]:
     return tuple(int(x) for x in re.findall(r"\d+", v)[:3])
 
 
+def requirements(req_file: str) -> list[tuple[str, str | None]]:
+    """(package, minimum version or None) for each package line of req_file; comments and -r lines skipped."""
+    out = []
+    for line in (ROOT / req_file).read_text().splitlines():
+        m = re.match(r"\s*([A-Za-z0-9_.\-]+)\s*(?:>=\s*([\d.]+))?", line)
+        if m and not line.strip().startswith(("#", "-")):
+            out.append((m.group(1), m.group(2)))
+    return out
+
+
 def check_requirements(req_file: str) -> list[str]:
     """Return one problem line per package in req_file that is missing or older than required."""
     problems = []
-    for line in (ROOT / req_file).read_text().splitlines():
-        m = re.match(r"\s*([A-Za-z0-9_.\-]+)\s*(?:>=\s*([\d.]+))?", line)
-        if not m or line.strip().startswith(("#", "-")):
-            continue
-        name, minimum = m.group(1), m.group(2)
+    for name, minimum in requirements(req_file):
         if importlib.util.find_spec(IMPORT_NAMES.get(name, name).replace("-", "_")) is None:
             problems.append(f"{name} is not installed")
             continue

@@ -10,16 +10,19 @@ from pathlib import Path
 
 import numpy as np
 
-# Libraries whose versions change scores (a threshold can sit in a dense band of scores, so a
-# small numeric difference between versions moves many rows across it; see issue #35).
-ENV_PACKAGES = ("numpy", "pandas", "scikit-learn", "xgboost", "torch", "transformers")
+from scripts.check_setup import GROUPS, requirements
 
 
 def environment() -> dict:
     """Where a run happened: Python and library versions, the CPU, and the GPU torch can see (None if torch
-    was not imported or there is no GPU; a CPU-only run on a GPU machine still lists the GPU)."""
+    was not imported or there is no GPU; a CPU-only run on a GPU machine still lists the GPU).
+
+    The versions are those of every package in the requirements files (scripts/check_setup.py GROUPS) that
+    is installed here. A threshold can sit in a dense band of scores, so a small numeric difference between
+    machines moves many rows across it (issue #35)."""
+    names = {name for req_file, _ in GROUPS.values() if req_file for name, _ in requirements(req_file)}
     versions = {}
-    for pkg in ENV_PACKAGES:
+    for pkg in sorted(names):
         try:
             versions[pkg] = metadata.version(pkg)
         except metadata.PackageNotFoundError:
