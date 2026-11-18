@@ -107,25 +107,35 @@ latency at most 10 ms; an F1 tie goes to the faster model) to the masked runs of
 Forest with and without host averaging. As in `results/selection.csv`, ablation runs such as M2's character
 model are left out. Rebuild it with `python -m eval.summarise --results-dir results_nozone --no-plots`.
 
-| Run | Original table picks | Masked table picks | Masked F1 | Masked FPR | Latency |
-|---|---|---|---|---|---|
-| Experiment 1 (within-testbed) | M3 CNN | M3 BiLSTM | 0.9997 | 0.018% | 6.7 ms |
-| Experiment 3, dns2tcp held out | M3 CNN | M1 | 1.0000 | 0% | 7.9 ms |
-| Experiment 3, dnscat2 held out | M3 CNN | M2 BPE + host averaging | 0.9948 | 0.19% | 6.9 ms |
-| Experiment 3, dnsexfiltrator held out | M3 CNN | M1 | 1.0000 | 0% | 8.1 ms |
-| Experiment 3, iodine held out | M3 CNN | M1 | 1.0000 | 0% | 7.8 ms |
-| Experiment 5 (low-and-slow) | M3 CNN | M3 CNN | 0.9912 | 0.009% | 1.7 ms |
+Latency comes from `latency_cpu.csv`: every model timed on one CPU, the machine that runs the live detector
+(`scripts/time_models.py`, below).
 
-- **M3 no longer wins Experiment 3.** With the domain hidden it is picked for none of the four held-out tools.
-  M1 is picked for three, and M2 BPE with host averaging for dnscat2, where M1 catches 22% at its own threshold.
-- **Experiments 1 and 5 turn on M1's timing, not its accuracy.** M1 scores F1 1.0000 on both, but those two runs
-  were timed at 13.4 and 11.2 ms per query, over the 10 ms limit, so the rule skips it. The same model on the
-  original table was timed at 9.1 and 9.2 ms on the same kind of machine. M1's latency sits at the limit and
-  varies from run to run (7.8 to 13.4 ms across the six masked runs), so these two picks would flip to M1 with a
-  slightly faster timing. A single timing of every model on one CPU would settle it.
-- **RF and the Isolation Forest with host averaging also reach F1 1.0000** on several of these runs but are never
-  picked: they take 20 to 28 ms per query.
+| Run | Original table picks | Masked table picks | Masked F1 | Masked FPR |
+|---|---|---|---|---|
+| Experiment 1 (within-testbed) | M3 BiLSTM | M1 | 1.0000 | 0% |
+| Experiment 3, dns2tcp held out | M3 BiLSTM | M1 | 1.0000 | 0% |
+| Experiment 3, dnscat2 held out | M3 BiLSTM | RF | 1.0000 | 0% |
+| Experiment 3, dnsexfiltrator held out | M3 BiLSTM | M1 | 1.0000 | 0% |
+| Experiment 3, iodine held out | M3 BiLSTM | M1 | 1.0000 | 0% |
+| Experiment 5 (low-and-slow) | M3 BiLSTM | M1 | 1.0000 | 0% |
+
+- **With the domain hidden, M1 wins every run but one.** M3 is picked for none of them.
+- **RF covers M1's gap.** With dnscat2 held out, M1 catches 22% at its own threshold and RF catches all of it.
+  RF's dnscat2 recall moves between machines (0.49 to 0.96 on the original table, `docs/m1.md`), so treat that
+  pick as less firm than the others.
+- **M2 is out on CPU.** M2 BPE takes 23.2 ms per query and the character model 27.9 ms, against 6 to 7 ms on the
+  Colab GPU, so neither meets the 10 ms rule.
+- **The original-table M3 picks are a tie.** The CNN and BiLSTM both score F1 1.0, and the BiLSTM wins by 0.004 ms.
 - Experiments 2 and 4 use CIC and are not in the masked selection; for them `results/selection.csv` stands.
+
+### One-CPU latency
+`python scripts/time_models.py` loads each saved model and scores the same 500 Experiment 1 test queries one at
+a time, three times, in one process, and writes `results/latency_cpu.csv` with the CPU name. `eval.summarise`
+uses that file for the latency table and the 10 ms rule when it exists; `summary.csv` keeps each run's own
+timing. A host-averaging variant gets its base model's time, as in the per-run timings. Timed on 18 Nov on an
+AMD Ryzen 7 9800X3D (WSL), ms per query: M3 BiLSTM 0.81, M3 CNN 0.82, M1 5.04, RF 8.07, Isolation Forest 9.09,
+M2 BPE 23.2, M2 character 27.9. M1 and RF were retrained for Experiment 1 with the current code (seconds); M2 is
+the `m2/phase2_weights` testbed models from the shared Drive; M3 is a saved Experiment 1 model.
 
 ## What it shows
 - **The suffix explains M3's perfect Experiment 3 results.** With the zone hidden, recall on the held-out tool
@@ -160,7 +170,7 @@ model are left out. Rebuild it with `python -m eval.summarise --results-dir resu
 - Experiment 5 (low-and-slow): quote M3's masked numbers too; the original result carries the suffix.
 - M1 and RF: the original and masked numbers agree, so either can be quoted; details in `docs/m1.md`.
 - Model selection on testbed experiments (1, 3 and 5): quote `results_nozone/selection.csv` (section above),
-  and say that the Experiment 1 and 5 picks depend on M1's latency measurement.
+  and say that latency was timed on one CPU after the results freeze.
 - M2: quote the **masked** numbers for the character model (ablation 1) and drop the claim that it beats BPE on
   the testbed. M2 BPE, M2 with host averaging and the Isolation Forest stand as reported; the masked numbers can
   sit beside them.
@@ -173,5 +183,5 @@ model are left out. Rebuild it with `python -m eval.summarise --results-dir resu
 - Every masked result JSON is in `results_nozone/` (Experiments 1, 3 and 5): M1, RF, M2 with ablations 1 and 2,
   the Isolation Forest, and M3. M3's files are copies of the Colab runs in `nz.zip` (Experiments 1 and 3) and
   `nz_e5.zip` (Experiment 5) in the "leakmate captures" Drive folder.
-- Latencies in `results_nozone/latency.csv` come from different machines (M1, RF on a Colab CPU; M2, M3 on a
-  Colab T4 GPU), as in `results/latency.csv`.
+- `results_nozone/latency_cpu.csv` is a copy of `results/latency_cpu.csv`: the timing depends on the model, not on
+  the table it was trained on. Each run's own timing (Colab CPU or GPU) stays in `summary.csv`.
