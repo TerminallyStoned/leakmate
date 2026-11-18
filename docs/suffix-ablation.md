@@ -102,9 +102,10 @@ The Isolation Forest does not change: recall 1.0 and ROC-AUC at least 0.9998 in 
 
 ## Selection with the domain hidden
 `results/selection.csv` reads the original testbed runs, where a name-reading model can score perfectly from the
-`tunnel.test` suffix. `results_nozone/selection.csv` applies the same rule (best F1 with FPR under 1% and latency
-under 10 ms; an F1 tie goes to the faster model) to the masked runs of every model: M1, RF, M2 with its variants,
-the Isolation Forest, and M3. Rebuild it with `python -m eval.summarise --results-dir results_nozone --no-plots`.
+`tunnel.test` suffix. `results_nozone/selection.csv` applies the same rule (best F1 with FPR at most 1% and
+latency at most 10 ms; an F1 tie goes to the faster model) to the masked runs of M1, RF, M3, and M2 and the Isolation
+Forest with and without host averaging. As in `results/selection.csv`, ablation runs such as M2's character
+model are left out. Rebuild it with `python -m eval.summarise --results-dir results_nozone --no-plots`.
 
 | Run | Original table picks | Masked table picks | Masked F1 | Masked FPR | Latency |
 |---|---|---|---|---|---|
