@@ -10,12 +10,12 @@ the time split, and once on a random 70/30 row shuffle (seed 42). Everything els
 | Dataset | Time split (file) | Shuffled (file) |
 |---|---|---|
 | CIC | `results/m1/E2.json` (Experiment 2) | `results/m1/S.json` |
-| Testbed | Experiment 1 run, same command as `results/m1/E1.json` | `results/m1/S_testbed.json` |
+| Testbed | `results/m1/E1.json` (Experiment 1, freeze) | `results/m1/S_testbed.json` |
 
 Rerun the testbed pair:
 ```bash
 python -m models.m1_run --model m1 --exp S --split shuffled --tag testbed --no-shap --data data/processed/testbed/queries.parquet
-python -m models.m1_run --model m1 --exp E1 --no-shap --data data/processed/testbed/queries.parquet
+python -m eval.run --model m1 --exp E1
 ```
 
 ## Results (17 Nov)
@@ -24,7 +24,7 @@ python -m models.m1_run --model m1 --exp E1 --no-shap --data data/processed/test
 |---|---|---|---|---|---|---|---|
 | CIC | time | 0.9982 | 0.0073 | 1.0000 | 1.0000 | 1.0000 | 274 / 113,078 |
 | CIC | shuffled | 0.9993 | 0.0028 | 1.0000 | 1.0000 | 1.0000 | 106 / 113,070 |
-| Testbed | time | 0.9981 | 0.0040 | 1.0000 | 1.0000 | 1.0000 | 133 / 67,699 |
+| Testbed | time | 0.9971 | 0.0060 | 1.0000 | 1.0000 | 1.0000 | 200 / 67,699 |
 | Testbed | shuffled | 0.9966 | 0.0068 | 1.0000 | 1.0000 | 1.0000 | 230 / 67,669 |
 | Testbed, per-query features only | time | 0.9952 | 0.0099 | 1.0000 | 1.0000 | 1.0000 | 332 / 67,699 |
 | Testbed, per-query features only | shuffled | 0.9951 | 0.0100 | 1.0000 | 1.0000 | 1.0000 | 335 / 67,669 |
@@ -33,7 +33,7 @@ python -m models.m1_run --model m1 --exp E1 --no-shap --data data/processed/test
 
 - **No measurable inflation for M1 on either dataset.** Both splits give ROC-AUC 1.0 and recall 1.0.
   The F1 and false-positive gaps are under 0.005 and go in opposite directions on CIC (+0.0011 F1
-  when shuffled) and the testbed (−0.0015 F1 when shuffled).
+  when shuffled) and the testbed (−0.0005 F1 when shuffled).
 - **The false-positive differences are threshold placement, not the model.** These runs have no
   threshold of their own (`threshold_source: test_fallback`), so the evaluation module sets one on
   the test set at about 1% FPR. The ranking metrics, which don't depend on a threshold, are identical.
@@ -48,4 +48,4 @@ python -m models.m1_run --model m1 --exp E1 --no-shap --data data/processed/test
 ## Limits
 
 - One model (M1) and one seed. M3 (char-CNN/BiLSTM) was not run, as the card allowed.
-- The CIC pair dates from 13 Nov (same code version for both files). The testbed pair is from 17 Nov.
+- The CIC pair dates from 13 Nov (same code version for both files). The testbed shuffled run is from 17 Nov; its time-split partner is the 18 Nov freeze file.
