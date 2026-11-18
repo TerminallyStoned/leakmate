@@ -57,6 +57,33 @@ Recall and ROC-AUC are 1.0 in every run, on both tables. False positives out of 
 | Experiment 3, dnsexfiltrator held out | 215 | 254 |
 | Experiment 3, iodine held out | 311 | 5 |
 
+### M2 (DNS-BERT + Isolation Forest, Colab T4)
+Run on 18 Nov from the team notebook ("Yehan: testbed suffix check", cells 5-7). The masked runs use the same
+settings as Phase 2: the Phase 1 model, continued pre-training on masked testbed benign (10 epochs, learning rate
+1e-4), and one model per tokenizer. The original numbers are the Phase 2 results in `results/` (`docs/m2.md`).
+
+M2 trains on benign names only, so Experiment 3 reuses the Experiment 1 model and scores each tool on its own.
+The four Experiment 3 rows therefore add up to Experiment 1 (masked BPE: 1,002 + 20 + 0 + 2,748 = 3,770 missed).
+
+Recall, original -> masked. False positives are out of 33,519 benign.
+
+| Run | BPE | Character (ablation 1) | BPE + host averaging | Character + host averaging |
+|---|---|---|---|---|
+| Experiment 1 (within-testbed) | 0.812 -> 0.890 | 0.937 -> **0.737** | 1.000 -> 1.000 | 1.000 -> 1.000 |
+| Experiment 1 false positives | 72 -> 278 | 64 -> 277 | 168 -> 65 | 10 -> 45 |
+| Experiment 1 ROC-AUC | 0.9959 -> 0.9780 | 0.9991 -> 0.9762 | 1.0000 -> 1.0000 | 1.0000 -> 1.0000 |
+| Experiment 3, dns2tcp held out | 0.998 -> 0.871 | 1.000 -> **0.223** | 1.000 -> 1.000 | 1.000 -> 1.000 |
+| Experiment 3, dnscat2 held out | 0.404 -> 0.997 | 0.655 -> 0.965 | 1.000 -> 1.000 | 1.000 -> 1.000 |
+| Experiment 3, dnsexfiltrator held out | 1.000 -> 1.000 | 1.000 -> 1.000 | 1.000 -> 1.000 | 1.000 -> 1.000 |
+| Experiment 3, iodine held out | 0.748 -> 0.746 | 1.000 -> **0.746** | 1.000 -> 1.000 | 1.000 -> 1.000 |
+
+Per-query FPR goes from 0.19-0.21% to 0.83% for both tokenizers; with host averaging it is 0.19% (BPE) and
+0.13% (character). Recall at 1% FPR equals recall in every M2 row. Both tokenizers miss exactly the same 2,748
+iodine queries on the masked table.
+
+The Isolation Forest does not change: recall 1.0 and ROC-AUC at least 0.9998 in every run; false positives
+306 -> 293 per query, and 0 -> 0 with host averaging.
+
 ## What it shows
 - **The suffix explains M3's perfect Experiment 3 results.** With the zone hidden, recall on the held-out tool
   falls from 1.0 to between 0.000 and 0.945, depending on the tool and model.
@@ -75,17 +102,27 @@ Recall and ROC-AUC are 1.0 in every run, on both tables. False positives out of 
 - **M1 doesn't rely on the suffix.** Its features are lengths, entropy and per-host counts, so the ranking does
   not change. The false-positive shifts come from threshold placement. One caveat: on the masked table, M1's
   per-host `h_parent_uniq` counts distinct names per host, because every name now has the same parent.
+- **M2's main model (BPE) doesn't rely on the suffix.** It never sees a tunnel in training, so it cannot learn
+  that `tunnel.test` means a tunnel. Masked, its overall recall rises (0.812 -> 0.890, dnscat2 0.404 -> 0.997);
+  only dns2tcp drops (0.998 -> 0.871). The cost is false positives: 0.21% -> 0.83% FPR, still under 1%.
+- **M2's character model (ablation 1) did lean on the suffix.** Masked, dns2tcp falls from 1.000 to 0.223 and
+  iodine from 1.000 to 0.746, so its lead over BPE on the original table (`docs/m2.md`) does not hold.
+- **M2 with per-host averaging is unaffected:** recall 1.0 on every tool, 0.13-0.19% FPR.
+- **The Isolation Forest is unaffected.** Like M1, it reads name statistics, not the suffix itself.
 
 ## For the report
 - RQ2 (unseen tools): quote M3's **masked** Experiment 3 numbers, not the original ones. The original
   Experiment 3 measures whether the model can read `tunnel.test`.
 - Experiment 5 (low-and-slow): quote M3's masked numbers too; the original result carries the suffix.
 - M1's testbed numbers stand as reported.
+- M2: quote the **masked** numbers for the character model (ablation 1) and drop the claim that it beats BPE on
+  the testbed. M2 BPE, M2 with host averaging and the Isolation Forest stand as reported; the masked numbers can
+  sit beside them.
 - Experiment 4 (cross-dataset) remains the strongest test of generalisation for every model.
 
 ## Limits
-- M2 (DNS-BERT + Isolation Forest) also reads the name. Its masked Experiment 1 + 3 runs are set up in the team
-  Colab notebook but have no results yet.
+- M2 was rerun masked for Experiments 1 and 3 only. It has no Experiment 5 run, masked or original.
 - One seed per run. GPU training is not bit-for-bit repeatable (`docs/m3.md`).
 - Result JSONs are not committed. M3's come from Colab runs (`nz.zip` for Experiments 1 and 3; `nz_e5.zip` for
-  Experiment 5, in `m3/` of the "leakmate captures" Drive folder); M1 reruns in minutes with the commands above.
+  Experiment 5, in `m3/` of the "leakmate captures" Drive folder); M2's come from Colab too (`m2nz.zip`, in the
+  same folder); M1 reruns in minutes with the commands above.
