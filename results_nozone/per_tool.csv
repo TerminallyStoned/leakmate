@@ -1,0 +1,133 @@
+model,experiment,experiment_name,tool,recall
+iforest,E1,Experiment 1 (within-testbed),dns2tcp,1.0
+iforest,E1,Experiment 1 (within-testbed),dnscat2,1.0
+iforest,E1,Experiment 1 (within-testbed),dnsexfiltrator,1.0
+iforest,E1,Experiment 1 (within-testbed),iodine,1.0
+iforest,E3_dns2tcp,Experiment 3 (leave-one-tool-out) - dns2tcp,dns2tcp,1.0
+iforest,E3_dnscat2,Experiment 3 (leave-one-tool-out) - dnscat2,dnscat2,1.0
+iforest,E3_dnsexfiltrator,Experiment 3 (leave-one-tool-out) - dnsexfiltrator,dnsexfiltrator,1.0
+iforest,E3_iodine,Experiment 3 (leave-one-tool-out) - iodine,iodine,1.0
+iforest,E5,Experiment 5 (low-and-slow),dnscat2,1.0
+iforest,E5,Experiment 5 (low-and-slow),dnsexfiltrator,1.0
+iforest,E5,Experiment 5 (low-and-slow),iodine,1.0
+iforest_hostavg,E1,Experiment 1 (within-testbed),dns2tcp,1.0
+iforest_hostavg,E1,Experiment 1 (within-testbed),dnscat2,1.0
+iforest_hostavg,E1,Experiment 1 (within-testbed),dnsexfiltrator,1.0
+iforest_hostavg,E1,Experiment 1 (within-testbed),iodine,1.0
+iforest_hostavg,E3_dns2tcp,Experiment 3 (leave-one-tool-out) - dns2tcp,dns2tcp,1.0
+iforest_hostavg,E3_dnscat2,Experiment 3 (leave-one-tool-out) - dnscat2,dnscat2,1.0
+iforest_hostavg,E3_dnsexfiltrator,Experiment 3 (leave-one-tool-out) - dnsexfiltrator,dnsexfiltrator,1.0
+iforest_hostavg,E3_iodine,Experiment 3 (leave-one-tool-out) - iodine,iodine,1.0
+iforest_hostavg,E5,Experiment 5 (low-and-slow),dnscat2,1.0
+iforest_hostavg,E5,Experiment 5 (low-and-slow),dnsexfiltrator,1.0
+iforest_hostavg,E5,Experiment 5 (low-and-slow),iodine,1.0
+m1,E1,Experiment 1 (within-testbed),dns2tcp,1.0
+m1,E1,Experiment 1 (within-testbed),dnscat2,1.0
+m1,E1,Experiment 1 (within-testbed),dnsexfiltrator,1.0
+m1,E1,Experiment 1 (within-testbed),iodine,1.0
+m1,E3_dns2tcp,Experiment 3 (leave-one-tool-out) - dns2tcp,dns2tcp,1.0
+m1,E3_dnscat2,Experiment 3 (leave-one-tool-out) - dnscat2,dnscat2,0.21805241022322872
+m1,E3_dnsexfiltrator,Experiment 3 (leave-one-tool-out) - dnsexfiltrator,dnsexfiltrator,1.0
+m1,E3_iodine,Experiment 3 (leave-one-tool-out) - iodine,iodine,1.0
+m1,E5,Experiment 5 (low-and-slow),dnscat2,1.0
+m1,E5,Experiment 5 (low-and-slow),dnsexfiltrator,1.0
+m1,E5,Experiment 5 (low-and-slow),iodine,1.0
+m2,E1,Experiment 1 (within-testbed),dns2tcp,0.8709428129829985
+m2,E1,Experiment 1 (within-testbed),dnscat2,0.9967648010352637
+m2,E1,Experiment 1 (within-testbed),dnsexfiltrator,1.0
+m2,E1,Experiment 1 (within-testbed),iodine,0.7463072378138847
+m2,E3_dns2tcp,Experiment 3 (leave-one-tool-out) - dns2tcp,dns2tcp,0.8709428129829985
+m2,E3_dnscat2,Experiment 3 (leave-one-tool-out) - dnscat2,dnscat2,0.9967648010352637
+m2,E3_dnsexfiltrator,Experiment 3 (leave-one-tool-out) - dnsexfiltrator,dnsexfiltrator,1.0
+m2,E3_iodine,Experiment 3 (leave-one-tool-out) - iodine,iodine,0.7463072378138847
+m2,E5,Experiment 5 (low-and-slow),dnscat2,0.9915254237288136
+m2,E5,Experiment 5 (low-and-slow),dnsexfiltrator,1.0
+m2,E5,Experiment 5 (low-and-slow),iodine,0.28413284132841327
+m2_ablation1_char,E1,Experiment 1 (within-testbed),dns2tcp,0.22256568778979907
+m2_ablation1_char,E1,Experiment 1 (within-testbed),dnscat2,0.9645745713361372
+m2_ablation1_char,E1,Experiment 1 (within-testbed),dnsexfiltrator,1.0
+m2_ablation1_char,E1,Experiment 1 (within-testbed),iodine,0.7463072378138847
+m2_ablation1_char,E3_dns2tcp,Experiment 3 (leave-one-tool-out) - dns2tcp,dns2tcp,0.22256568778979907
+m2_ablation1_char,E3_dnscat2,Experiment 3 (leave-one-tool-out) - dnscat2,dnscat2,0.9645745713361372
+m2_ablation1_char,E3_dnsexfiltrator,Experiment 3 (leave-one-tool-out) - dnsexfiltrator,dnsexfiltrator,1.0
+m2_ablation1_char,E3_iodine,Experiment 3 (leave-one-tool-out) - iodine,iodine,0.7463072378138847
+m2_ablation1_char,E5,Experiment 5 (low-and-slow),dnscat2,0.9661016949152542
+m2_ablation1_char,E5,Experiment 5 (low-and-slow),dnsexfiltrator,1.0
+m2_ablation1_char,E5,Experiment 5 (low-and-slow),iodine,0.28413284132841327
+m2_ablation1_char_hostavg,E1,Experiment 1 (within-testbed),dns2tcp,1.0
+m2_ablation1_char_hostavg,E1,Experiment 1 (within-testbed),dnscat2,1.0
+m2_ablation1_char_hostavg,E1,Experiment 1 (within-testbed),dnsexfiltrator,1.0
+m2_ablation1_char_hostavg,E1,Experiment 1 (within-testbed),iodine,1.0
+m2_ablation1_char_hostavg,E3_dns2tcp,Experiment 3 (leave-one-tool-out) - dns2tcp,dns2tcp,1.0
+m2_ablation1_char_hostavg,E3_dnscat2,Experiment 3 (leave-one-tool-out) - dnscat2,dnscat2,1.0
+m2_ablation1_char_hostavg,E3_dnsexfiltrator,Experiment 3 (leave-one-tool-out) - dnsexfiltrator,dnsexfiltrator,1.0
+m2_ablation1_char_hostavg,E3_iodine,Experiment 3 (leave-one-tool-out) - iodine,iodine,1.0
+m2_ablation1_char_hostavg,E5,Experiment 5 (low-and-slow),dnscat2,1.0
+m2_ablation1_char_hostavg,E5,Experiment 5 (low-and-slow),dnsexfiltrator,1.0
+m2_ablation1_char_hostavg,E5,Experiment 5 (low-and-slow),iodine,1.0
+m2_ablation2_sup,E1,Experiment 1 (within-testbed),dns2tcp,1.0
+m2_ablation2_sup,E1,Experiment 1 (within-testbed),dnscat2,1.0
+m2_ablation2_sup,E1,Experiment 1 (within-testbed),dnsexfiltrator,1.0
+m2_ablation2_sup,E1,Experiment 1 (within-testbed),iodine,0.9997230428360414
+m2_ablation2_sup,E3_dns2tcp,Experiment 3 (leave-one-tool-out) - dns2tcp,dns2tcp,0.044693456980937664
+m2_ablation2_sup,E3_dnscat2,Experiment 3 (leave-one-tool-out) - dnscat2,dnscat2,0.7696538337107732
+m2_ablation2_sup,E3_dnsexfiltrator,Experiment 3 (leave-one-tool-out) - dnsexfiltrator,dnsexfiltrator,1.0
+m2_ablation2_sup,E3_iodine,Experiment 3 (leave-one-tool-out) - iodine,iodine,0.7463072378138847
+m2_ablation2_sup,E5,Experiment 5 (low-and-slow),dnscat2,1.0
+m2_ablation2_sup,E5,Experiment 5 (low-and-slow),dnsexfiltrator,1.0
+m2_ablation2_sup,E5,Experiment 5 (low-and-slow),iodine,1.0
+m2_ablation2_sup_hostavg,E1,Experiment 1 (within-testbed),dns2tcp,1.0
+m2_ablation2_sup_hostavg,E1,Experiment 1 (within-testbed),dnscat2,1.0
+m2_ablation2_sup_hostavg,E1,Experiment 1 (within-testbed),dnsexfiltrator,1.0
+m2_ablation2_sup_hostavg,E1,Experiment 1 (within-testbed),iodine,1.0
+m2_ablation2_sup_hostavg,E3_dns2tcp,Experiment 3 (leave-one-tool-out) - dns2tcp,dns2tcp,0.04327666151468315
+m2_ablation2_sup_hostavg,E3_dnscat2,Experiment 3 (leave-one-tool-out) - dnscat2,dnscat2,0.9707214493691362
+m2_ablation2_sup_hostavg,E3_dnsexfiltrator,Experiment 3 (leave-one-tool-out) - dnsexfiltrator,dnsexfiltrator,1.0
+m2_ablation2_sup_hostavg,E3_iodine,Experiment 3 (leave-one-tool-out) - iodine,iodine,0.9993537666174298
+m2_ablation2_sup_hostavg,E5,Experiment 5 (low-and-slow),dnscat2,1.0
+m2_ablation2_sup_hostavg,E5,Experiment 5 (low-and-slow),dnsexfiltrator,1.0
+m2_ablation2_sup_hostavg,E5,Experiment 5 (low-and-slow),iodine,1.0
+m2_hostavg,E1,Experiment 1 (within-testbed),dns2tcp,1.0
+m2_hostavg,E1,Experiment 1 (within-testbed),dnscat2,1.0
+m2_hostavg,E1,Experiment 1 (within-testbed),dnsexfiltrator,1.0
+m2_hostavg,E1,Experiment 1 (within-testbed),iodine,1.0
+m2_hostavg,E3_dns2tcp,Experiment 3 (leave-one-tool-out) - dns2tcp,dns2tcp,1.0
+m2_hostavg,E3_dnscat2,Experiment 3 (leave-one-tool-out) - dnscat2,dnscat2,1.0
+m2_hostavg,E3_dnsexfiltrator,Experiment 3 (leave-one-tool-out) - dnsexfiltrator,dnsexfiltrator,1.0
+m2_hostavg,E3_iodine,Experiment 3 (leave-one-tool-out) - iodine,iodine,1.0
+m2_hostavg,E5,Experiment 5 (low-and-slow),dnscat2,1.0
+m2_hostavg,E5,Experiment 5 (low-and-slow),dnsexfiltrator,1.0
+m2_hostavg,E5,Experiment 5 (low-and-slow),iodine,1.0
+m3_bilstm,E1,Experiment 1 (within-testbed),dns2tcp,1.0
+m3_bilstm,E1,Experiment 1 (within-testbed),dnscat2,0.9978971206729214
+m3_bilstm,E1,Experiment 1 (within-testbed),dnsexfiltrator,1.0
+m3_bilstm,E1,Experiment 1 (within-testbed),iodine,1.0
+m3_bilstm,E3_dns2tcp,Experiment 3 (leave-one-tool-out) - dns2tcp,dns2tcp,0.00012879958784131891
+m3_bilstm,E3_dnscat2,Experiment 3 (leave-one-tool-out) - dnscat2,dnscat2,0.9131349077968295
+m3_bilstm,E3_dnsexfiltrator,Experiment 3 (leave-one-tool-out) - dnsexfiltrator,dnsexfiltrator,0.9449053392895129
+m3_bilstm,E3_iodine,Experiment 3 (leave-one-tool-out) - iodine,iodine,0.7497230428360414
+m3_bilstm,E5,Experiment 5 (low-and-slow),dnscat2,1.0
+m3_bilstm,E5,Experiment 5 (low-and-slow),dnsexfiltrator,1.0
+m3_bilstm,E5,Experiment 5 (low-and-slow),iodine,1.0
+m3_cnn,E1,Experiment 1 (within-testbed),dns2tcp,1.0
+m3_cnn,E1,Experiment 1 (within-testbed),dnscat2,0.9899708832093174
+m3_cnn,E1,Experiment 1 (within-testbed),dnsexfiltrator,1.0
+m3_cnn,E1,Experiment 1 (within-testbed),iodine,1.0
+m3_cnn,E3_dns2tcp,Experiment 3 (leave-one-tool-out) - dns2tcp,dns2tcp,0.0
+m3_cnn,E3_dnscat2,Experiment 3 (leave-one-tool-out) - dnscat2,dnscat2,0.3231963765771595
+m3_cnn,E3_dnsexfiltrator,Experiment 3 (leave-one-tool-out) - dnsexfiltrator,dnsexfiltrator,0.48521591150818977
+m3_cnn,E3_iodine,Experiment 3 (leave-one-tool-out) - iodine,iodine,0.747692023633678
+m3_cnn,E5,Experiment 5 (low-and-slow),dnscat2,0.9576271186440678
+m3_cnn,E5,Experiment 5 (low-and-slow),dnsexfiltrator,1.0
+m3_cnn,E5,Experiment 5 (low-and-slow),iodine,1.0
+rf,E1,Experiment 1 (within-testbed),dns2tcp,1.0
+rf,E1,Experiment 1 (within-testbed),dnscat2,1.0
+rf,E1,Experiment 1 (within-testbed),dnsexfiltrator,1.0
+rf,E1,Experiment 1 (within-testbed),iodine,1.0
+rf,E3_dns2tcp,Experiment 3 (leave-one-tool-out) - dns2tcp,dns2tcp,1.0
+rf,E3_dnscat2,Experiment 3 (leave-one-tool-out) - dnscat2,dnscat2,1.0
+rf,E3_dnsexfiltrator,Experiment 3 (leave-one-tool-out) - dnsexfiltrator,dnsexfiltrator,1.0
+rf,E3_iodine,Experiment 3 (leave-one-tool-out) - iodine,iodine,0.9998153618906942
+rf,E5,Experiment 5 (low-and-slow),dnscat2,1.0
+rf,E5,Experiment 5 (low-and-slow),dnsexfiltrator,1.0
+rf,E5,Experiment 5 (low-and-slow),iodine,1.0
