@@ -1,21 +1,7 @@
 """live/alerts.db: what the sniffer writes and the dashboard reads (SQLite).
 
-Tables
-  alerts      one row per query whose score reached the threshold
-  host_stats  queries, alerts and scores per host per BUCKET_S seconds (score over time, alert rate)
-  meta        key/value: schema_version, model, threshold, source, started_utc
-
-Columns of `alerts`
-  id            INTEGER  row id, increasing
-  ts            REAL     query time, epoch seconds UTC (the packet timestamp, as in the query table)
-  src_host      TEXT     IP address of the client that sent the query
-  qname         TEXT     query name as seen on the wire
-  qtype         TEXT     record type mnemonic (A, TXT, NULL, ...)
-  score         REAL     model score, higher = more suspicious
-  threshold     REAL     threshold the score was compared with
-  model         TEXT     scorer that produced it (dummy, m1_xgb, ...)
-  top_features  TEXT     JSON list, most important first: [{"feature": str, "value": float, "shap": float|null}]
-  detected_ts   REAL     wall-clock time the alert was written; detected_ts - ts is the time to alert
+Tables `alerts` (one row per query at or above the threshold), `host_stats` (per host per BUCKET_S seconds)
+and `meta`. Every column is documented in live/README.md, which is what the dashboard is built against.
 """
 
 from __future__ import annotations

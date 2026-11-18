@@ -139,20 +139,7 @@ def parse_pcap(path: Path, tool_of: Callable[[str, str], str | None]) -> pd.Data
                 if key in pending:  # retransmission of a query still awaiting an answer
                     continue
                 pending[key] = len(queries)
-                queries.append(
-                    dict(
-                        ts=float(ts),
-                        src_host=val["src_host"],
-                        qname=val["qname"],
-                        qtype=val["qtype"],
-                        resp_size=0,
-                        rcode=-1,
-                        label=int(tool != "benign"),
-                        tool=tool,
-                        qname_truncated=val["qname_truncated"],
-                        qlen_wire=val["qlen_wire"],
-                    )
-                )
+                queries.append({"ts": float(ts), **val, "label": int(tool != "benign"), "tool": tool})
             else:
                 idx = pending.pop(key, None)
                 if idx is not None:
