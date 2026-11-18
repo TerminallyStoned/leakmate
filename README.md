@@ -80,7 +80,7 @@ testbed/
 parser/       python -m parser {cic,features,pcap,testbed}; `from parser import load; train, test = load("cic")`
 eval/         shared evaluation module: splits, metrics, plots, run.py, summarise.py
 data/         raw/, external/, processed/ (not committed; see data/README.md)
-live/         live detector (planned)
+live/         live sniffer: python -m live -> live/alerts.db (live/README.md)
 dashboard/    Streamlit app (planned; app.py is a placeholder)
 ```
 
@@ -131,7 +131,7 @@ The user manual is built from these commands.
 | Train + score M1 with SHAP | `python -m models.m1_run --model m1 --exp E2 --data data/processed/cic/queries.parquet` | ✅ |
 | Train + score M2 | `python -m models.m2_run --model m2 --exp E2 --data ... --tranco data/external/tranco.csv` | ✅ |
 | Metrics, plots, selection | `python -m eval.summarise` | ✅ |
-| Live detector | `python -m live` | planned (19 Nov) |
+| Live sniffer | `python -m live --pcap <capture>.pcap`, or `live/run_live.sh` in the testbed | ✅ sniffer + `live/alerts.db` with a placeholder scorer ([`live/README.md`](live/README.md)); selected model + SHAP alerts 19 Nov |
 | Dashboard | `streamlit run dashboard/app.py` | placeholder (20 Nov) |
 
 ## Quick start (M2 on CIC)

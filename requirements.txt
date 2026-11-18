@@ -3,5 +3,6 @@
 -r requirements-dev.txt
 -r requirements-m1.txt
 -r requirements-m2.txt
+-r requirements-live.txt
 # dashboard/app.py
 streamlit>=1.35
