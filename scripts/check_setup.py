@@ -15,6 +15,7 @@ GROUPS = {
     "dev": ("requirements-dev.txt", "linting (ruff) and tests (pytest)"),
     "m1": ("requirements-m1.txt", "M1 XGBoost, Random Forest, SHAP, CIC pcap reader"),
     "m2": ("requirements-m2.txt", "M2 DNS-BERT and the Isolation Forest baseline"),
+    "live": ("requirements-live.txt", "live sniffer on a network interface (Scapy)"),
     "testbed": (None, "Docker testbed (iodine, dnscat2, dns2tcp, DNSExfiltrator server)"),
     "data": (None, "processed CIC data and the Tranco list used by the runners"),
 }

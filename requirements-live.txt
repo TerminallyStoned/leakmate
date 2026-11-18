@@ -1,0 +1,3 @@
+# Live sniffer on a network interface (python -m live --iface ...). Replaying a pcap (--pcap) needs only
+# requirements-m1.txt. Scapy also needs libpcap on the machine (apt install libpcap0.8 tcpdump).
+scapy>=2.5

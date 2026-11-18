@@ -1,5 +1,5 @@
-"""Live detector (planned, Phase 4).
+"""Live detector: sniff DNS, score each query, write alerts to live/alerts.db.
 
-Sniffer service due 18 Nov; end-to-end detector with SHAP alerts due 19 Nov.
-Run command once it lands: `python -m live`.
+Run with `python -m live` (see live/README.md). The sniffer and its alert store are in place; the
+selected model with SHAP alerts is plugged in on 19 Nov.
 """
