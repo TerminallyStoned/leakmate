@@ -127,6 +127,7 @@ The Isolation Forest does not change: recall 1.0 and ROC-AUC at least 0.9998 in 
 - M2's Experiment 5 (masked and original) is derived from its Experiment 1 results (`scripts/m2_e5.py`, same model
   and threshold, since M2 trains on benign only); numbers in `docs/m2.md`.
 - One seed per run. GPU training is not bit-for-bit repeatable (`docs/m3.md`).
-- M2's masked result JSONs (Experiments 1, 3 and 5, with the Isolation Forest) are in `results_nozone/`. M3's come
+- M2's masked result JSONs (Experiments 1, 3 and 5, ablations 1 and 2, with the Isolation Forest) are in
+  `results_nozone/`. M3's come
   from Colab runs (`nz.zip` for Experiments 1 and 3; `nz_e5.zip` for Experiment 5, in `m3/` of the "leakmate captures"
   Drive folder); M1 reruns in minutes with the commands above.
