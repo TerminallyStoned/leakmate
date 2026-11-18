@@ -1,11 +1,11 @@
 experiment,experiment_name,selected_model,f1,fpr,latency_ms_per_query
-E1,Experiment 1 (within-testbed),m3_bilstm,1.0,0.0,6.396068510000077
-E2,Experiment 2 (CIC benchmark),m3_cnn,0.9999601731141969,0.00015891934843067143,1.6589061739996396
-E3_dns2tcp,Experiment 3 (leave-one-tool-out) - dns2tcp,m3_bilstm,1.0,0.0,1.8908198760000232
-E3_dnscat2,Experiment 3 (leave-one-tool-out) - dnscat2,m3_bilstm,1.0,0.0,3.789020348000122
-E3_dnsexfiltrator,Experiment 3 (leave-one-tool-out) - dnsexfiltrator,m3_bilstm,1.0,0.0,2.6506788079996113
-E3_iodine,Experiment 3 (leave-one-tool-out) - iodine,m3_bilstm,1.0,0.0,6.503634132000116
-E4_cic2testbed,Experiment 4 (cross-dataset) - cic2testbed,rf,0.9462007425856036,0.0090694829798025,8.307669266000005
-E4_testbed2cic,Experiment 4 (cross-dataset) - testbed2cic,rf,0.9975301121050993,0.009879486160773408,8.168728697999995
-E5,Experiment 5 (low-and-slow),m3_bilstm,1.0,0.0,2.2012406160001774
-S,Experiment S (shuffled vs time split),m1_testbed,0.9966362466362466,0.00684605310155971,5.142
+E1,Experiment 1 (within-testbed),m3_cnn,1.0,0.0,1.6879852379997828
+E2,Experiment 2 (CIC benchmark),m1,0.9999933618772611,0.0,9.39
+E3_dns2tcp,Experiment 3 (leave-one-tool-out) - dns2tcp,m3_cnn,1.0,0.0,1.6095893299998352
+E3_dnscat2,Experiment 3 (leave-one-tool-out) - dnscat2,m3_cnn,1.0,0.0,1.6409327219998886
+E3_dnsexfiltrator,Experiment 3 (leave-one-tool-out) - dnsexfiltrator,m3_cnn,1.0,0.0,2.1078871059999074
+E3_iodine,Experiment 3 (leave-one-tool-out) - iodine,m3_cnn,1.0,0.0,1.7071784139998272
+E4_cic2testbed,Experiment 4 (cross-dataset) - cic2testbed,m1,0.8497391889618038,0.0,8.908748593999917
+E4_testbed2cic,Experiment 4 (cross-dataset) - testbed2cic,m1,0.9977714399416329,0.0060919083565090714,8.825004660000104
+E5,Experiment 5 (low-and-slow),m3_cnn,1.0,0.0,1.6216927880000185
+S,Experiment S (shuffled vs time split),m1_testbed,1.0,0.0,8.463

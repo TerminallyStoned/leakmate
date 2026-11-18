@@ -9,7 +9,8 @@ send data slowly, are not. This project builds a contained testbed that generate
 traffic, compares three ML/AI detectors on it and on a public benchmark, and runs the best one on live
 DNS traffic behind a dashboard.
 
-> Status: **Phase 1 (build on CIC)**. Sections marked *planned* are not in the repo yet.
+> Status: **Phase 3 (experiments and results freeze, 18 Nov)**. Every model has result files for Experiments 1–5
+> on `main`; the freeze tag is not set yet. Sections marked *planned* are not in the repo yet.
 > The plan and owners live on the team Trello board **ICT3214**.
 
 ## Research questions
@@ -20,11 +21,12 @@ DNS traffic behind a dashboard.
 ## Models
 | | Model | Supervision | Baseline | Status |
 |---|---|---|---|---|
-| **M1** | XGBoost on per-query + per-host features, SHAP explanations | supervised | Random Forest | ✅ Phase 1 code ([`docs/m1.md`](docs/m1.md)) |
-| **M2** | DNS-BERT: small BERT trained only on benign names; flags high pseudo-perplexity | benign-only | Isolation Forest | ✅ Phase 1 done |
-| **M3** | Character-level CNN on the raw query name | supervised | BiLSTM | ✅ Experiments 1–5 run ([`docs/m3.md`](docs/m3.md)) |
+| **M1** | XGBoost on per-query + per-host features, SHAP explanations | supervised | Random Forest | ✅ Experiments 1–5 run with a validation threshold ([`docs/m1.md`](docs/m1.md)) |
+| **M2** | DNS-BERT: small BERT trained only on benign names; flags high pseudo-perplexity | benign-only | Isolation Forest | ✅ Experiments 1–5, ablations 1 and 2, error analysis ([`docs/m2.md`](docs/m2.md)) |
+| **M3** | Character-level CNN on the raw query name | supervised | BiLSTM | ✅ Experiments 1–5, error analysis ([`docs/m3.md`](docs/m3.md)) |
 
-Selection rule: best F1 with false-positive rate < 1% and latency < 10 ms per query.
+Selection rule: best F1 with false-positive rate < 1% and latency < 10 ms per query; an F1 tie goes to the faster model.
+Every model picks its decision threshold on validation data from its training set, never on test data.
 
 > Note: numbering follows the Trello board. The proposal numbered the models differently
 > (autoencoder as M2, the leakage/language-model detector as M3); the report uses the board's numbering.
@@ -48,11 +50,13 @@ summaries, figures and docs use the full names.
   Download the **PCAP** folder (registration required): https://www.unb.ca/cic/datasets/dns-exf-2021.html.
   ⚠️ Captured with snaplen = 96 B: exfil query names are truncated to ~40 chars and lose their qtype.
   Details in [`docs/m2.md`](docs/m2.md).
-- **Testbed** (*partial*): closed Docker network with resolver + authoritative server generating labelled
+- **Testbed**: closed Docker network with resolver + authoritative server generating labelled
   traffic from iodine, dnscat2, dns2tcp and DNSExfiltrator, plus benign traffic (Tranco, apt, curl,
-  browser). Containment is tested so no traffic leaves the network. Available now: the network itself
-  ([`testbed/`](testbed/README.md)) and the benign generator ([`testbed/benign/`](testbed/benign/README.md));
-  the four tunnel tools are in progress.
+  browser). Containment is tested so no traffic leaves the network. The network
+  ([`testbed/`](testbed/README.md)), the benign generator ([`testbed/benign/`](testbed/benign/README.md)) and
+  the four tunnel tools ([`testbed/tools/`](testbed/tools/README.md)) are all in the repo. The 16 Nov query
+  table has 59 captures and 225,561 queries: 113,837 tunnel and 111,724 benign
+  ([`data/raw/manifest.csv`](data/raw/manifest.csv) lists the captures).
 - **Tranco** top-1M list: benign domain names (https://tranco-list.eu).
 
 Raw data, processed data and model weights are **not** committed (see `.gitignore`); scripts regenerate them.
@@ -63,20 +67,24 @@ models/       model code, one file per model: train / score / save / load
   m2_dnsbert.py        M2 DNS-BERT (BPE + char tokenizers, batched pseudo-perplexity)
   iforest_baseline.py  Isolation Forest baseline for M2
   m2_run.py            train + score, writes the results JSON
-  m1_xgb.py            M1 XGBoost + exact TreeSHAP explanations
-  rf_baseline.py       Random Forest baseline for M1 (same features)
+  m2_supervised.py     M2 ablation 2: supervised fine-tune of the same DNS-BERT
+  m1_xgb.py            M1 XGBoost + exact TreeSHAP explanations + validation threshold
+  rf_baseline.py       Random Forest baseline for M1 (same features, same validation rows)
   m1_features.py       M1/RF feature matrix + CIC snaplen leakage guard
   host_features.py     per-host sliding-window features (past-only)
   m1_run.py            M1/RF train + score, writes results JSON + SHAP outputs
+  m3_cnn.py, m3_bilstm.py, m3_common.py   M3 char-CNN + BiLSTM
 contracts.py  validator + session/qtype helpers for the shared contracts (docs/contracts.md)
 scripts/      make_synthetic_sample.py, parse_capture.py (quick capture check used by run_tool.sh), build_queries_parquet.py (old sidecar merge), cic_to_queries.py (old path, calls parser/cic.py)
 notebooks/    m2_dnsbert_colab.ipynb (Colab GPU run), m1_xgb_colab.ipynb (Colab CPU run)
-results/      <model>/<experiment>.json in the shared results format
-docs/         per-component notes (m2.md)
+results/      <model>/<experiment>.json in the shared results format; summary.csv, selection.csv, latency.csv,
+              per_tool.csv and figures/ from python -m eval.summarise
+results_nozone/  M2 and Isolation Forest result files on the masked testbed table (docs/suffix-ablation.md)
+docs/         per-component notes: contracts.md, m1.md, m2.md, m3.md, suffix-ablation.md, experiment-s.md
 tests/        smoke tests
-testbed/
+testbed/      lab network (docker compose), run_tool.sh, capture_matrix.sh
   benign/            benign traffic generator (Tranco, CDN names, curl, apt, browser)
-  m3_cnn.py, m3_bilstm.py, m3_common.py   M3 char-CNN + BiLSTM
+  tools/             iodine, dnscat2, dns2tcp and DNSExfiltrator containers
 parser/       python -m parser {cic,features,pcap,testbed}; `from parser import load; train, test = load("cic")`
 eval/         shared evaluation module: splits, metrics, plots, run.py, summarise.py
 data/         raw/, external/, processed/ (not committed; see data/README.md)
@@ -127,7 +135,7 @@ The user manual is built from these commands.
 | CIC features | `python -m parser features --dataset cic` -> `data/processed/cic/features.parquet` | ✅ |
 | Parse testbed | `python -m parser testbed --capture <tool>.pcap[@<throttle ms>] ... --capture <resolver>.pcap` | ✅ (benign from a resolver capture) |
 | Check a table | `python contracts.py data/processed/cic/queries.parquet` | ✅ |
-| Train + score M1 / RF / IF / M3 | `python -m eval.run --model m1 --exp E3` | needs testbed data; won't overwrite existing results without `--overwrite` |
+| Train + score M1 / RF / IF / M3 | `python -m eval.run --model m1 --exp E3` | ✅ needs the query tables under `data/processed/`; won't overwrite existing results without `--overwrite` |
 | Train + score M1 with SHAP | `python -m models.m1_run --model m1 --exp E2 --data data/processed/cic/queries.parquet` | ✅ |
 | Train + score M2 | `python -m models.m2_run --model m2 --exp E2 --data ... --tranco data/external/tranco.csv` | ✅ |
 | Metrics, plots, selection | `python -m eval.summarise` | ✅ |
@@ -200,19 +208,34 @@ What to know when capturing or using captures, for any tool:
 
 Details and measured query rates: `testbed/tools/README.md`.
 
-## Results so far (Experiment 2, CIC benchmark)
-From the shared evaluation module (`python -m eval.summarise`); M2 latency measured on an RTX 4060.
+## Results
+The shared evaluation module (`python -m eval.summarise`) reads the result files and writes the summary files
+listed here; the tables in the docs are copied from them.
 
-| Model | F1 | ROC-AUC | Latency / query |
-|---|---|---|---|
-| M2 DNS-BERT (BPE) | 0.9980 | 0.99998 | 5.2 ms |
-| M2 DNS-BERT (char, ablation 1) | 0.9979 | 1.00000 | 6.3 ms |
-| Isolation Forest | 0.9980 | 1.00000 | 20.1 ms (excl. feature extraction) |
+| What | Where |
+|---|---|
+| All metrics, one row per model and experiment | `results/summary.csv` |
+| Selection rule applied per experiment | `results/selection.csv` |
+| Per-query latency and training time | `results/latency.csv`, `results/figures/latency.png` |
+| Recall per tunnelling tool | `results/per_tool.csv` |
+| ROC curves and confusion matrices | `results/figures/` |
+| Write-up, error analysis and limits per model | [`docs/m1.md`](docs/m1.md), [`docs/m2.md`](docs/m2.md), [`docs/m3.md`](docs/m3.md) |
+| Testbed runs with the lab domain hidden | [`docs/suffix-ablation.md`](docs/suffix-ablation.md), `results_nozone/` |
+| Shuffled against time-based split | [`docs/experiment-s.md`](docs/experiment-s.md) |
 
-M1 results: see `docs/m1.md`.
-
-CIC contains one tool and no throttling, so it is near-trivially separable; Experiments 3–5 (leave-one-tool-out, cross-dataset, low-and-slow) on the testbed are the
-real test.
+Read these before quoting a number:
+- **The lab domain gives the testbed away.** Every tunnel name in the testbed ends in `tunnel.test` and no benign
+  name does, so a model that reads the name can separate the classes by the suffix alone. For M2 and M3, quote the
+  runs with the domain hidden (`docs/suffix-ablation.md`).
+- **CIC is easy.** It has one tool and no throttling, so every model is near perfect on Experiment 2. Experiments 3
+  to 5 (leave-one-tool-out, cross-dataset, low-and-slow) are the real test.
+- **A perfect ROC-AUC is not a perfect detector.** With dnscat2 held out, M1 reaches ROC-AUC 1.0 but
+  catches only 22% of it at its own threshold (`docs/m1.md`). Quote recall at the model's threshold next to ROC-AUC.
+- **The selection table reads the original testbed runs.** An F1 tie goes to the faster model, so `selection.csv`
+  picks the M3 CNN for Experiments 1, 3 and 5 (F1 1.0, about 1.7 ms). Its Experiment 3 score comes from the
+  `tunnel.test` suffix: with the domain hidden it misses held-out tools (`docs/suffix-ablation.md`).
+- **Latency depends on the machine.** M1 and RF were timed on a Colab CPU (2 cores), M2 and M3 on a Colab T4 GPU.
+  M1 sits close to the 10 ms limit (median 9.1 ms, two runs over it), so its pass or fail depends on the machine.
 
 ## Timeline (SGT)
 | Phase | Dates | Focus |

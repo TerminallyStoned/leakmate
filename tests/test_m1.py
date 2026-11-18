@@ -76,6 +76,39 @@ def test_m1_and_rf_rank_tunnels_higher(tmp_path):
         assert np.isfinite(mod.score(m, raw.iloc[:1])).all()
 
 
+def test_m1_and_rf_set_a_threshold_on_validation_rows():
+    df = m1_features.attach(_table(n=1500))
+    train, test = df[df.split == "train"], df[df.split == "test"]
+    y = test["label"].to_numpy()
+    for mod in [m1_xgb, rf_baseline]:
+        m = mod.train(train, {"n_estimators": 60, "n_jobs": 1})
+        assert m["n_val"] > 0 and m["n_fit"] + m["n_val"] == len(train)    # validation rows are not fitted on
+        thr = m["threshold"]
+        assert thr is not None and 0.0 < thr < 1.0
+        flagged = mod.score(m, test) >= thr
+        assert flagged[y == 1].mean() > 0.95 and flagged[y == 0].mean() < 0.05
+        # nothing held out -> no threshold of its own (the eval module then falls back to the test set)
+        assert mod.train(train, {"n_estimators": 20, "n_jobs": 1, "val_frac": 0})["threshold"] is None
+    # a training set with one class cannot hold out both classes
+    assert rf_baseline.train(train[train.label == 0], {"n_estimators": 20, "n_jobs": 1})["threshold"] is None
+
+
+def test_eval_run_saves_the_models_own_threshold(tmp_path, monkeypatch):
+    from eval.metrics import evaluate_run
+    from eval.run import run_one
+
+    (tmp_path / "testbed").mkdir()
+    _table(n=1500).to_parquet(tmp_path / "testbed" / "queries.parquet", index=False)
+    monkeypatch.chdir(tmp_path)                                # run_one saves the model under ./artifacts
+    for module in ["m1_xgb", "rf_baseline"]:
+        out = run_one(module, "E1", {"n_estimators": 40, "n_jobs": 1, "latency_n": 3}, None, tmp_path,
+                      tmp_path / "res", None)
+        res = json.loads(out.read_text())
+        validate(res)
+        assert 0.0 < res["threshold"] < 1.0
+        assert evaluate_run(res)["threshold_source"] == "validation"
+
+
 def test_m1_early_stopping_keeps_probabilities_confident():
     # On separable data AUC-PR saturates after a tree or two; stopping on it would leave
     # scores stuck near 0.4/0.6. Early stopping must be driven by logloss instead.
@@ -151,6 +184,7 @@ def test_runner_writes_contract_json(tmp_path):
             assert k in res, k
         assert len(res["scores"]) == len(res["session_ids"]) == len(res["ts"]) == res["n_test"]
         assert res["split"] == "split_column" and "qtype_code" in res["dropped_cols"]
+        assert 0.0 < res["threshold"] < 1.0 and res["threshold_source"].startswith("validation") and res["n_val"] > 0
     shap_json = json.loads((tmp_path / "res" / "m1" / "shap" / "E2_shap.json").read_text())
     assert shap_json["mean_abs_shap"] and shap_json["examples"]["top_scored_tunnels"]
     # per-group ablation flag and E4-style separate test table

@@ -47,6 +47,10 @@ The CNN's 5 misses are all dnscat2 (113 of 118 caught), names such as
 `9d0601fe0b8009866b24d4001795a787c3.masked.domain`.
 
 ### M1 (XGBoost, per-query + per-host features, local CPU)
+These runs predate M1's validation threshold (`docs/m1.md`): their threshold was set on the test data at about
+1% FPR, so read the recall here as recall at 1% FPR. They were not redone, and the "Original" column no longer
+matches `results/m1/`. At its own threshold M1 catches 22% of held-out dnscat2 on the original table.
+
 Recall and ROC-AUC are 1.0 in every run, on both tables. False positives out of 33,519 benign, original / masked:
 
 | Run | Original | Masked |
@@ -117,7 +121,7 @@ The Isolation Forest does not change: recall 1.0 and ROC-AUC at least 0.9998 in 
 - RQ2 (unseen tools): quote M3's **masked** Experiment 3 numbers, not the original ones. The original
   Experiment 3 measures whether the model can read `tunnel.test`.
 - Experiment 5 (low-and-slow): quote M3's masked numbers too; the original result carries the suffix.
-- M1's testbed numbers stand as reported.
+- M1's ranking does not depend on the suffix; its testbed numbers at the validation threshold are in `docs/m1.md`.
 - M2: quote the **masked** numbers for the character model (ablation 1) and drop the claim that it beats BPE on
   the testbed. M2 BPE, M2 with host averaging and the Isolation Forest stand as reported; the masked numbers can
   sit beside them.
