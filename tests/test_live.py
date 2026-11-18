@@ -5,11 +5,13 @@ import sqlite3
 
 import numpy as np
 import pandas as pd
+import pytest
 from test_parser import _dns, _pcap, _query, _reply
 
 from live.__main__ import main
 from live.capture import pcap_frames
 from live.pipeline import QUERY_COLS, HostWindows, QueryAssembler
+from live.scorers import load_scorer
 from live.store import ALERT_COLS
 from models import m1_features, m1_xgb
 from parser.pcap import parse_pcap
@@ -115,3 +117,8 @@ def test_a_contract_model_plugs_in_with_its_explanations(tmp_path):
     with sqlite3.connect(db) as con:
         meta = dict(con.execute("SELECT key, value FROM meta"))
     assert meta["model"] == "m1_xgb" and meta["schema_version"] == "1" and meta["source"] == str(cap)
+
+
+def test_an_alias_for_several_models_asks_to_pick_one():
+    with pytest.raises(SystemExit, match="m3_cnn, m3_bilstm"):
+        load_scorer("m3", "unused.joblib")

@@ -62,10 +62,9 @@ Recall and ROC-AUC are 1.0 in every run, on both tables. False positives out of 
   falls from 1.0 to between 0.000 and 0.945, depending on the tool and model.
 - **M3's Experiment 1 result is real.** When a tool is in training, its encoded subdomains alone are enough
   (recall at least 0.998, at most 6 false positives).
-- **M3's Experiment 5 result is mostly real too.** With the zone hidden, the CNN still catches 452 of the 457
-  slow tunnel queries and the BiLSTM all 457, with 3 and 11 false positives. All three slow tools are also in
-  the Experiment 5 training set at normal speed, so this shows that throttling does not hide a known tool from
-  a name-only model. It does not show that M3 would catch a slow tool it has never seen.
+- **M3's Experiment 5 result is mostly real too.** All three slow tools are also in the Experiment 5 training
+  set at normal speed, so this shows that throttling does not hide a known tool from a name-only model. It
+  does not show that M3 would catch a slow tool it has never seen.
 - **For dnscat2 and DNSExfiltrator, M3 still ranks well; its threshold is what fails.** ROC-AUC stays at 0.995
   or above while recall at the validation threshold drops. The threshold is picked on
   validation rows from the training tools, so it is too strict for a tool the model has not seen. Recall at 1%
@@ -80,12 +79,11 @@ Recall and ROC-AUC are 1.0 in every run, on both tables. False positives out of 
 ## For the report
 - RQ2 (unseen tools): quote M3's **masked** Experiment 3 numbers, not the original ones. The original
   Experiment 3 measures whether the model can read `tunnel.test`.
+- Experiment 5 (low-and-slow): quote M3's masked numbers too; the original result carries the suffix.
 - M1's testbed numbers stand as reported.
 - Experiment 4 (cross-dataset) remains the strongest test of generalisation for every model.
 
 ## Limits
-- For Experiment 5 (low-and-slow), quote M3's masked numbers too. The original result (all 457 slow tunnels
-  caught, 0 false positives) carries the suffix.
 - M2 (DNS-BERT + Isolation Forest) also reads the name. Its masked Experiment 1 + 3 runs are set up in the team
   Colab notebook but have no results yet.
 - One seed per run. GPU training is not bit-for-bit repeatable (`docs/m3.md`).

@@ -12,10 +12,10 @@ import importlib
 import numpy as np
 import pandas as pd
 
+from eval.run import ALIASES
 from models.m1_features import PREFIX
 
 DEFAULT_THRESHOLD = 0.5
-ALIASES = {"m1": "m1_xgb", "rf": "rf_baseline", "iforest": "iforest_baseline"}  # as in eval.run
 
 
 class DummyScorer:
@@ -47,7 +47,10 @@ class ModelScorer:
     TreeSHAP), alerts carry its top features; otherwise they carry none."""
 
     def __init__(self, module: str, weights: str, threshold: float | None = None) -> None:
-        self.name = ALIASES.get(module, module)
+        names = ALIASES.get(module, [module])
+        if len(names) != 1:
+            raise SystemExit(f"--model {module} is several models; pick one: {', '.join(names)}")
+        self.name = names[0]
         self.mod = importlib.import_module(f"models.{self.name}")
         self.model = self.mod.load(weights)
         own = self.model.get("threshold") if isinstance(self.model, dict) else getattr(self.model, "threshold", None)
