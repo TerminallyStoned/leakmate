@@ -38,6 +38,13 @@ On the **original** table, every run below scores 1.0 on every metric with 0 fal
 | Experiment 3, dnscat2 held out | 0.995 / 0.999 | 0.323 / 0.913 | 0.923 / 0.973 | 4,184 / 537 of 6,182 | 5 / 12 |
 | Experiment 3, dnsexfiltrator held out | 1.000 / 0.999 | 0.485 / 0.945 | 1.000 / 0.976 | 4,840 / 518 of 9,402 | 1 / 7 |
 | Experiment 3, iodine held out | 0.887 / 0.988 | 0.748 / 0.750 | 0.752 / 0.802 | 2,733 / 2,711 of 10,832 | 2 / 3 |
+| Experiment 5 (low-and-slow) | 1.000 / 1.000 | 0.989 / 1.000 | 1.000 / 1.000 | 5 / 0 of 457 | 3 / 11 |
+
+Experiment 5 was run on 18 Nov with the same masked table (team notebook, cell 8):
+`python -m eval.run --model m3 --exp E5 --data-root data/processed_nozone --results-dir nz/processed_nozone`.
+Its test set is the 457 slow tunnel queries (iodine 271, dnscat2 118, DNSExfiltrator 68) and 33,519 benign.
+The CNN's 5 misses are all dnscat2 (113 of 118 caught), names such as
+`9d0601fe0b8009866b24d4001795a787c3.masked.domain`.
 
 ### M1 (XGBoost, per-query + per-host features, local CPU)
 Recall and ROC-AUC are 1.0 in every run, on both tables. False positives out of 33,519 benign, original / masked:
@@ -55,6 +62,10 @@ Recall and ROC-AUC are 1.0 in every run, on both tables. False positives out of 
   falls from 1.0 to between 0.000 and 0.945, depending on the tool and model.
 - **M3's Experiment 1 result is real.** When a tool is in training, its encoded subdomains alone are enough
   (recall at least 0.998, at most 6 false positives).
+- **M3's Experiment 5 result is mostly real too.** With the zone hidden, the CNN still catches 452 of the 457
+  slow tunnel queries and the BiLSTM all 457, with 3 and 11 false positives. All three slow tools are also in
+  the Experiment 5 training set at normal speed, so this shows that throttling does not hide a known tool from
+  a name-only model. It does not show that M3 would catch a slow tool it has never seen.
 - **For dnscat2 and DNSExfiltrator, M3 still ranks well; its threshold is what fails.** ROC-AUC stays at 0.995
   or above while recall at the validation threshold drops. The threshold is picked on
   validation rows from the training tools, so it is too strict for a tool the model has not seen. Recall at 1%
@@ -73,10 +84,10 @@ Recall and ROC-AUC are 1.0 in every run, on both tables. False positives out of 
 - Experiment 4 (cross-dataset) remains the strongest test of generalisation for every model.
 
 ## Limits
-- Not rerun masked: Experiment 5 (low-and-slow) for M3. M3's original Experiment 5 result (all 457 slow tunnels
-  caught) carries the same suffix and should not be quoted as evidence about slowness.
+- For Experiment 5 (low-and-slow), quote M3's masked numbers too. The original result (all 457 slow tunnels
+  caught, 0 false positives) carries the suffix.
 - M2 (DNS-BERT + Isolation Forest) also reads the name. Its masked Experiment 1 + 3 runs are set up in the team
   Colab notebook but have no results yet.
 - One seed per run. GPU training is not bit-for-bit repeatable (`docs/m3.md`).
-- Result JSONs are not committed. M3's come from one Colab run (`nz.zip`); M1 reruns in minutes with the
-  commands above.
+- Result JSONs are not committed. M3's come from Colab runs (`nz.zip` for Experiments 1 and 3; `nz_e5.zip` for
+  Experiment 5, in `m3/` of the "leakmate captures" Drive folder); M1 reruns in minutes with the commands above.
