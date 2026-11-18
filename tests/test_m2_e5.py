@@ -1,4 +1,4 @@
-"""Experiment 5 derived from Experiment 1 must equal a direct Experiment 5 run: python -m pytest tests/test_m2_e5.py -q"""
+"""Experiment 5 derived from Experiment 1 must equal a direct E5 run: python -m pytest tests/test_m2_e5.py -q"""
 
 import json
 
@@ -25,8 +25,22 @@ def test_derive_e5_matches_direct_run(tmp_path):
     from scripts.m2_e5 import derive_e5
 
     df = _table(tmp_path)
-    common = ["--model", "m2", "--root", str(tmp_path), "--latency-n", "2", "--device", "cpu",
-              "--vocab-size", "200", "--max-steps", "5", "--batch-size", "32"]
+    common = [
+        "--model",
+        "m2",
+        "--root",
+        str(tmp_path),
+        "--latency-n",
+        "2",
+        "--device",
+        "cpu",
+        "--vocab-size",
+        "200",
+        "--max-steps",
+        "5",
+        "--batch-size",
+        "32",
+    ]
     m2_run.main([*common, "--exp", "E1", "--out", str(tmp_path / "e1"), "--save-model", str(tmp_path / "mdl")])
     m2_run.main([*common, "--exp", "E5", "--out", str(tmp_path / "e5"), "--load-model", str(tmp_path / "mdl")])
 

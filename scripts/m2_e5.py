@@ -33,7 +33,7 @@ SPLIT_NOTE = f";train throttle<{LOW_AND_SLOW_MS}ms;test throttle>={LOW_AND_SLOW_
 
 
 def row_throttle(session_ids: list[str], labels: list[int], manifest_csv: Path) -> list[int]:
-    """Configured throttle (ms) per row: the manifest's throttle_ms for the row's capture file, 0 for benign or unknown."""
+    """Configured throttle (ms) per row from the manifest (by capture file); 0 for benign or unknown files."""
     man = pd.read_csv(manifest_csv)
     by_file = dict(zip(man["file"].astype(str), pd.to_numeric(man["throttle_ms"], errors="coerce").fillna(0)))
     return [int(by_file.get(s.split("|")[0], 0)) if lab else 0 for s, lab in zip(session_ids, labels)]
