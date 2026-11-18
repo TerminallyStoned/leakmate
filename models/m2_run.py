@@ -40,7 +40,7 @@ try:
 
     from eval.experiments import EXP_HELP, get_split
     from eval.metrics import threshold_at_fpr
-    from models import iforest_baseline, m1_features, m2_dnsbert
+    from models import iforest_baseline, m1_features, m2_dnsbert, m2_supervised
 except ModuleNotFoundError as e:
     raise SystemExit(
         f"Missing package '{e.name}'. Install the M2 packages with:\n"
@@ -140,7 +140,7 @@ def get_data(a):
 
 def main(argv=None):
     ap = argparse.ArgumentParser()
-    ap.add_argument("--model", choices=["m2", "iforest"], required=True)
+    ap.add_argument("--model", choices=["m2", "m2sup", "iforest"], required=True)
     ap.add_argument(
         "--exp",
         required=True,
@@ -197,6 +197,9 @@ def main(argv=None):
                 "or see what is missing with: python scripts/check_setup.py data"
             )
 
+    if a.model == "m2sup" and not (a.init_from or a.load_model):
+        ap.error("--model m2sup (ablation 2) fine-tunes a saved M2 model: pass --init-from <ckpt>/last")
+
     train_df, test_df, exp_id, run_name, split_desc = get_data(a)
     if train_df.index.intersection(test_df.index).size:  # two tables (Experiment 4): keep row ids unique
         test_df = test_df.copy()
@@ -211,6 +214,10 @@ def main(argv=None):
                 cfg[k] = getattr(a, k)
         if a.tranco:
             cfg["extra_benign"] = load_tranco(a.tranco, a.tranco_n)
+    elif a.model == "m2sup":
+        mod = m2_supervised
+        cfg = {k: getattr(a, k) for k in ["epochs", "max_steps", "batch_size", "lr", "device", "init_from"]}
+        cfg = {k: v for k, v in cfg.items() if v is not None}
     else:
         mod, cfg = iforest_baseline, {}
         # M1 features computed once on the whole table, so a host's past-only window
@@ -221,7 +228,7 @@ def main(argv=None):
 
     t0 = time.time()
     if a.load_model:
-        model = mod.load(a.load_model, device=a.device) if a.model == "m2" else mod.load(a.load_model)
+        model = mod.load(a.load_model, device=a.device) if a.model != "iforest" else mod.load(a.load_model)
         if a.model == "m2" and model.cfg.get("tokenizer") != a.tokenizer:
             ap.error(
                 f"--load-model {a.load_model} uses the {model.cfg.get('tokenizer')!r} tokenizer, "
@@ -254,7 +261,10 @@ def main(argv=None):
     used_cfg = {k: v for k, v in used_cfg.items() if k != "extra_benign"}
     if a.load_model:
         used_cfg["loaded_model"] = a.load_model
-    model_name = a.model + (f"_{a.tag}" if a.tag else "")
+    # ablation 2 lives beside the other M2 variants: m2_<tag>, e.g. m2_ablation2_sup
+    model_name = ("m2" if a.model == "m2sup" else a.model) + (
+        f"_{a.tag}" if a.tag else ("_sup" if a.model == "m2sup" else "")
+    )
     base = {
         "model": model_name,
         "experiment": exp_id,
@@ -276,9 +286,11 @@ def main(argv=None):
         "config": used_cfg,
         "created_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }
-    meaning = (
-        "pseudo-log-perplexity (mean masked-token NLL)" if a.model == "m2" else "negative IsolationForest score_samples"
-    )
+    meaning = {
+        "m2": "pseudo-log-perplexity (mean masked-token NLL)",
+        "m2sup": "supervised fine-tune logit margin (tunnel - benign)",
+        "iforest": "negative IsolationForest score_samples",
+    }[a.model]
     src = (
         f"validation: latest {a.val_frac:.0%} of each capture's benign train rows, "
         f"eval.metrics.threshold_at_fpr at {a.fpr:.0%} FPR"
