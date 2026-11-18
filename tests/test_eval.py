@@ -59,6 +59,11 @@ def test_selection_rule():
     ]
     assert select_model(rows)["model"] == "fast_good"
     assert select_model(rows[1:]) is None
+    tie = [
+        {"model": "slower", "f1": 1.0, "fpr": 0.0, "latency_ms_per_query": 9.0},
+        {"model": "faster", "f1": 1.0, "fpr": 0.0, "latency_ms_per_query": 2.0},
+    ]
+    assert select_model(tie)["model"] == select_model(tie[::-1])["model"] == "faster"  # not row order
 
 
 def test_latency_table():

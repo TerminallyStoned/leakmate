@@ -126,10 +126,12 @@ def per_tool_recall(labels, scores, tools, threshold: float) -> dict:
 def select_model(
     summary_rows: list[dict], max_fpr: float = MAX_FPR, max_latency_ms: float = MAX_LATENCY_MS
 ) -> dict | None:
-    """Apply the selection rule to rows of ONE experiment. Returns the winning row."""
+    """Apply the selection rule to rows of ONE experiment. Returns the winning row.
+
+    Best F1 among rows within both limits; an F1 tie goes to the lower latency."""
     ok = [
         r
         for r in summary_rows
         if r["fpr"] <= max_fpr and r["latency_ms_per_query"] <= max_latency_ms and not np.isnan(r["f1"])
     ]
-    return max(ok, key=lambda r: r["f1"]) if ok else None
+    return max(ok, key=lambda r: (r["f1"], -r["latency_ms_per_query"])) if ok else None
