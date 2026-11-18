@@ -22,9 +22,7 @@ from models import m1_features
 
 DEFAULT_CFG = {**m1_features.DEFAULT_CFG,
                "n_estimators": 300, "max_depth": None, "min_samples_leaf": 2, "max_features": "sqrt",
-               "class_weight": "balanced", "val_frac": 0.15,
-               "target_fpr": 0.01,  # eval.metrics.pick_threshold on the validation slice
-               "seed": 42, "n_jobs": -1}
+               "class_weight": "balanced", **m1_features.VAL_CFG, "seed": 42, "n_jobs": -1}
 
 
 def train(train_df: pd.DataFrame, cfg: dict | None = None):
@@ -38,7 +36,7 @@ def train(train_df: pd.DataFrame, cfg: dict | None = None):
     y = train_df["label"].astype(int).to_numpy()
     # Same held-out rows as M1 (m1_features.val_mask): fit on the rest, set the threshold on them.
     val = m1_features.val_mask(train_df, cfg["val_frac"])
-    held_out = val.any() and len(np.unique(y[val])) == 2 and len(np.unique(y[~val])) == 2
+    held_out = val.any()
     fit = ~val if held_out else np.ones(len(y), dtype=bool)
     clf.fit(X.to_numpy()[fit], y[fit])
     model = {"clf": clf, "cols": list(X.columns), "cfg": cfg,

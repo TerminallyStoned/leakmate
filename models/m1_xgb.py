@@ -34,8 +34,7 @@ from models import m1_features
 DEFAULT_CFG = {**m1_features.DEFAULT_CFG,
                "n_estimators": 500, "max_depth": 6, "learning_rate": 0.1, "subsample": 0.8,
                "colsample_bytree": 0.8, "min_child_weight": 1.0, "reg_lambda": 1.0,
-               "scale_pos_weight": "auto", "early_stopping_rounds": 30, "val_frac": 0.15,
-               "target_fpr": 0.01,  # eval.metrics.pick_threshold on the validation slice
+               "scale_pos_weight": "auto", "early_stopping_rounds": 30, **m1_features.VAL_CFG,
                "seed": 42, "n_jobs": -1}
 
 
@@ -54,8 +53,7 @@ def train(train_df: pd.DataFrame, cfg: dict | None = None):
     y = train_df["label"].astype(int).to_numpy()
 
     val = m1_features.val_mask(train_df, cfg["val_frac"])
-    use_es = bool(cfg["early_stopping_rounds"]) and val.any() \
-        and len(np.unique(y[val])) == 2 and len(np.unique(y[~val])) == 2
+    use_es = bool(cfg["early_stopping_rounds"]) and val.any()
     tr = ~val if use_es else np.ones(len(y), dtype=bool)
 
     spw = cfg["scale_pos_weight"]

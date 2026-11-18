@@ -39,6 +39,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from eval.metrics import MAX_FPR
 from models import host_features, qname_features
 
 CIC_LEAKY_GROUPS = {
@@ -49,6 +50,8 @@ CIC_LEAKY_GROUPS = {
 CIC_LEAKY = [c for cols in CIC_LEAKY_GROUPS.values() for c in cols]
 
 DEFAULT_CFG = {"feature_cols": None, "host": True, "window_s": 60.0, "drop_cols": [], "keep_cic_leaky": False}
+# M1 and RF hold out the same rows (val_mask) and set their threshold there (eval.metrics.pick_threshold)
+VAL_CFG = {"val_frac": 0.15, "target_fpr": MAX_FPR}
 
 # Precomputed feature columns carry this prefix. m1_run computes features once on
 # the whole table (so a host window can reach back across the train/test cut,
@@ -131,13 +134,17 @@ def val_mask(df: pd.DataFrame, frac: float) -> np.ndarray:
     """Boolean mask of validation rows: last `frac` by ts within each source file (or class).
 
     Taken from the TRAINING rows only. M1 uses it for early stopping and its threshold, the
-    Random Forest for its threshold, so both hold out the same rows."""
+    Random Forest for its threshold, so both hold out the same rows. All False when nothing can
+    be held out: frac 0, under 20 rows, or either side would miss benign or tunnel rows."""
+    none = np.zeros(len(df), dtype=bool)
     if frac <= 0 or len(df) < 20:
-        return np.zeros(len(df), dtype=bool)
+        return none
     key = "source_file" if "source_file" in df.columns else "label"
     order = df["ts"] if "ts" in df.columns else pd.Series(np.arange(len(df)), index=df.index)
     rank = order.groupby(df[key]).rank(method="first", pct=True)
-    return (rank > 1 - frac).to_numpy()
+    val = (rank > 1 - frac).to_numpy()
+    y = df["label"].to_numpy()
+    return val if len(np.unique(y[val])) == 2 and len(np.unique(y[~val])) == 2 else none
 
 
 def select(X: pd.DataFrame, cols: list[str]) -> pd.DataFrame:

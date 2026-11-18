@@ -209,8 +209,8 @@ What to know when capturing or using captures, for any tool:
 Details and measured query rates: `testbed/tools/README.md`.
 
 ## Results
-Every number comes from the shared evaluation module (`python -m eval.summarise`), which reads the result files
-and writes the tables below. Nothing is typed in by hand.
+The shared evaluation module (`python -m eval.summarise`) reads the result files and writes the summary files
+listed here; the tables in the docs are copied from them.
 
 | What | Where |
 |---|---|
