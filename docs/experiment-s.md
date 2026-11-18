@@ -41,11 +41,12 @@ python -m eval.run --model m1 --exp E1
   queries are separable from the query name alone. Even the weaker per-query-only model scores 1.0
   ROC-AUC under both splits. With no headroom, shuffling has nothing to inflate.
 - **For the report:** time-based splits remain the honest default, but the inflation they guard
-  against doesn't appear here for M1. Where scores are not saturated is in Experiments 3
-  (leave-one-tool-out), 4 (cross-dataset) and 5 (low-and-slow). That's where generalisation is
-  actually tested.
+  against doesn't appear here for M1. M1 also scores ROC-AUC 1.0 on Experiments 3 (leave-one-tool-out)
+  and 5 (low-and-slow) (`docs/m1.md`); only Experiment 4 (cross-dataset) leaves it headroom (0.94
+  CIC -> testbed), so that is where its generalisation is actually tested.
 
 ## Limits
 
 - One model (M1) and one seed. M3 (char-CNN/BiLSTM) was not run, as the card allowed.
-- The CIC pair dates from 13 Nov (same code version for both files). The testbed shuffled run is from 17 Nov; its time-split partner is the 18 Nov freeze file.
+- The CIC pair dates from 13 Nov (same code version for both files). The testbed shuffled run is from
+  17 Nov; its time-split partner is the 18 Nov freeze file.
