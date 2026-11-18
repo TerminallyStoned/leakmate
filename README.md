@@ -79,7 +79,8 @@ scripts/      make_synthetic_sample.py, parse_capture.py (quick capture check us
 notebooks/    m2_dnsbert_colab.ipynb (Colab GPU run), m1_xgb_colab.ipynb (Colab CPU run)
 results/      <model>/<experiment>.json in the shared results format; summary.csv, selection.csv, latency.csv,
               per_tool.csv and figures/ from python -m eval.summarise
-results_nozone/  M2 and Isolation Forest result files on the masked testbed table (docs/suffix-ablation.md)
+results_nozone/  every model's result files on the masked testbed table (Experiments 1, 3, 5) and their
+              selection.csv (docs/suffix-ablation.md)
 docs/         per-component notes: contracts.md, m1.md, m2.md, m3.md, suffix-ablation.md, experiment-s.md
 tests/        smoke tests
 testbed/      lab network (docker compose), run_tool.sh, capture_matrix.sh
@@ -231,9 +232,12 @@ Read these before quoting a number:
   to 5 (leave-one-tool-out, cross-dataset, low-and-slow) are the real test.
 - **A perfect ROC-AUC is not a perfect detector.** With dnscat2 held out, M1 reaches ROC-AUC 1.0 but
   catches only 22% of it at its own threshold (`docs/m1.md`). Quote recall at the model's threshold next to ROC-AUC.
-- **The selection table reads the original testbed runs.** An F1 tie goes to the faster model, so `selection.csv`
-  picks the M3 CNN for Experiments 1, 3 and 5 (F1 1.0, about 1.7 ms). Its Experiment 3 score comes from the
-  `tunnel.test` suffix: with the domain hidden it misses held-out tools (`docs/suffix-ablation.md`).
+- **Two selection tables.** `results/selection.csv` reads the original testbed runs. An F1 tie goes to the faster
+  model, so it picks the M3 CNN for Experiments 1, 3 and 5 (F1 1.0, about 1.7 ms), and its Experiment 3 score comes
+  from the `tunnel.test` suffix. For the testbed experiments quote `results_nozone/selection.csv`, the same rule on
+  the runs with the domain hidden: it picks M1 for three of the four held-out tools and M2 with host averaging for
+  dnscat2. Its Experiment 1 and 5 picks depend on M1's latency measurement
+  ([`docs/suffix-ablation.md`](docs/suffix-ablation.md), "Selection with the domain hidden").
 - **Latency depends on the machine.** M1 and RF were timed on a Colab CPU (2 cores), M2 and M3 on a Colab T4 GPU.
   M1 sits close to the 10 ms limit (median 9.1 ms, two runs over it), so its pass or fail depends on the machine.
 

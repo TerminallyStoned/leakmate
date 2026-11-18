@@ -23,7 +23,8 @@ done; done; done
 python -m eval.summarise --results-dir nz/processed_nozone --no-plots   # likewise for nz/processed
 ```
 
-These are ablation runs, not entries in the main results selection.
+These are ablation runs. The main selection (`results/selection.csv`) does not read them; the masked selection
+below does.
 
 ## Results (17-18 Nov, full testbed table)
 
@@ -46,20 +47,28 @@ Its test set is the 457 slow tunnel queries (iodine 271, dnscat2 118, DNSExfiltr
 The CNN's 5 misses are all dnscat2 (113 of 118 caught), names such as
 `9d0601fe0b8009866b24d4001795a787c3.masked.domain`.
 
-### M1 (XGBoost, per-query + per-host features, local CPU)
-These runs predate M1's validation threshold (`docs/m1.md`): their threshold was set on the test data at about
-1% FPR, so read the recall here as recall at 1% FPR. They were not redone, and the "Original" column no longer
-matches `results/m1/`. At its own threshold M1 catches 22% of held-out dnscat2 on the original table.
+### M1 and Random Forest (per-query + per-host features, Colab CPU)
+Rerun on 18 Nov with the validation threshold (`docs/m1.md`), on the same Colab CPU setup as the files in
+`results/m1` and `results/rf`: `python -m eval.run --model {m1,rf} --exp {E1,E3,E5} --data-root
+data/processed_nozone --results-dir results_nozone`. ROC-AUC and recall at 1% FPR are 1.0000 in every run on both
+tables, and neither model has a false positive on the masked table. Recall at the model's own threshold,
+original -> masked (missed tunnels in brackets):
 
-Recall and ROC-AUC are 1.0 in every run, on both tables. False positives out of 33,519 benign, original / masked:
-
-| Run | Original | Masked |
+| Run | M1 | RF |
 |---|---|---|
-| Experiment 1 (within-testbed) | 200 | 324 |
-| Experiment 3, dns2tcp held out | 208 | 247 |
-| Experiment 3, dnscat2 held out | 241 | 94 |
-| Experiment 3, dnsexfiltrator held out | 215 | 254 |
-| Experiment 3, iodine held out | 311 | 5 |
+| Experiment 1 (within-testbed) | 1.000 -> 1.000 (0 -> 0 of 34,180) | 1.000 -> 1.000 (0 -> 0) |
+| Experiment 3, dns2tcp held out | 1.000 -> 1.000 (0 -> 0 of 7,764) | 1.000 -> 1.000 (0 -> 0) |
+| Experiment 3, dnscat2 held out | **0.218 -> 0.218** (4,834 -> 4,834 of 6,182) | 0.958 -> 1.000 (259 -> 0) |
+| Experiment 3, dnsexfiltrator held out | 1.000 -> 1.000 (0 -> 0 of 9,402) | 1.000 -> 1.000 (0 -> 0) |
+| Experiment 3, iodine held out | 0.999 -> 1.000 (10 -> 0 of 10,832) | 0.999 -> 1.000 (8 -> 2) |
+| Experiment 5 (low-and-slow) | 1.000 -> 1.000 (0 -> 0 of 457) | 0.993 -> 1.000 (3 -> 0) |
+
+False positives, original -> masked, out of 33,519 benign: M1 3 -> 0 (dns2tcp held out) and 1 -> 0 (dnsexfiltrator
+held out), otherwise 0 -> 0; RF 0 -> 0 in every run. RF's dnscat2 row moves between machines and runs
+(`docs/m1.md`), so read its 0.958 -> 1.000 as within that noise.
+
+The 17 Nov M1 runs that this section used to show had their threshold set on the test data (200 to 324 false
+positives per run, recall 1.0); they are replaced by the runs above.
 
 ### M2 (DNS-BERT + Isolation Forest, Colab T4)
 Run on 18 Nov from the team notebook ("Yehan: testbed suffix check", cells 5-7). The masked runs use the same
@@ -91,6 +100,33 @@ Experiment 5 (low-and-slow, 457 slow tunnel queries), original -> masked: BPE 0.
 The Isolation Forest does not change: recall 1.0 and ROC-AUC at least 0.9998 in every run; false positives
 306 -> 293 per query, and 0 -> 0 with host averaging.
 
+## Selection with the domain hidden
+`results/selection.csv` reads the original testbed runs, where a name-reading model can score perfectly from the
+`tunnel.test` suffix. `results_nozone/selection.csv` applies the same rule (best F1 with FPR at most 1% and
+latency at most 10 ms; an F1 tie goes to the faster model) to the masked runs of M1, RF, M3, and M2 and the Isolation
+Forest with and without host averaging. As in `results/selection.csv`, ablation runs such as M2's character
+model are left out. Rebuild it with `python -m eval.summarise --results-dir results_nozone --no-plots`.
+
+| Run | Original table picks | Masked table picks | Masked F1 | Masked FPR | Latency |
+|---|---|---|---|---|---|
+| Experiment 1 (within-testbed) | M3 CNN | M3 BiLSTM | 0.9997 | 0.018% | 6.7 ms |
+| Experiment 3, dns2tcp held out | M3 CNN | M1 | 1.0000 | 0% | 7.9 ms |
+| Experiment 3, dnscat2 held out | M3 CNN | M2 BPE + host averaging | 0.9948 | 0.19% | 6.9 ms |
+| Experiment 3, dnsexfiltrator held out | M3 CNN | M1 | 1.0000 | 0% | 8.1 ms |
+| Experiment 3, iodine held out | M3 CNN | M1 | 1.0000 | 0% | 7.8 ms |
+| Experiment 5 (low-and-slow) | M3 CNN | M3 CNN | 0.9912 | 0.009% | 1.7 ms |
+
+- **M3 no longer wins Experiment 3.** With the domain hidden it is picked for none of the four held-out tools.
+  M1 is picked for three, and M2 BPE with host averaging for dnscat2, where M1 catches 22% at its own threshold.
+- **Experiments 1 and 5 turn on M1's timing, not its accuracy.** M1 scores F1 1.0000 on both, but those two runs
+  were timed at 13.4 and 11.2 ms per query, over the 10 ms limit, so the rule skips it. The same model on the
+  original table was timed at 9.1 and 9.2 ms on the same kind of machine. M1's latency sits at the limit and
+  varies from run to run (7.8 to 13.4 ms across the six masked runs), so these two picks would flip to M1 with a
+  slightly faster timing. A single timing of every model on one CPU would settle it.
+- **RF and the Isolation Forest with host averaging also reach F1 1.0000** on several of these runs but are never
+  picked: they take 20 to 28 ms per query.
+- Experiments 2 and 4 use CIC and are not in the masked selection; for them `results/selection.csv` stands.
+
 ## What it shows
 - **The suffix explains M3's perfect Experiment 3 results.** With the zone hidden, recall on the held-out tool
   falls from 1.0 to between 0.000 and 0.945, depending on the tool and model.
@@ -106,9 +142,10 @@ The Isolation Forest does not change: recall 1.0 and ROC-AUC at least 0.9998 in 
 - **The BiLSTM generalises better than the CNN** on every held-out tool.
 - **dns2tcp is hard for a name-only model either way.** Its names are short (median 30 characters), so once
   the zone is gone there is little left to read. Experiment 4 CIC -> testbed misses it for the same reason.
-- **M1 doesn't rely on the suffix.** Its features are lengths, entropy and per-host counts, so the ranking does
-  not change. The false-positive shifts come from threshold placement. One caveat: on the masked table, M1's
-  per-host `h_parent_uniq` counts distinct names per host, because every name now has the same parent.
+- **M1 and RF don't rely on the suffix.** Their features are lengths, entropy and per-host counts, so the
+  ranking does not change, and at the validation threshold the errors barely move. M1 misses the same 4,834
+  held-out dnscat2 queries on both tables, so that miss is not a suffix effect. One caveat: on the masked table,
+  the per-host `h_parent_uniq` counts distinct names per host, because every name now has the same parent.
 - **M2's main model (BPE) doesn't rely on the suffix.** It never sees a tunnel in training, so it cannot learn
   that `tunnel.test` means a tunnel. Masked, its overall recall rises (0.812 -> 0.890, dnscat2 0.404 -> 0.997);
   only dns2tcp drops (0.998 -> 0.871). The cost is false positives: 0.21% -> 0.83% FPR, still under 1%.
@@ -121,7 +158,9 @@ The Isolation Forest does not change: recall 1.0 and ROC-AUC at least 0.9998 in 
 - RQ2 (unseen tools): quote M3's **masked** Experiment 3 numbers, not the original ones. The original
   Experiment 3 measures whether the model can read `tunnel.test`.
 - Experiment 5 (low-and-slow): quote M3's masked numbers too; the original result carries the suffix.
-- M1's ranking does not depend on the suffix; its testbed numbers at the validation threshold are in `docs/m1.md`.
+- M1 and RF: the original and masked numbers agree, so either can be quoted; details in `docs/m1.md`.
+- Model selection on testbed experiments (1, 3 and 5): quote `results_nozone/selection.csv` (section above),
+  and say that the Experiment 1 and 5 picks depend on M1's latency measurement.
 - M2: quote the **masked** numbers for the character model (ablation 1) and drop the claim that it beats BPE on
   the testbed. M2 BPE, M2 with host averaging and the Isolation Forest stand as reported; the masked numbers can
   sit beside them.
@@ -131,7 +170,8 @@ The Isolation Forest does not change: recall 1.0 and ROC-AUC at least 0.9998 in 
 - M2's Experiment 5 (masked and original) is derived from its Experiment 1 results (`scripts/m2_e5.py`, same model
   and threshold, since M2 trains on benign only); numbers in `docs/m2.md`.
 - One seed per run. GPU training is not bit-for-bit repeatable (`docs/m3.md`).
-- M2's masked result JSONs (Experiments 1, 3 and 5, ablations 1 and 2, with the Isolation Forest) are in
-  `results_nozone/`. M3's come
-  from Colab runs (`nz.zip` for Experiments 1 and 3; `nz_e5.zip` for Experiment 5, in `m3/` of the "leakmate captures"
-  Drive folder); M1 reruns in minutes with the commands above.
+- Every masked result JSON is in `results_nozone/` (Experiments 1, 3 and 5): M1, RF, M2 with ablations 1 and 2,
+  the Isolation Forest, and M3. M3's files are copies of the Colab runs in `nz.zip` (Experiments 1 and 3) and
+  `nz_e5.zip` (Experiment 5) in the "leakmate captures" Drive folder.
+- Latencies in `results_nozone/latency.csv` come from different machines (M1, RF on a Colab CPU; M2, M3 on a
+  Colab T4 GPU), as in `results/latency.csv`.
