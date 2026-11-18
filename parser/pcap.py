@@ -72,60 +72,93 @@ def _packets(f, path: Path):
             return
 
 
+MALFORMED = (dpkt.UnpackError, ValueError, IndexError)  # what dns_packet raises on a broken frame
+
+
+def frames(path: Path):
+    """(timestamp, raw Ethernet frame) for every record of a pcap file."""
+    with open(path, "rb") as f:
+        yield from _packets(f, path)
+
+
+def dns_packet(buf: bytes):
+    """Decode one captured Ethernet frame. The file reader and the live sniffer both use this.
+
+    Returns ("query", key, fields) for a client query (to port 53), ("reply", key, (size, rcode))
+    for an answer (from port 53), or None for anything else. `key` is (client, client port, DNS id),
+    the same for a query and its reply. `fields` are the query-table columns known from the query
+    alone, with resp_size 0 and rcode -1 until a reply is matched. Raises MALFORMED on a broken frame."""
+    ip = dpkt.ethernet.Ethernet(buf).data
+    if not isinstance(ip, (dpkt.ip.IP, dpkt.ip6.IP6)) or not isinstance(ip.data, dpkt.udp.UDP):
+        return None
+    u = ip.data
+    if 53 not in (u.sport, u.dport):
+        return None
+    raw = bytes(u.data)
+    if len(raw) < 12:
+        return None
+    txid, flags = int.from_bytes(raw[0:2], "big"), int.from_bytes(raw[2:4], "big")
+    src, dst = _addr(ip)
+    is_resp = bool(flags & 0x8000)
+    if not is_resp and u.dport == 53:
+        q, trunc, off = _qname(raw)
+        if not q:
+            return None
+        qt = int.from_bytes(raw[off : off + 2], "big") if off and off + 2 <= len(raw) else None
+        fields = dict(
+            src_host=src,
+            qname=q,
+            qtype=qtype_name(qt),
+            resp_size=0,
+            rcode=-1,
+            qname_truncated=trunc,
+            qlen_wire=u.ulen - 8,
+        )
+        return "query", (src, u.sport, txid), fields
+    if is_resp and u.sport == 53:
+        return "reply", (dst, u.dport, txid), (u.ulen - 8, flags & 0xF)
+    return None
+
+
 def parse_pcap(path: Path, tool_of: Callable[[str, str], str | None]) -> pd.DataFrame:
     """Queries (client -> port 53) in path, each with its reply's size and rcode if one was captured.
 
     Malformed packets are skipped; a query retransmitted before its reply arrived is kept once.
     tool_of(src_host, qname) returns the tool name, "benign", or None to skip that query."""
     queries, pending = [], {}
-    with open(path, "rb") as f:
-        for ts, buf in _packets(f, path):
-            try:
-                ip = dpkt.ethernet.Ethernet(buf).data
-                if not isinstance(ip, (dpkt.ip.IP, dpkt.ip6.IP6)) or not isinstance(ip.data, dpkt.udp.UDP):
+    for ts, buf in frames(path):
+        try:
+            pkt = dns_packet(buf)
+            if pkt is None:
+                continue
+            kind, key, val = pkt
+            if kind == "query":
+                tool = tool_of(val["src_host"], val["qname"])
+                if tool is None:  # caller drops this sender, e.g. the resolver's forwarded copies
                     continue
-                u = ip.data
-                if 53 not in (u.sport, u.dport):
+                if key in pending:  # retransmission of a query still awaiting an answer
                     continue
-                raw = bytes(u.data)
-                if len(raw) < 12:
-                    continue
-                txid, flags = int.from_bytes(raw[0:2], "big"), int.from_bytes(raw[2:4], "big")
-                src, dst = _addr(ip)
-                is_resp = bool(flags & 0x8000)
-                if not is_resp and u.dport == 53:
-                    q, trunc, off = _qname(raw)
-                    if not q:
-                        continue
-                    qt = int.from_bytes(raw[off : off + 2], "big") if off and off + 2 <= len(raw) else None
-                    tool = tool_of(src, q)
-                    if tool is None:  # caller drops this sender, e.g. the resolver's forwarded copies
-                        continue
-                    key = (src, u.sport, txid)
-                    if key in pending:  # retransmission of a query still awaiting an answer
-                        continue
-                    pending[key] = len(queries)
-                    queries.append(
-                        dict(
-                            ts=float(ts),
-                            src_host=src,
-                            qname=q,
-                            qtype=qtype_name(qt),
-                            resp_size=0,
-                            rcode=-1,
-                            label=int(tool != "benign"),
-                            tool=tool,
-                            qname_truncated=trunc,
-                            qlen_wire=u.ulen - 8,
-                        )
+                pending[key] = len(queries)
+                queries.append(
+                    dict(
+                        ts=float(ts),
+                        src_host=val["src_host"],
+                        qname=val["qname"],
+                        qtype=val["qtype"],
+                        resp_size=0,
+                        rcode=-1,
+                        label=int(tool != "benign"),
+                        tool=tool,
+                        qname_truncated=val["qname_truncated"],
+                        qlen_wire=val["qlen_wire"],
                     )
-                elif is_resp and u.sport == 53:
-                    idx = pending.pop((dst, u.dport, txid), None)
-                    if idx is not None:
-                        queries[idx]["resp_size"] = u.ulen - 8
-                        queries[idx]["rcode"] = flags & 0xF
-            except (dpkt.UnpackError, ValueError, IndexError):
-                continue  # malformed packet
+                )
+            else:
+                idx = pending.pop(key, None)
+                if idx is not None:
+                    queries[idx]["resp_size"], queries[idx]["rcode"] = val
+        except MALFORMED:
+            continue  # malformed packet
     df = pd.DataFrame(queries)
     if df.empty:
         return df
