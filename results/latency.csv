@@ -1,0 +1,14 @@
+model,latency_ms_median,latency_ms_min,latency_ms_max,queries_per_sec,train_time_s_median,n_runs,under_limit
+m3_cnn,1.688,1.6096,2.2352,592.4222,95.2954,9,True
+m3_bilstm,2.6507,1.8908,7.9938,377.2619,88.2793,9,True
+m1_testbed,5.142,5.142,5.142,194.4769,0.646,1,True
+m1,5.6437,5.371,13.554,177.1894,4.3701,10,False
+m2,6.211,5.974,6.918,161.0047,0.0,8,True
+m2_hostavg,6.211,5.974,6.918,161.0047,0.0,8,True
+m2_ablation1_char_hostavg,6.541,5.853,6.716,152.8818,0.0,8,True
+m2_ablation1_char,6.541,5.853,6.716,152.8818,0.0,8,True
+rf,8.2848,8.1687,29.308,120.7027,4.9286,9,False
+m1_ablation_query_only,9.301,9.301,9.301,107.5153,1.515,1,True
+m1_ablation_cic_leaky,14.265,14.265,14.265,70.1016,1.566,1,False
+iforest,19.6135,19.214,19.951,50.9853,0.4225,8,False
+iforest_hostavg,19.6135,19.214,19.951,50.9853,0.4225,8,False
