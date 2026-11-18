@@ -25,7 +25,7 @@ DNS traffic behind a dashboard.
 | **M2** | DNS-BERT: small BERT trained only on benign names; flags high pseudo-perplexity | benign-only | Isolation Forest | ✅ Experiments 1–5, ablations 1 and 2, error analysis ([`docs/m2.md`](docs/m2.md)) |
 | **M3** | Character-level CNN on the raw query name | supervised | BiLSTM | ✅ Experiments 1–5, error analysis ([`docs/m3.md`](docs/m3.md)) |
 
-Selection rule: best F1 with false-positive rate < 1% and latency < 10 ms per query; an F1 tie goes to the faster model.
+Selection rule: best F1 with false-positive rate at most 1% and latency at most 10 ms per query; an F1 tie goes to the faster model.
 Every model picks its decision threshold on validation data from its training set, never on test data.
 
 > Note: numbering follows the Trello board. The proposal numbered the models differently
@@ -75,7 +75,7 @@ models/       model code, one file per model: train / score / save / load
   m1_run.py            M1/RF train + score, writes results JSON + SHAP outputs
   m3_cnn.py, m3_bilstm.py, m3_common.py   M3 char-CNN + BiLSTM
 contracts.py  validator + session/qtype helpers for the shared contracts (docs/contracts.md)
-scripts/      make_synthetic_sample.py, parse_capture.py (quick capture check used by run_tool.sh), build_queries_parquet.py (old sidecar merge), cic_to_queries.py (old path, calls parser/cic.py)
+scripts/      time_models.py (one-CPU latency), make_synthetic_sample.py, parse_capture.py (quick capture check used by run_tool.sh), build_queries_parquet.py (old sidecar merge), cic_to_queries.py (old path, calls parser/cic.py)
 notebooks/    m2_dnsbert_colab.ipynb (Colab GPU run), m1_xgb_colab.ipynb (Colab CPU run)
 results/      <model>/<experiment>.json in the shared results format; summary.csv, selection.csv, latency.csv,
               per_tool.csv and figures/ from python -m eval.summarise
@@ -217,7 +217,7 @@ listed here; the tables in the docs are copied from them.
 |---|---|
 | All metrics, one row per model and experiment | `results/summary.csv` |
 | Selection rule applied per experiment | `results/selection.csv` |
-| Per-query latency and training time | `results/latency.csv`, `results/figures/latency.png` |
+| Per-query latency and training time | `results/latency.csv` (from `latency_cpu.csv`), `results/figures/latency.png` |
 | Recall per tunnelling tool | `results/per_tool.csv` |
 | ROC curves and confusion matrices | `results/figures/` |
 | Write-up, error analysis and limits per model | [`docs/m1.md`](docs/m1.md), [`docs/m2.md`](docs/m2.md), [`docs/m3.md`](docs/m3.md) |
@@ -232,14 +232,16 @@ Read these before quoting a number:
   to 5 (leave-one-tool-out, cross-dataset, low-and-slow) are the real test.
 - **A perfect ROC-AUC is not a perfect detector.** With dnscat2 held out, M1 reaches ROC-AUC 1.0 but
   catches only 22% of it at its own threshold (`docs/m1.md`). Quote recall at the model's threshold next to ROC-AUC.
-- **Two selection tables.** `results/selection.csv` reads the original testbed runs. An F1 tie goes to the faster
-  model, so it picks the M3 CNN for Experiments 1, 3 and 5 (F1 1.0, about 1.7 ms), and its Experiment 3 score comes
-  from the `tunnel.test` suffix. For the testbed experiments quote `results_nozone/selection.csv`, the same rule on
-  the runs with the domain hidden: it picks M1 for three of the four held-out tools and M2 with host averaging for
-  dnscat2. Its Experiment 1 and 5 picks depend on M1's latency measurement
+- **Two selection tables.** `results/selection.csv` reads the original testbed runs, where M3 BiLSTM wins
+  Experiments 1, 3 and 5 at F1 1.0, and its Experiment 3 score comes from the `tunnel.test` suffix. For the testbed
+  experiments quote `results_nozone/selection.csv`, the same rule on the runs with the domain hidden: it picks M1
+  for every run except dnscat2 held out, where it picks RF
   ([`docs/suffix-ablation.md`](docs/suffix-ablation.md), "Selection with the domain hidden").
-- **Latency depends on the machine.** M1 and RF were timed on a Colab CPU (2 cores), M2 and M3 on a Colab T4 GPU.
-  M1 sits close to the 10 ms limit (median 9.1 ms, two runs over it), so its pass or fail depends on the machine.
+- **Latency is timed on one CPU.** The 10 ms rule uses `results/latency_cpu.csv`: every model timed on the machine
+  that runs the live detector (`python scripts/time_models.py`). There M2 takes 23 to 28 ms per query and fails the
+  rule, while RF (8.1 ms) and the Isolation Forest (9.1 ms) pass. Each run's own timing, from Colab CPUs and GPUs,
+  stays in `summary.csv`. This was added after the results freeze; the frozen selection is at the
+  `results-freeze` tag.
 
 ## Timeline (SGT)
 | Phase | Dates | Focus |
