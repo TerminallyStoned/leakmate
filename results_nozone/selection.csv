@@ -1,7 +1,7 @@
 experiment,experiment_name,selected_model,f1,fpr,latency_ms_per_query
-E1,Experiment 1 (within-testbed),m3_bilstm,0.9997220312202829,0.00017900295354873356,6.694886469998892
-E3_dns2tcp,Experiment 3 (leave-one-tool-out) - dns2tcp,m1,1.0,0.0,7.904777663999994
-E3_dnscat2,Experiment 3 (leave-one-tool-out) - dnscat2,m2_hostavg,0.9947702952771743,0.0019391986634446135,6.877
-E3_dnsexfiltrator,Experiment 3 (leave-one-tool-out) - dnsexfiltrator,m1,1.0,0.0,8.050386505999995
-E3_iodine,Experiment 3 (leave-one-tool-out) - iodine,m1,1.0,0.0,7.847029158000055
-E5,Experiment 5 (low-and-slow),m3_cnn,0.9912280701754386,8.950147677436678e-05,1.6897421940000186
+E1,Experiment 1 (within-testbed),m1,1.0,0.0,5.041627336000005
+E3_dns2tcp,Experiment 3 (leave-one-tool-out) - dns2tcp,m1,1.0,0.0,5.041627336000005
+E3_dnscat2,Experiment 3 (leave-one-tool-out) - dnscat2,rf,1.0,0.0,8.069161145999999
+E3_dnsexfiltrator,Experiment 3 (leave-one-tool-out) - dnsexfiltrator,m1,1.0,0.0,5.041627336000005
+E3_iodine,Experiment 3 (leave-one-tool-out) - iodine,m1,1.0,0.0,5.041627336000005
+E5,Experiment 5 (low-and-slow),m1,1.0,0.0,5.041627336000005

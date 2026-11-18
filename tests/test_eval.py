@@ -83,6 +83,22 @@ def test_latency_table():
     assert bool(t.loc["fast", "under_limit"]) and not bool(t.loc["slow", "under_limit"])
 
 
+def test_selection_uses_one_cpu_latency_when_present(tmp_path):
+    import pandas as pd
+
+    from eval.results_io import write_result
+    from eval.summarise import summarise
+
+    for model, latency in [("fast_gpu", 2.0), ("cpu_ok", 8.0)]:
+        write_result(tmp_path / model / "E1.json", [0.1, 0.9], [0, 1], 1.0, latency, {}, model=model, experiment="E1")
+    summarise(tmp_path, plots=False)
+    assert pd.read_csv(tmp_path / "selection.csv")["selected_model"][0] == "fast_gpu"  # F1 tie, faster wins
+    pd.DataFrame({"model": ["fast_gpu"], "latency_ms_per_query": [30.0]}).to_csv(tmp_path / "latency_cpu.csv")
+    summarise(tmp_path, plots=False)
+    assert pd.read_csv(tmp_path / "selection.csv")["selected_model"][0] == "cpu_ok"  # over 10 ms on CPU
+    assert pd.read_csv(tmp_path / "summary.csv").set_index("model").loc["fast_gpu", "latency_ms_per_query"] == 2.0
+
+
 def test_old_latency_name_still_loads(tmp_path):
     import json
 

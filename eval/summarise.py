@@ -45,9 +45,8 @@ COLUMNS = [
 def latency_table(summary: pd.DataFrame, limit_ms: float = MAX_LATENCY_MS) -> pd.DataFrame:
     """One row per model: per-query latency across its runs and whether it meets the limit.
 
-    Numbers come from each results JSON's `latency_ms_per_query`. Runs on different machines are
-    not comparable; the official table uses Kang Hao Wei's single-machine re-timing,
-    which only needs to write results JSONs with the new latency_ms_per_query to update this."""
+    Numbers come from each run's `latency_ms_per_query`, or from latency_cpu.csv when it exists
+    (with_cpu_latency): runs on different machines are not comparable."""
     g = summary.dropna(subset=["latency_ms_per_query"]).groupby("model")
     table = pd.DataFrame(
         {
@@ -61,6 +60,20 @@ def latency_table(summary: pd.DataFrame, limit_ms: float = MAX_LATENCY_MS) -> pd
     ).reset_index()
     table["under_limit"] = table["latency_ms_max"] < limit_ms
     return table.sort_values("latency_ms_median").round(4)
+
+
+def with_cpu_latency(summary: pd.DataFrame, results_dir: Path) -> pd.DataFrame:
+    """summary with each model's latency replaced by its one-CPU timing (scripts/time_models.py), if any.
+
+    summary.csv keeps the per-run timings; the latency table and the selection use these.
+    Models not in latency_cpu.csv keep their own."""
+    path = results_dir / "latency_cpu.csv"
+    if not path.exists():
+        return summary
+    cpu = pd.read_csv(path).set_index("model")["latency_ms_per_query"]
+    out = summary.copy()
+    out["latency_ms_per_query"] = out["model"].map(cpu).fillna(out["latency_ms_per_query"])
+    return out
 
 
 def summarise(results_dir: str = "results", plots: bool = True) -> pd.DataFrame:
@@ -91,7 +104,8 @@ def summarise(results_dir: str = "results", plots: bool = True) -> pd.DataFrame:
     if tool_rows:
         pd.DataFrame(tool_rows).to_csv(results_dir / "per_tool.csv", index=False)
 
-    latency = latency_table(summary)
+    timed = with_cpu_latency(summary, results_dir)
+    latency = latency_table(timed)
     latency.to_csv(results_dir / "latency.csv", index=False)
 
     if plots:
@@ -101,7 +115,7 @@ def summarise(results_dir: str = "results", plots: bool = True) -> pd.DataFrame:
 
     # Selection rule, applied separately to each experiment. Ablations are not candidates.
     picks = []
-    for exp, grp in summary[~summary["ablation"]].groupby("experiment"):
+    for exp, grp in timed[~timed["ablation"]].groupby("experiment"):
         win = select_model(grp.to_dict("records"))
         picks.append(
             {
