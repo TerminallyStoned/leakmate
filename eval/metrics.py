@@ -30,6 +30,27 @@ def threshold_at_fpr(labels, scores, max_fpr: float = MAX_FPR) -> float:
     return float(np.nextafter(benign[idx], np.inf))
 
 
+def pick_threshold(y_val, s_val, target_fpr: float = MAX_FPR) -> float:
+    """Decision threshold chosen on VALIDATION data only (never the test set).
+    Shared by M3 (models/m3_common.py) and M1 / Random Forest (models/m1_xgb.py, rf_baseline.py).
+
+    lo = lowest threshold that keeps validation benign false positives <= target_fpr
+    hi = score that still catches 99% of validation tunnel queries
+    When the two classes are well separated (hi > lo), any threshold in between gives the
+    same validation result, so take the middle of the gap. Sitting at `lo`, right on top of
+    the benign scores, flagged about 9% of later benign traffic on CIC (E2) for M3 even though
+    ROC-AUC was 1.0. If the classes overlap (hi <= lo), keep `lo`, which honours target_fpr.
+    """
+    y_val = np.asarray(y_val)
+    s_val = np.asarray(s_val, dtype=float)
+    lo = threshold_at_fpr(y_val, s_val, target_fpr)
+    tunnel = s_val[y_val == 1]
+    if tunnel.size == 0:
+        return lo
+    hi = float(np.quantile(tunnel, 0.01))
+    return (lo + hi) / 2 if hi > lo else lo
+
+
 def recall_at_fpr(labels, scores, max_fpr: float = MAX_FPR) -> float:
     """Recall at the best operating point with FPR <= max_fpr (threshold-free view)."""
     labels = np.asarray(labels)

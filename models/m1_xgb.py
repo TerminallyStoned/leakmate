@@ -15,6 +15,9 @@ snaplen-leaky columns are dropped automatically (see m1_features.CIC_LEAKY).
 Early stopping uses a time-based validation slice of the TRAINING data: within
 each capture file (or each class, if there is no source_file column) the last
 `val_frac` of rows by ts. The test split is never seen during training.
+
+The same slice sets the decision threshold (model["threshold"], eval.metrics.pick_threshold),
+so the evaluation module and the live detector do not have to pick one on test data.
 """
 from __future__ import annotations
 
@@ -25,23 +28,15 @@ import numpy as np
 import pandas as pd
 import xgboost as xgb
 
+from eval.metrics import pick_threshold
 from models import m1_features
 
 DEFAULT_CFG = {**m1_features.DEFAULT_CFG,
                "n_estimators": 500, "max_depth": 6, "learning_rate": 0.1, "subsample": 0.8,
                "colsample_bytree": 0.8, "min_child_weight": 1.0, "reg_lambda": 1.0,
                "scale_pos_weight": "auto", "early_stopping_rounds": 30, "val_frac": 0.15,
+               "target_fpr": 0.01,  # eval.metrics.pick_threshold on the validation slice
                "seed": 42, "n_jobs": -1}
-
-
-def _val_split(df: pd.DataFrame, frac: float):
-    """Boolean mask of validation rows: last `frac` by ts within each source file (or class)."""
-    if frac <= 0 or len(df) < 20:
-        return np.zeros(len(df), dtype=bool)
-    key = "source_file" if "source_file" in df.columns else "label"
-    order = df["ts"] if "ts" in df.columns else pd.Series(np.arange(len(df)), index=df.index)
-    rank = order.groupby(df[key]).rank(method="first", pct=True)
-    return (rank > 1 - frac).to_numpy()
 
 
 def _matrix(df: pd.DataFrame, model_or_cfg) -> pd.DataFrame:
@@ -58,7 +53,7 @@ def train(train_df: pd.DataFrame, cfg: dict | None = None):
     X = X.drop(columns=[c for c in m1_features.drop_list(train_df, cfg) if c in X.columns])
     y = train_df["label"].astype(int).to_numpy()
 
-    val = _val_split(train_df, cfg["val_frac"])
+    val = m1_features.val_mask(train_df, cfg["val_frac"])
     use_es = bool(cfg["early_stopping_rounds"]) and val.any() \
         and len(np.unique(y[val])) == 2 and len(np.unique(y[~val])) == 2
     tr = ~val if use_es else np.ones(len(y), dtype=bool)
@@ -84,9 +79,15 @@ def train(train_df: pd.DataFrame, cfg: dict | None = None):
 
     best = getattr(clf, "best_iteration", None) if use_es else None
     used = {**cfg, "scale_pos_weight": spw}
-    return {"clf": clf, "cols": list(X.columns), "cfg": used,
-            "best_iteration": None if best is None else int(best),
-            "n_fit": int(tr.sum()), "n_val": int(val.sum()) if use_es else 0}
+    model = {"clf": clf, "cols": list(X.columns), "cfg": used,
+             "best_iteration": None if best is None else int(best),
+             "n_fit": int(tr.sum()), "n_val": int(val.sum()) if use_es else 0, "threshold": None}
+    if use_es:
+        # Decision threshold from the same held-out rows (never the test set). Without early
+        # stopping the model was fitted on every row, so there is nothing held out to set it on.
+        p_val = clf.predict_proba(X[val], iteration_range=_iter_range(model))[:, 1].astype(np.float32)
+        model["threshold"] = pick_threshold(y[val], p_val, cfg["target_fpr"])
+    return model
 
 
 def _iter_range(model):

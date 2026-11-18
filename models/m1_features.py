@@ -36,6 +36,7 @@ qlen_wire, h_qpm, h_uniq_ratio, h_ent_mean, h_ent_std.
 """
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 
 from models import host_features, qname_features
@@ -124,6 +125,19 @@ def drop_list(df: pd.DataFrame, cfg: dict | None = None) -> list[str]:
             if group not in keep_groups:
                 drop += cols
     return sorted(set(drop))
+
+
+def val_mask(df: pd.DataFrame, frac: float) -> np.ndarray:
+    """Boolean mask of validation rows: last `frac` by ts within each source file (or class).
+
+    Taken from the TRAINING rows only. M1 uses it for early stopping and its threshold, the
+    Random Forest for its threshold, so both hold out the same rows."""
+    if frac <= 0 or len(df) < 20:
+        return np.zeros(len(df), dtype=bool)
+    key = "source_file" if "source_file" in df.columns else "label"
+    order = df["ts"] if "ts" in df.columns else pd.Series(np.arange(len(df)), index=df.index)
+    rank = order.groupby(df[key]).rank(method="first", pct=True)
+    return (rank > 1 - frac).to_numpy()
 
 
 def select(X: pd.DataFrame, cols: list[str]) -> pd.DataFrame:

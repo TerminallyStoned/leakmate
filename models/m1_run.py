@@ -230,9 +230,13 @@ def main(argv=None):
         "created_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "contract_version": CONTRACT_VERSION,
     }
+    res["n_val"] = model.get("n_val")
+    if model.get("threshold") is not None:  # chosen on the validation slice; absent = eval falls back to the test set
+        res["threshold"] = float(model["threshold"])
+        res["threshold_source"] = (f"validation: last {model['cfg']['val_frac']:.0%} of each capture's train rows, "
+                                   f"eval.metrics.pick_threshold at {model['cfg']['target_fpr']:.0%} FPR")
     if a.model == "m1":
         res["best_iteration"] = model.get("best_iteration")
-        res["n_val"] = model.get("n_val")
         res["shap"] = shap_info
     # session_ids / ts are optional until E3/E5; leave them out rather than write None
     res = {k: v for k, v in res.items() if not (k in ("session_ids", "ts") and v is None)}

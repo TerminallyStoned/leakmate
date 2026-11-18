@@ -16,7 +16,7 @@ import pandas as pd
 import torch
 from torch import nn
 
-from eval.metrics import threshold_at_fpr
+from eval.metrics import pick_threshold
 
 # ---- character vocabulary (~40 symbols) ------------------------------------------
 # DNS names are case-insensitive, so we lower-case. 0 = padding, 1 = unknown.
@@ -97,26 +97,6 @@ def _predict(net: nn.Module, x: np.ndarray, bs: int = 2048) -> np.ndarray:
     dev = next(net.parameters()).device
     out = [torch.sigmoid(net(xb.to(dev))).cpu().numpy() for xb, _ in _batches(x, None, bs, shuffle=False)]
     return np.concatenate(out) if out else np.zeros(0)
-
-
-def pick_threshold(y_val: np.ndarray, s_val: np.ndarray, target_fpr: float) -> float:
-    """Decision threshold chosen on VALIDATION data only (never the test set).
-
-    lo = lowest threshold that keeps validation benign false positives <= target_fpr
-    hi = score that still catches 99% of validation tunnel queries
-    When the two classes are well separated (hi > lo), any threshold in between gives the
-    same validation result, so take the middle of the gap. Sitting at `lo`, right on top of
-    the benign scores, flagged about 9% of later benign traffic on CIC (E2) even though
-    ROC-AUC was 1.0. If the classes overlap (hi <= lo), keep `lo`, which honours target_fpr.
-    """
-    y_val = np.asarray(y_val)
-    s_val = np.asarray(s_val, dtype=float)
-    lo = threshold_at_fpr(y_val, s_val, target_fpr)
-    tunnel = s_val[y_val == 1]
-    if tunnel.size == 0:
-        return lo
-    hi = float(np.quantile(tunnel, 0.01))
-    return (lo + hi) / 2 if hi > lo else lo
 
 
 def train_model(build_net, arch: str, train_df: pd.DataFrame, cfg: dict) -> M3Model:

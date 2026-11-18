@@ -12,8 +12,9 @@ Every model is a module models/<name>.py with
     train(train_df, cfg) -> model
     score(model, df) -> np.ndarray      (higher = more suspicious)
     save(model, path) / load(path)
-A model may also expose `model.threshold` (chosen on its own validation split); it is
-saved in the JSON so the evaluation module does not have to pick a threshold on test data.
+A model may also expose a threshold chosen on its own validation split (`model.threshold`,
+or `model["threshold"]` for the dict models M1 / RF); it is saved in the JSON so the
+evaluation module does not have to pick a threshold on test data.
 """
 
 from __future__ import annotations
@@ -96,6 +97,7 @@ def run_one(
     # Every key the contract (docs/contracts.md section 3) requires, plus optional extras.
     # M3 models carry .cfg; M1/RF/IF models are dicts with a "cfg" key
     used_cfg = model.get("cfg", cfg) if isinstance(model, dict) else getattr(model, "cfg", cfg)
+    threshold = model.get("threshold") if isinstance(model, dict) else getattr(model, "threshold", None)
     out = write_result(
         out_path,
         scores=scores,
@@ -117,7 +119,7 @@ def run_one(
             model_dir, getattr(mod, "SCORE_MEANING", f"{model_name} score, higher = more suspicious")
         ),
         created_utc=datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        threshold=getattr(model, "threshold", None),  # extra key: chosen on validation data
+        threshold=threshold,  # extra key: chosen on validation data (None: eval falls back to the test set)
         validate=True,
     )
     print(f"[{model_name} {run_name}] train {train_time:.1f}s, latency {latency:.2f} ms/query -> {out}")
