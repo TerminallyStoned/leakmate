@@ -175,39 +175,8 @@ cd testbed && docker compose up -d       # the lab network
 ./capture_matrix.sh --dry-run            # list the runs
 ./capture_matrix.sh                      # iodine + dnscat2 matrix, benign traffic alongside
 ```
-What to know when capturing or using captures, for any tool:
-
-- **File names.** `run_tool.sh --capture` writes `<tool>_<size>_<rate>_<encoding>_<utc>.pcap`.
-  `<rate>` is `r<--rate>` and/or `d<--delay>ms`; `<encoding>` is the forced record type and
-  encoding, or `default`.
-- **Manifest.** Add `--manifest data/raw/manifest.csv` to any `run_tool.sh --capture` run and
-  it appends one row: tool, client IP, size, rate, `throttle_ms`, record type, encoding, start
-  and end time (UTC), query count, sha256. The manifest is the only file under `data/raw/`
-  that is committed; the pcaps go to the shared Drive, laid out as `tools/` and `benign/`
-  next to the manifest, so its `file` column still resolves.
-- **Parsing.** The `throttle_ms` column is the `@<throttle ms>` to put after each capture,
-  and the parser needs the client addresses of iodine and dnscat2 passed in:
-  ```bash
-  python -m parser testbed \
-      --capture data/raw/tools/<tool capture>.pcap@<throttle_ms> ... \
-      --capture data/raw/benign/<run id>/resolver.pcap \
-      --tools-map 172.28.0.30=iodine,172.28.0.31=dnscat2
-  ```
-  `capture_matrix.sh` prints this command in full for the captures it just made.
-- **Benign capture.** The resolver container has no tcpdump. `capture_matrix.sh` captures at
-  the resolver from a helper container that shares its network. The resolver has two
-  interfaces (lab and upstream) and either can be `eth0`, so capture on the one that holds
-  its lab address, 172.28.0.2; the upstream side shows only the resolver's own forwarded
-  queries. To do the same by hand:
-  ```bash
-  docker run -d --name resolver-capture --network container:resolver --cap-add NET_ADMIN --cap-add NET_RAW \
-      --entrypoint sh leakmate-iodine:latest -c 'exec tcpdump -U -qi "$(ip -o -4 addr show | sed -n "s/^[0-9]*: *\([^ ]*\) *inet 172\.28\.0\.2\/.*/\1/p")" -w /tmp/resolver.pcap "udp port 53 and host 172.28.0.2"'
-  docker stop resolver-capture && docker cp resolver-capture:/tmp/resolver.pcap . && docker rm resolver-capture
-  ```
-- **One run at a time.** Tool clients are live beacons, so a second run in the lab lands in
-  the first run's capture. Stop the tool profiles when done (`testbed/tools/README.md`).
-
-Details and measured query rates: `testbed/tools/README.md`.
+File names, the manifest, the parser command, capturing at the resolver by hand and why only one run
+may use the lab at a time: [`testbed/tools/README.md`](testbed/tools/README.md#capture-runs-capture_matrixsh).
 
 ## Results
 The shared evaluation module (`python -m eval.summarise`) reads the result files and writes the summary files

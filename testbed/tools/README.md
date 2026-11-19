@@ -120,6 +120,19 @@ the `python -m parser testbed` command for the captures it just made, with each 
 needs for these two tools. Checked on 15 Nov 2026: the quick matrix parsed into 2,931 rows
 (iodine 646, dnscat2 125, benign 2,160) and passed `python contracts.py`.
 
+Only `data/raw/manifest.csv` is committed; the pcaps go to the shared Drive, laid out as `tools/`
+and `benign/` next to the manifest, so its `file` column still resolves. Run one session at a
+time: tool clients are live beacons, so a second run lands in the first run's capture.
+
+To capture at the resolver by hand (the resolver image has no tcpdump, so a helper container
+shares its network and picks the interface holding 172.28.0.2):
+
+```bash
+docker run -d --name resolver-capture --network container:resolver --cap-add NET_ADMIN --cap-add NET_RAW \
+    --entrypoint sh leakmate-iodine:latest -c 'exec tcpdump -U -qi "$(ip -o -4 addr show | sed -n "s/^[0-9]*: *\([^ ]*\) *inet 172\.28\.0\.2\/.*/\1/p")" -w /tmp/resolver.pcap "udp port 53 and host 172.28.0.2"'
+docker stop resolver-capture && docker cp resolver-capture:/tmp/resolver.pcap . && docker rm resolver-capture
+```
+
 The dns2tcp and DNSExfiltrator rows live in their own file, 19 runs that take about two
 hours:
 
