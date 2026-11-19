@@ -11,17 +11,16 @@ features, to `live/alerts.db` (SQLite), which the dashboard reads. Owner: Justin
 ## The model
 **M1 is the default.** With no `--model`, the detector loads M1 from `artifacts/m1_xgb/E1.pt`: M1 trained on
 the testbed training split, the model behind `results/m1/E1.json`. It carries its own threshold (0.4999, chosen
-on validation data), so no `--threshold` is needed. `artifacts/` is not committed, so get the file once, either
-way:
+on validation data), so no `--threshold` is needed. That file is committed (123 KB), so
+this works from a fresh clone. To use a model you trained yourself instead:
 
 ```bash
-# from the shared Drive: artifacts/m1_xgb/E1.pt inside "leakmate captures"/m1/m1rf_valthr.zip
-# or retrain (about 30 s, needs data/processed/testbed); writes artifacts/live/m1_xgb/E1.pt, not results/,
+# retrain (about 30 s, needs data/processed/testbed); writes artifacts/live/m1_xgb/E1.pt, not results/,
 # so then add --weights artifacts/live/m1_xgb/E1.pt
 python -m eval.run --model m1 --exp E1 --results-dir /tmp/live
 ```
 
-If the file is missing the detector stops and prints these two options. It never falls back to another scorer.
+If the file is missing the detector stops and prints how to get it. It never falls back to another scorer.
 
 - `--weights <file>` loads a different M1 file.
 - `--model <name> --weights <file>` loads another model through the contract interface (`models/<name>.py`).

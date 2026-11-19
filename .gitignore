@@ -14,7 +14,11 @@ data/sample/
 data/processed/
 data/processed_nozone/
 models/weights/
-artifacts/
+artifacts/*
+# M1's E1 weights are committed so python -m live runs M1 with no download
+!artifacts/m1_xgb/
+artifacts/m1_xgb/*
+!artifacts/m1_xgb/E1.pt
 checkpoints/
 
 # --- testbed / live artifacts (large or local-only) ---
