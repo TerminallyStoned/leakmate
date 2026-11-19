@@ -4,7 +4,7 @@
 #   live/run_live.sh                          # at the resolver (default)
 #   live/run_live.sh --at dns2tcp-client      # inside another container's network
 #   live/run_live.sh --at bridge              # on the lab bridge of the Docker host: every lab host
-#   live/run_live.sh --model m1 --weights artifacts/m1_xgb/E1.joblib
+#   live/run_live.sh --model m1 --weights artifacts/m1_xgb/E1.pt
 #
 # Everything after --at is passed to `python -m live` (see its --help). Stop with Ctrl+C.
 #
