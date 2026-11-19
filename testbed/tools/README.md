@@ -32,7 +32,6 @@ Everything here lives in `testbed/tools/docker-compose.yml`, joins the running
 | `dns2tcp-client`     | `dns2tcp`      | 172.28.0.44  | runs `dns2tcpc`, `dns:` pointed at 172.28.0.42               |
 | `dnsexfiltrator-ns`  | `dnsexfiltrator` | 172.28.0.41 | DNS server **and** collector (our Python 3 `server.py`)     |
 | `dnsexfiltrator-cli` | `dnsexfiltrator` | 172.28.0.43 | exfil client, `dns:` pointed at 172.28.0.41                |
-
 | `iodine-server`      | `iodine`       | 172.28.0.20  | `iodined`, authoritative for `i.tunnel.test`, tunnel gateway 10.0.0.1 |
 | `iodine-client`      | `iodine`       | 172.28.0.30  | `iodine` client, dials in **through the resolver** (172.28.0.2) |
 | `dnscat2-server`     | `dnscat2`      | 172.28.0.21  | dnscat2 Ruby server, authoritative for `d.tunnel.test`       |
