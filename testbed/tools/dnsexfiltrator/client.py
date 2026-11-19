@@ -8,7 +8,7 @@ NotSupportedException();`, dnsExfiltrator.cs:581), so `pwsh` on Linux loads the
 assembly and then fails at the first TXT query. The card's fallback (Windows VM on
 the internal network) is not available here, and the lab only needs the *traffic*:
 this client produces the same queries the real one does, which is what
-`scripts/cic_to_queries.py` labels as dnsexfiltrator -
+`parser/cic.py` labels as dnsexfiltrator -
     init.<base32("<file>|<nchunks>")>.base64.<domain>       (expects TXT "OK")
     <i>.<label>.<label>...<domain>                          (expects TXT "<i>")
 with the payload being base64url(RC4(password, zip(file))) cut into <=63-char labels.

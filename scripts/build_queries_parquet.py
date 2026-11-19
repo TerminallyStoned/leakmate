@@ -18,7 +18,7 @@ apart in this lab, because the sidecar stamps when a lookup is planned and the p
 when it reaches the wire, with `dig` in between. Fuzzy-merging them lost 34% of one source
 when tried, so instead the script concatenates and warns loudly when two sources overlap.
 
-STOPGAP, same status as scripts/cic_to_queries.py: the parser card (#9) owns this join
+STOPGAP: the parser card (#9) owns this join
 and this file retires when it lands. Output columns and their order are the CONTRACTS
 card's query table, which is what eval/experiments.py:load_queries() reads.
 """

@@ -207,9 +207,9 @@ def test_runner_writes_contract_json(tmp_path):
 
 def test_cic_truncated_qname_has_no_trailing_dot():
     # snaplen can cut a packet right after a label's length byte; the name must not end with "."
-    import cic_to_queries  # scripts/ is on the pytest path
+    from parser.pcap import _qname
 
     hdr = bytes(12)
-    assert cic_to_queries._qname(hdr + b"\x03abc\x09wordpress\x03") == ("abc.wordpress", True, None)
-    assert cic_to_queries._qname(hdr + b"\x03abc\x09wordpress\x03co") == ("abc.wordpress.co", True, None)
-    assert cic_to_queries._qname(hdr + b"\x03abc\x03com\x00\x00\x01") == ("abc.com", False, 21)
+    assert _qname(hdr + b"\x03abc\x09wordpress\x03") == ("abc.wordpress", True, None)
+    assert _qname(hdr + b"\x03abc\x09wordpress\x03co") == ("abc.wordpress.co", True, None)
+    assert _qname(hdr + b"\x03abc\x03com\x00\x00\x01") == ("abc.com", False, 21)

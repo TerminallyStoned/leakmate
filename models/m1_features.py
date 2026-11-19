@@ -18,7 +18,7 @@ are cut to ~40 chars, lose their qtype and lose their attacker domain. Some
 features then describe where the capture cut the packet instead of what the
 tunnel did, and a supervised model will happily learn that artefact. When the
 table's optional `qname_truncated` column (docs/contracts.md, section 1) marks at
-least one row as truncated (scripts/cic_to_queries.py output), these groups are
+least one row as truncated (parser/cic.py output), these groups are
 dropped unless cfg["keep_cic_leaky"] is True (ablation only). A table whose
 qname_truncated is all False (testbed, synthetic sample) keeps every feature:
 

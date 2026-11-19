@@ -32,7 +32,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from parser.pcap import _qname, finish, parse_pcap, with_split  # noqa: F401  (_qname: old import path)
+from parser.pcap import finish, parse_pcap, with_split
 
 EXFIL = re.compile(r"^(init\.[A-Za-z2-7]{8,}|\d+\.[A-Za-z0-9_-]{8,})")
 
