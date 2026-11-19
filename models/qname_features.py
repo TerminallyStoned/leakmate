@@ -1,9 +1,8 @@
 """Per-query features computed from a query-table row.
 
-STOPGAP: the parser card (Yehan) owns the real M1 feature set in
-`data/processed/<dataset>/features.parquet`. Until that exists, the Isolation
-Forest baseline uses these. They follow the parser card's per-query list, so
-switching later means passing `feature_cols` and the parser's table instead.
+Part of the M1 feature set (models/m1_features.py), which M1, the Random Forest
+and the Isolation Forest use; parser/features.py writes the same columns to
+`data/processed/<dataset>/features.parquet`.
 """
 from __future__ import annotations
 

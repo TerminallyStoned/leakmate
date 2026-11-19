@@ -4,7 +4,7 @@ Same contract interface as every model: train / score / save / load.
 Features: the M1 feature set (models/m1_features.py: per-query + per-host
 window features), as the M2 card specifies, including M1's CIC leakage guard
 (snaplen=96 artefacts dropped on tables from parser/cic.py).
-Pass cfg["feature_cols"] to use the parser's feature table once it exists.
+Pass cfg["feature_cols"] to pick other columns.
 """
 from __future__ import annotations
 
