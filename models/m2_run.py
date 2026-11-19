@@ -52,12 +52,6 @@ except ModuleNotFoundError as e:
     ) from e
 
 
-def result_path(out: str | Path, model_name: str, run_name: str) -> Path:
-    """results/<model>/<run>.json (contract section 3). Each variant (tag, _hostavg) gets its own
-    model folder, so the eval module groups e.g. E3_iodine for every variant the same way."""
-    return Path(out) / model_name / f"{run_name}.json"
-
-
 def load_tranco(path, n: int | None) -> list[str]:
     """Tranco CSV is `rank,domain` with no header."""
     df = pd.read_csv(path, header=None, names=["rank", "domain"], nrows=n)
@@ -325,7 +319,9 @@ def main(argv=None):
         }
         if suffix:
             res["config"] = {**used_cfg, "host_window_s": a.host_window}
-        out = result_path(a.out, model_name + suffix, run_name)
+        # results/<model>/<run>.json: each variant (tag, _hostavg) gets its own model folder, so the
+        # eval module groups e.g. E3_iodine for every variant the same way
+        out = Path(a.out) / (model_name + suffix) / f"{run_name}.json"
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(json.dumps(res))
         # quick sanity print only; real metrics come from the shared eval module
