@@ -42,7 +42,7 @@ SCORE_MEANING = {
 
 def per_query_latency_ms(mod, model, df, n: int = 1000) -> float:
     """Rough per-query latency: score n queries one at a time on the current device.
-    The official cross-model latency table is run separately on one fixed machine."""
+    The cross-model table is results/latency_cpu.csv (scripts/time_models.py)."""
     sample = df.head(n)
     if sample.empty:
         return float("nan")

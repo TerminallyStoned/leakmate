@@ -62,4 +62,4 @@ Extra keys it uses when present:
 
 - M3 lower-cases names and keeps the last 256 characters; 41-symbol vocabulary.
 - M3 holds out the latest 10% of training sessions for early stopping and the threshold. Test data is never used for either. If those sessions are all one class (the testbed: benign and each tool were captured on different days), it takes the last 10% of rows by time separately for benign and for each tool. Results and error analysis: `docs/m3.md`.
-- `latency_ms_per_query` from `eval.run` scores one query at a time on whatever machine ran it. The official latency table is re-run on one fixed machine (Kang Hao Wei's Experiment 5 card).
+- `latency_ms_per_query` from `eval.run` scores one query at a time on whatever machine ran it. `results/latency_cpu.csv` (`scripts/time_models.py`) re-times every model on one CPU; the latency table and the selection use it.
