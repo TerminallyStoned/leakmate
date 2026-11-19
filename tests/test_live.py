@@ -106,10 +106,13 @@ def test_a_contract_model_plugs_in_with_its_explanations(tmp_path):
     cap = _capture(tmp_path / "cap.pcap")
     table = parse_pcap(cap, lambda src, _q: None if src == RESOLVER else ("dnscat2" if src == VICTIM else "benign"))
     weights = tmp_path / "m1.joblib"
-    m1_xgb.save(m1_xgb.train(table, {"n_estimators": 20, "early_stopping_rounds": 0}), weights)
+    m1_xgb.save(m1_xgb.train(table, {"n_estimators": 20, "early_stopping_rounds": 0}), weights)  # no threshold
 
     db = tmp_path / "alerts.db"
-    main(["--pcap", str(cap), "--db", str(db), "--model", "m1", "--weights", str(weights), "--batch", "0.2"])
+    args = ["--pcap", str(cap), "--db", str(db), "--model", "m1", "--weights", str(weights), "--batch", "0.2"]
+    with pytest.raises(SystemExit, match="no threshold of its own"):  # never a silent 0.5
+        main(args)
+    main([*args, "--threshold", "0.5"])
     alerts, _ = _alerts(db)
     assert set(alerts.src_host) == {VICTIM} and len(alerts) == 30 and set(alerts.model) == {"m1_xgb"}
     top = json.loads(alerts.top_features.iloc[-1])

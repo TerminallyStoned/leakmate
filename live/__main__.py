@@ -34,7 +34,9 @@ def main(argv: list[str] | None = None) -> None:
     )
     ap.add_argument("--model", default="dummy", help="dummy (default), m1, or any models/<name>.py")
     ap.add_argument("--weights", help="file written by that model's save(); needed for every model but dummy")
-    ap.add_argument("--threshold", type=float, help="alert when score >= this (default: the model's own, else 0.5)")
+    ap.add_argument(
+        "--threshold", type=float, help="alert when score >= this (default: the model's own; required if it has none)"
+    )
     ap.add_argument("--db", default="live/alerts.db", help="SQLite file to append alerts to")
     ap.add_argument(
         "--ignore-src",
