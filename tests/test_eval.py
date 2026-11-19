@@ -99,6 +99,18 @@ def test_selection_uses_one_cpu_latency_when_present(tmp_path):
     assert pd.read_csv(tmp_path / "summary.csv").set_index("model").loc["fast_gpu", "latency_ms_per_query"] == 2.0
 
 
+def test_experiment_s_is_not_a_selection_candidate(tmp_path):
+    import pandas as pd
+
+    from eval.results_io import write_result
+    from eval.summarise import summarise
+
+    write_result(tmp_path / "m1" / "E1.json", [0.1, 0.9], [0, 1], 1.0, 5.0, {}, model="m1", experiment="E1")
+    write_result(tmp_path / "m1" / "S.json", [0.1, 0.9], [0, 1], 1.0, 5.0, {}, model="m1", experiment="S")
+    summarise(tmp_path, plots=False)
+    assert pd.read_csv(tmp_path / "selection.csv")["experiment"].tolist() == ["E1"]  # S compares splits, not models
+
+
 def test_ablation_runs_save_their_model_apart():
     from pathlib import Path
 

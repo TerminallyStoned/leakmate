@@ -113,9 +113,10 @@ def summarise(results_dir: str = "results", plots: bool = True) -> pd.DataFrame:
             plot_roc(runs, exp, fig_dir)
         plot_latency(latency, fig_dir, MAX_LATENCY_MS)
 
-    # Selection rule, applied separately to each experiment. Ablations are not candidates.
+    # Selection rule, applied separately to each experiment. Ablations are not candidates, and neither is
+    # Experiment S: it measures how much shuffled rows inflate scores, and its CIC and testbed runs share one group.
     picks = []
-    for exp, grp in timed[~timed["ablation"]].groupby("experiment"):
+    for exp, grp in timed[~timed["ablation"] & (timed["experiment"] != "S")].groupby("experiment"):
         win = select_model(grp.to_dict("records"))
         picks.append(
             {
