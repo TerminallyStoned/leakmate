@@ -1,7 +1,7 @@
 """Per-host sliding-window features (past-only) for M1.
 
-STOPGAP, like models/qname_features.py: the parser card owns the real per-host
-features. Until those land, M1 computes these. Each row gets statistics of the
+Part of the M1 feature set (models/m1_features.py); parser/features.py writes the
+same columns to features.parquet. Each row gets statistics of the
 queries the SAME source host sent in the window (t - window_s, t], including the
 row itself and never anything later, so a live detector could compute the same
 values and no future information leaks into training.

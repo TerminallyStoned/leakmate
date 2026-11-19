@@ -1,6 +1,6 @@
-# Tunnel tools (card #8: dns2tcp, DNSExfiltrator)
+# Tunnel tools: dns2tcp, DNSExfiltrator, iodine, dnscat2
 
-Two tunnel tools, each a pair of containers on the card-5 `lab` network, driven by one
+Four tunnel tools, each a pair of containers on the card-5 `lab` network, driven by one
 interface so captures can be scripted the same way for all four tools:
 
 ```bash
@@ -32,7 +32,6 @@ Everything here lives in `testbed/tools/docker-compose.yml`, joins the running
 | `dns2tcp-client`     | `dns2tcp`      | 172.28.0.44  | runs `dns2tcpc`, `dns:` pointed at 172.28.0.42               |
 | `dnsexfiltrator-ns`  | `dnsexfiltrator` | 172.28.0.41 | DNS server **and** collector (our Python 3 `server.py`)     |
 | `dnsexfiltrator-cli` | `dnsexfiltrator` | 172.28.0.43 | exfil client, `dns:` pointed at 172.28.0.41                |
-
 | `iodine-server`      | `iodine`       | 172.28.0.20  | `iodined`, authoritative for `i.tunnel.test`, tunnel gateway 10.0.0.1 |
 | `iodine-client`      | `iodine`       | 172.28.0.30  | `iodine` client, dials in **through the resolver** (172.28.0.2) |
 | `dnscat2-server`     | `dnscat2`      | 172.28.0.21  | dnscat2 Ruby server, authoritative for `d.tunnel.test`       |
@@ -119,6 +118,19 @@ the `python -m parser testbed` command for the captures it just made, with each 
 `@<throttle ms>` and the `--tools-map 172.28.0.30=iodine,172.28.0.31=dnscat2` the parser
 needs for these two tools. Checked on 15 Nov 2026: the quick matrix parsed into 2,931 rows
 (iodine 646, dnscat2 125, benign 2,160) and passed `python contracts.py`.
+
+Only `data/raw/manifest.csv` is committed; the pcaps go to the shared Drive, laid out as `tools/`
+and `benign/` next to the manifest, so its `file` column still resolves. Run one session at a
+time: tool clients are live beacons, so a second run lands in the first run's capture.
+
+To capture at the resolver by hand (the resolver image has no tcpdump, so a helper container
+shares its network and picks the interface holding 172.28.0.2):
+
+```bash
+docker run -d --name resolver-capture --network container:resolver --cap-add NET_ADMIN --cap-add NET_RAW \
+    --entrypoint sh leakmate-iodine:latest -c 'exec tcpdump -U -qi "$(ip -o -4 addr show | sed -n "s/^[0-9]*: *\([^ ]*\) *inet 172\.28\.0\.2\/.*/\1/p")" -w /tmp/resolver.pcap "udp port 53 and host 172.28.0.2"'
+docker stop resolver-capture && docker cp resolver-capture:/tmp/resolver.pcap . && docker rm resolver-capture
+```
 
 The dns2tcp and DNSExfiltrator rows live in their own file, 19 runs that take about two
 hours:
@@ -212,31 +224,20 @@ traffic crosses that interface in both directions) and `--out` receives
   record fall outside the capture window because tcpdump is killed while writing. The
   parser says so (`WARN dropped a trailing …partial record`) instead of hiding it.
 
-Parsing is `scripts/parse_capture.py` (dpkt) → the CONTRACTS query table plus `resp_size`
-and `rcode` joined from the matching reply. It emits exactly the contract columns, so its
-output is a drop-in for Yehan's card-9 parser; when that lands this script becomes a
-specialisation of it rather than a second source of truth.
+Parsing is `scripts/parse_capture.py` (dpkt), the quick per-capture check: the query-table
+columns of `docs/contracts.md` plus `resp_size` and `rcode` joined from the matching reply.
+The dataset table is built by `python -m parser testbed` (next section).
 
 ## From captures to a model
 
-The rows are half a dataset: `eval/experiments.py` (card #10) wants one Parquet query table
-per dataset. `scripts/build_queries_parquet.py` is that bridge — concatenate the benign run
-and the tool captures into `data/processed/testbed/queries.parquet`:
+`python -m parser testbed` builds `data/processed/testbed/queries.parquet` from the tool
+captures and the resolver capture (labels from the client IPs above, `PCAP@MS` for the
+throttle; see `parser/testbed.py`). Then train as usual:
 
 ```bash
-python3 scripts/parse_capture.py testbed/out/dns2tcp_<utc>.pcap --out testbed/out/dns2tcp.ndjson --tool dns2tcp
-python3 scripts/build_queries_parquet.py \
-    --add data/raw/benign/<run id> \
-    --add testbed/out/dns2tcp.ndjson --add testbed/out/dnsexfiltrator.ndjson \
-    --out data/processed/testbed/queries.parquet
-python -m eval.run --model m1 --exp E1        # once eval/ merges
+python -m parser testbed --capture data/raw/tools/dns2tcp_<utc>.pcap     --capture data/raw/benign/resolver_<utc>.pcap --tools-map 172.28.0.30=iodine,172.28.0.31=dnscat2
+python -m eval.run --model m1 --exp E1
 ```
-
-Pass **one source per capture window**. A benign sidecar and the pcap of that same run are
-two views of one traffic and their timestamps differ by `dig` latency (measured 44 ms, tail
-over half a second), so no fuzzy merge can separate them from two genuinely identical
-lookups; the script instead warns when two sources overlap. A test loads the output through
-`eval.experiments.get_split` and is skipped until card #10 merges.
 
 ## Tests
 

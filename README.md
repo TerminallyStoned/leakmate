@@ -9,8 +9,8 @@ send data slowly, are not. This project builds a contained testbed that generate
 traffic, compares three ML/AI detectors on it and on a public benchmark, and runs the best one on live
 DNS traffic behind a dashboard.
 
-> Status: **Phase 3 (experiments and results freeze, 18 Nov)**. Every model has result files for Experiments 1–5
-> on `main`; the freeze tag is not set yet. Sections marked *planned* are not in the repo yet.
+> Status: **Phase 4 (report and submission)**. Every model has result files for Experiments 1–5 on `main`, and
+> the frozen results are at the `results-freeze` tag. Sections marked *planned* are not in the repo yet.
 > The plan and owners live on the team Trello board **ICT3214**.
 
 ## Research questions
@@ -75,8 +75,9 @@ models/       model code, one file per model: train / score / save / load
   m1_run.py            M1/RF train + score, writes results JSON + SHAP outputs
   m3_cnn.py, m3_bilstm.py, m3_common.py   M3 char-CNN + BiLSTM
 contracts.py  validator + session/qtype helpers for the shared contracts (docs/contracts.md)
-scripts/      time_models.py (one-CPU latency), make_synthetic_sample.py, parse_capture.py (quick capture check used by run_tool.sh), build_queries_parquet.py (old sidecar merge)
-notebooks/    m2_dnsbert_colab.ipynb (Colab GPU run), m1_xgb_colab.ipynb (Colab CPU run)
+scripts/      time_models.py (one-CPU latency), make_synthetic_sample.py, parse_capture.py (quick capture check used by run_tool.sh),
+              check_setup.py (setup check), m2_phase2.py, m2_ablation2.py, m2_e5.py, m2_error_analysis.py (M2 runs, docs/m2.md)
+notebooks/    m2_dnsbert_colab.ipynb and m2_phase2_colab.ipynb (Colab GPU runs), m1_xgb_colab.ipynb (Colab CPU run)
 results/      <model>/<experiment>.json in the shared results format; summary.csv, selection.csv, latency.csv,
               per_tool.csv and figures/ from python -m eval.summarise
 results_nozone/  every model's result files on the masked testbed table (Experiments 1, 3, 5) and their
@@ -145,20 +146,8 @@ The user manual is built from these commands.
 | Dashboard | `streamlit run dashboard/app.py` | placeholder (20 Nov) |
 
 ## Quick start (M2 on CIC)
-```bash
-pip install -r requirements-m2.txt
-# unzip each CIC PCAP zip into its own folder under data/raw/cic/
-# (attack zips into a folder whose name contains "attack", e.g. data/raw/cic/heavy_attacks), then:
-python -m parser cic --raw data/raw/cic --out data/processed/cic/queries.parquet
-python -m models.m2_run --model m2 --exp E2 --data data/processed/cic/queries.parquet \
-    --tranco data/external/tranco.csv --tokenizer bpe
-python -m models.m2_run --model m2 --exp E2 --tokenizer char --tag ablation1_char \
-    --data data/processed/cic/queries.parquet --tranco data/external/tranco.csv
-python -m models.m2_run --model iforest --exp E2 --data data/processed/cic/queries.parquet
-python -m pytest tests -q
-```
-On Google Colab: open `notebooks/m2_dnsbert_colab.ipynb`, choose a T4 GPU, Run all
-(reads the zips from `MyDrive/ICT3214 datasets`).
+Unzip each CIC PCAP zip into its own folder under `data/raw/cic/` (attack zips into a folder whose
+name contains "attack"), then follow the Run section of [`docs/m2.md`](docs/m2.md#run) (local and Colab).
 
 ## Quick start (benign traffic generator)
 ```bash
@@ -176,39 +165,8 @@ cd testbed && docker compose up -d       # the lab network
 ./capture_matrix.sh --dry-run            # list the runs
 ./capture_matrix.sh                      # iodine + dnscat2 matrix, benign traffic alongside
 ```
-What to know when capturing or using captures, for any tool:
-
-- **File names.** `run_tool.sh --capture` writes `<tool>_<size>_<rate>_<encoding>_<utc>.pcap`.
-  `<rate>` is `r<--rate>` and/or `d<--delay>ms`; `<encoding>` is the forced record type and
-  encoding, or `default`.
-- **Manifest.** Add `--manifest data/raw/manifest.csv` to any `run_tool.sh --capture` run and
-  it appends one row: tool, client IP, size, rate, `throttle_ms`, record type, encoding, start
-  and end time (UTC), query count, sha256. The manifest is the only file under `data/raw/`
-  that is committed; the pcaps go to the shared Drive, laid out as `tools/` and `benign/`
-  next to the manifest, so its `file` column still resolves.
-- **Parsing.** The `throttle_ms` column is the `@<throttle ms>` to put after each capture,
-  and the parser needs the client addresses of iodine and dnscat2 passed in:
-  ```bash
-  python -m parser testbed \
-      --capture data/raw/tools/<tool capture>.pcap@<throttle_ms> ... \
-      --capture data/raw/benign/<run id>/resolver.pcap \
-      --tools-map 172.28.0.30=iodine,172.28.0.31=dnscat2
-  ```
-  `capture_matrix.sh` prints this command in full for the captures it just made.
-- **Benign capture.** The resolver container has no tcpdump. `capture_matrix.sh` captures at
-  the resolver from a helper container that shares its network. The resolver has two
-  interfaces (lab and upstream) and either can be `eth0`, so capture on the one that holds
-  its lab address, 172.28.0.2; the upstream side shows only the resolver's own forwarded
-  queries. To do the same by hand:
-  ```bash
-  docker run -d --name resolver-capture --network container:resolver --cap-add NET_ADMIN --cap-add NET_RAW \
-      --entrypoint sh leakmate-iodine:latest -c 'exec tcpdump -U -qi "$(ip -o -4 addr show | sed -n "s/^[0-9]*: *\([^ ]*\) *inet 172\.28\.0\.2\/.*/\1/p")" -w /tmp/resolver.pcap "udp port 53 and host 172.28.0.2"'
-  docker stop resolver-capture && docker cp resolver-capture:/tmp/resolver.pcap . && docker rm resolver-capture
-  ```
-- **One run at a time.** Tool clients are live beacons, so a second run in the lab lands in
-  the first run's capture. Stop the tool profiles when done (`testbed/tools/README.md`).
-
-Details and measured query rates: `testbed/tools/README.md`.
+File names, the manifest, the parser command, capturing at the resolver by hand and why only one run
+may use the lab at a time: [`testbed/tools/README.md`](testbed/tools/README.md#capture-runs-capture_matrixsh).
 
 ## Results
 The shared evaluation module (`python -m eval.summarise`) reads the result files and writes the summary files

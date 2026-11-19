@@ -1,7 +1,6 @@
 """M1: XGBoost on per-query + per-host features, with SHAP explanations.
 
-Contract interface: train(train_df, cfg) -> model, score(model, df) -> np.ndarray
-(higher = more suspicious; here P(tunnel)), save, load. Plus:
+Interface: docs/contracts.md section 2; score is P(tunnel). Plus:
   explain(model, df, top_k)  top SHAP contributions per row (for alerts / dashboard)
   shap_values(model, df)     full SHAP matrix (log-odds), one column per feature
 

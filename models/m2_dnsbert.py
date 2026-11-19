@@ -4,12 +4,7 @@ A query is suspicious when the model finds its qname surprising (high
 pseudo-perplexity). Training uses benign names only, so the model needs no
 attack labels.
 
-Contract interface (see the CONTRACTS card):
-    train(train_df, cfg) -> model
-    score(model, df)     -> np.ndarray   (higher = more suspicious)
-    save(model, path) / load(path)
-
-`train_df` follows the query-table schema; only rows with label == 0 are used.
+Interface: docs/contracts.md section 2. `train_df` follows the query-table schema; only rows with label == 0 are used.
 Extra benign names (e.g. Tranco) can be passed via cfg["extra_benign"].
 """
 from __future__ import annotations

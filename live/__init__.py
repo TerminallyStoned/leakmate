@@ -1,7 +1,4 @@
-"""Live detector: sniff DNS, score each query with the selected model, write alerts to live/alerts.db.
-
-Run with `python -m live` (see live/README.md); `python -m live.report` reads a run back.
-"""
+"""Live detector: sniff DNS, score each query, write alerts (python -m live, see live/README.md)."""
 
 import os
 
