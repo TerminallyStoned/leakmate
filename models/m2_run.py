@@ -250,6 +250,7 @@ def main(argv=None):
     if a.model == "m2":  # one pass gives both the PPL score and bits per query
         mean_nll, tot_nll = m2_dnsbert._score_both(model, test_df, None)
         scores = mean_nll.astype(np.float32)
+        # proposal eq. (1): I(q) = -sum_i log2 P(t_i | q without t_i); grows with name length, unlike the score
         extra["info_bits"] = [round(float(x) / math.log(2), 3) for x in tot_nll]
     else:
         scores = mod.score(model, test_df)

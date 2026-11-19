@@ -1,4 +1,6 @@
 """Fast CPU smoke tests for M2 and the IF baseline: python -m pytest tests/test_m2.py -q"""
+import math
+
 import numpy as np
 import pandas as pd
 
@@ -26,7 +28,7 @@ def test_m2_bpe_and_char_rank_tunnels_higher(tmp_path):
         s = m2_dnsbert.score(m, test)
         assert s.shape == (12,) and np.isfinite(s).all()
         assert s[10:].min() > np.median(s[:10])
-        bits = m2_dnsbert.info_bits(m, test)
+        bits = m2_dnsbert._score_both(m, test, None)[1] / math.log(2)  # as models/m2_run.py writes info_bits
         assert (bits >= 0).all() and bits[10:].min() > bits[:10].max()
         m2_dnsbert.save(m, tmp_path / kind)
         np.testing.assert_allclose(m2_dnsbert.score(m2_dnsbert.load(tmp_path / kind, "cpu"), test), s, rtol=1e-4)

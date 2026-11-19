@@ -274,15 +274,6 @@ def score(m2: M2Model, df: pd.DataFrame, batch_rows: int | None = None) -> np.nd
     return _score_both(m2, df, batch_rows)[0].astype(np.float32)
 
 
-def info_bits(m2: M2Model, df: pd.DataFrame, batch_rows: int | None = None) -> np.ndarray:
-    """Estimated information per query in bits: I(q) = -sum_i log2 P(t_i | q without t_i).
-
-    Proposal eq. (1). Unlike `score`, this grows with name length, so it is the
-    quantity to accumulate per host / infrastructure group for leakage detection.
-    """
-    return (_score_both(m2, df, batch_rows)[1] / math.log(2)).astype(np.float32)
-
-
 # --------------------------------------------------------------------------- persistence
 def save(m2: M2Model, path) -> None:
     path = Path(path)
