@@ -1,6 +1,6 @@
-# Tunnel tools (card #8: dns2tcp, DNSExfiltrator)
+# Tunnel tools: dns2tcp, DNSExfiltrator, iodine, dnscat2
 
-Two tunnel tools, each a pair of containers on the card-5 `lab` network, driven by one
+Four tunnel tools, each a pair of containers on the card-5 `lab` network, driven by one
 interface so captures can be scripted the same way for all four tools:
 
 ```bash

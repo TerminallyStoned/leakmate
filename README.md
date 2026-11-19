@@ -75,8 +75,9 @@ models/       model code, one file per model: train / score / save / load
   m1_run.py            M1/RF train + score, writes results JSON + SHAP outputs
   m3_cnn.py, m3_bilstm.py, m3_common.py   M3 char-CNN + BiLSTM
 contracts.py  validator + session/qtype helpers for the shared contracts (docs/contracts.md)
-scripts/      time_models.py (one-CPU latency), make_synthetic_sample.py, parse_capture.py (quick capture check used by run_tool.sh)
-notebooks/    m2_dnsbert_colab.ipynb (Colab GPU run), m1_xgb_colab.ipynb (Colab CPU run)
+scripts/      time_models.py (one-CPU latency), make_synthetic_sample.py, parse_capture.py (quick capture check used by run_tool.sh),
+              check_setup.py (setup check), m2_phase2.py, m2_ablation2.py, m2_e5.py, m2_error_analysis.py (M2 runs, docs/m2.md)
+notebooks/    m2_dnsbert_colab.ipynb and m2_phase2_colab.ipynb (Colab GPU runs), m1_xgb_colab.ipynb (Colab CPU run)
 results/      <model>/<experiment>.json in the shared results format; summary.csv, selection.csv, latency.csv,
               per_tool.csv and figures/ from python -m eval.summarise
 results_nozone/  every model's result files on the masked testbed table (Experiments 1, 3, 5) and their
@@ -144,20 +145,8 @@ The user manual is built from these commands.
 | Dashboard | `streamlit run dashboard/app.py` | placeholder (20 Nov) |
 
 ## Quick start (M2 on CIC)
-```bash
-pip install -r requirements-m2.txt
-# unzip each CIC PCAP zip into its own folder under data/raw/cic/
-# (attack zips into a folder whose name contains "attack", e.g. data/raw/cic/heavy_attacks), then:
-python -m parser cic --raw data/raw/cic --out data/processed/cic/queries.parquet
-python -m models.m2_run --model m2 --exp E2 --data data/processed/cic/queries.parquet \
-    --tranco data/external/tranco.csv --tokenizer bpe
-python -m models.m2_run --model m2 --exp E2 --tokenizer char --tag ablation1_char \
-    --data data/processed/cic/queries.parquet --tranco data/external/tranco.csv
-python -m models.m2_run --model iforest --exp E2 --data data/processed/cic/queries.parquet
-python -m pytest tests -q
-```
-On Google Colab: open `notebooks/m2_dnsbert_colab.ipynb`, choose a T4 GPU, Run all
-(reads the zips from `MyDrive/ICT3214 datasets`).
+Unzip each CIC PCAP zip into its own folder under `data/raw/cic/` (attack zips into a folder whose
+name contains "attack"), then follow the Run section of [`docs/m2.md`](docs/m2.md#run) (local and Colab).
 
 ## Quick start (benign traffic generator)
 ```bash
