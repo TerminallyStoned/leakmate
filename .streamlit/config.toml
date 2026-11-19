@@ -1,0 +1,20 @@
+# Theme for the leakmate dashboard (`streamlit run dashboard/app.py`).
+# Neutral chrome: the only saturated colour in the app is reserved for an alert.
+[theme]
+base = "light"
+primaryColor = "#A31D1D"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F4F4F2"
+textColor = "#1F2328"
+font = "sans-serif"
+headingFont = "sans-serif"
+codeFont = "monospace"
+baseRadius = "small"
+borderColor = "#DDE0E3"
+
+[server]
+headless = true
+fileWatcherType = "none"
+
+[browser]
+gatherUsageStats = false

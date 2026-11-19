@@ -1,0 +1,397 @@
+/* leakmate dashboard. Style meter 1: mainstream chrome, personality in type, colour and voice.
+   Rules for this file: hairlines instead of shadows, one saturated colour (an alert), tabular figures
+   for anything a human compares, and nothing that moves.
+
+   Colours live in the custom properties on :root, which dashboard/shell.py mirrors for the charts.
+   Streamlit's own theme is fixed at server start and cannot change at runtime, so anything this file
+   retargets is written once, for light. */
+
+:root {
+  --bg: #ffffff;
+  --bg-2: #f7f7f5;
+  --bg-3: #fafaf9;
+  --ink: #1f2328;
+  --ink-2: #57606a;
+  --ink-3: #8c959f;
+  --rule: #dde0e3;
+  --rule-strong: #c3c8cd;
+  --grid: #efeff0;
+  --signal: #a31d1d;
+  --signal-ink: #a31d1d;
+  --signal-bg: #fdf3f3;
+  --signal-rule: #e6bcbc;
+  --fade: #c9cdd1;
+}
+
+html,
+body,
+.stApp,
+[data-testid="stAppViewContainer"],
+[data-testid="stHeader"] {
+  background: var(--bg);
+  color: var(--ink);
+}
+[data-testid="stApp"] {
+  background: var(--bg);
+}
+[data-testid="stSidebar"] {
+  background: var(--bg-2);
+  border-right: 1px solid var(--rule);
+}
+[data-testid="stSidebar"] * {
+  color: var(--ink-2);
+}
+[data-testid="stSidebar"] .lm-brand,
+[data-testid="stSidebar"] [data-testid="stSidebarCollapseButton"] {
+  color: var(--ink);
+}
+
+/* ---- masthead ---- */
+.lm-head {
+  border-bottom: 1px solid var(--rule);
+  padding-bottom: 0.9rem;
+  margin-bottom: 1.25rem;
+}
+.lm-eyebrow {
+  font-size: 0.6875rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  font-weight: 600;
+}
+.lm-brand {
+  font-size: 1.05rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  display: block;
+  margin: 0 0 0.9rem;
+}
+.lm-title {
+  font-size: 1.5rem;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+  margin: 0.15rem 0 0.2rem;
+  color: var(--ink);
+}
+.lm-sub {
+  font-size: 0.8125rem;
+  color: var(--ink-2);
+  margin: 0;
+}
+
+/* ---- status strip ---- */
+.lm-strip {
+  display: flex;
+  flex-wrap: wrap;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 1rem;
+  background: var(--bg);
+}
+.lm-cell {
+  flex: 1 1 7.5rem;
+  padding: 0.6rem 0.85rem;
+  border-right: 1px solid var(--rule);
+  min-width: 0;
+}
+.lm-cell:last-child {
+  border-right: 0;
+}
+.lm-cell dt {
+  white-space: nowrap;
+  font-size: 0.6875rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin: 0 0 0.2rem;
+  font-weight: 600;
+}
+.lm-cell dd {
+  margin: 0;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lm-cell dd small {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--ink-2);
+}
+.lm-hot dd {
+  color: var(--signal-ink);
+}
+
+/* ---- sections ---- */
+.lm-sec {
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 650;
+  color: var(--ink-2);
+  margin: 1.4rem 0 0.55rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 1px solid var(--rule);
+}
+.lm-note {
+  font-size: 0.75rem;
+  color: var(--ink-3);
+  margin: 0.15rem 0 0.7rem;
+}
+
+/* ---- the wire ---- */
+code,
+.lm-wire {
+  font-family: ui-monospace, "SFMono-Regular", "JetBrains Mono", Menlo, Consolas, monospace;
+  font-size: 0.8125rem;
+  color: var(--ink);
+}
+.lm-wire {
+  word-break: break-all;
+}
+
+/* ---- badges ---- */
+.lm-badge {
+  display: inline-block;
+  font-family: ui-monospace, "SFMono-Regular", "JetBrains Mono", Menlo, monospace;
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+  padding: 0.05rem 0.35rem;
+  border: 1px solid var(--rule-strong);
+  border-radius: 3px;
+  color: var(--ink-2);
+  background: var(--bg-3);
+}
+.lm-badge.is-alert {
+  color: var(--signal-ink);
+  border-color: var(--signal-rule);
+  background: var(--signal-bg);
+}
+
+/* ---- one alert explained ---- */
+.lm-why {
+  border-left: 2px solid var(--signal);
+  padding: 0.15rem 0 0.15rem 0.8rem;
+  margin: 0.5rem 0 0.9rem;
+  font-size: 0.875rem;
+  color: var(--ink);
+}
+.lm-why p {
+  margin: 0 0 0.2rem;
+}
+.lm-dl {
+  display: grid;
+  gap: 0.45rem;
+}
+.lm-dl div {
+  border-bottom: 1px solid var(--rule);
+  padding-bottom: 0.4rem;
+}
+.lm-dl div:last-child {
+  border-bottom: 0;
+}
+.lm-kv {
+  font-size: 0.75rem;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- tables we own: hairlines, right numerals, no zebra ---- */
+.lm-table-wrap {
+  overflow-x: auto;
+  border-top: 1px solid var(--rule);
+}
+table.lm-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+}
+table.lm-table th,
+table.lm-table td {
+  text-align: left;
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid var(--rule);
+  color: var(--ink);
+  white-space: nowrap;
+}
+table.lm-table th {
+  font-size: 0.6875rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  font-weight: 600;
+  border-bottom: 1px solid var(--rule-strong);
+  position: sticky;
+  top: 0;
+  background: var(--bg);
+}
+table.lm-table td.num,
+table.lm-table th.num {
+  text-align: right;
+}
+table.lm-table td.wire {
+  font-family: ui-monospace, "SFMono-Regular", "JetBrains Mono", Menlo, monospace;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+table.lm-table tr.is-picked td {
+  background: var(--signal-bg);
+  font-weight: 600;
+}
+table.lm-table .mark {
+  color: var(--signal-ink);
+  font-size: 0.6875rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* ---- streamlit chrome ---- */
+#MainMenu,
+footer,
+[data-testid="stToolbar"] {
+  visibility: hidden;
+}
+
+/* the toolbar carries the Deploy menu, but on a collapsed sidebar it also carries the only way back:
+   keep that control visible and let it take up no space when the sidebar is open */
+[data-testid="stSidebarCollapsedControl"],
+[data-testid="stExpandSidebarButton"] {
+  visibility: visible;
+}
+[data-testid="stHeader"] {
+  background: transparent;
+}
+[data-testid="stCaptionContainer"],
+[data-testid="stCaptionContainer"] p {
+  color: var(--ink-3);
+  font-size: 0.75rem;
+}
+.stMarkdown p,
+.stMarkdown li,
+h1,
+h2,
+h3 {
+  color: var(--ink);
+}
+[data-testid="stMetricValue"] {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+[data-testid="stMetricLabel"] {
+  color: var(--ink-3);
+}
+[data-baseweb="tab"] {
+  color: var(--ink-2);
+  font-weight: 600;
+}
+[data-baseweb="tab"]:hover {
+  color: var(--ink);
+}
+[data-baseweb="tab-highlight"],
+[data-baseweb="tab-border"] {
+  background-color: var(--signal);
+}
+[data-baseweb="select"] > div {
+  background: var(--bg);
+  border-color: var(--rule);
+  color: var(--ink);
+}
+[data-baseweb="popover"] ul,
+[data-baseweb="menu"] ul {
+  background: var(--bg);
+}
+[data-baseweb="popover"] li {
+  color: var(--ink);
+}
+[data-testid="stBaseButton-"] button,
+.stButton > button,
+element-container .stButton > button {
+  background: var(--bg);
+  border: 1px solid var(--rule-strong);
+  color: var(--ink);
+  border-radius: 4px;
+  font-weight: 600;
+}
+.stButton > button:hover {
+  border-color: var(--ink-2);
+  color: var(--ink);
+}
+[data-testid="stRadio"] label,
+[data-testid="stWidgetLabel"] p,
+[data-testid="stToggle"] label p {
+  color: var(--ink-2);
+}
+[data-testid="stRadio"] label:hover,
+[data-testid="stRadio"] input:checked ~ * {
+  color: var(--ink);
+}
+[data-testid="stWarning"] {
+  border-color: var(--signal-rule);
+  background: var(--signal-bg);
+}
+[data-testid="stWarning"] div,
+[data-testid="stWarning"] p {
+  color: var(--ink);
+}
+hr {
+  border-color: var(--rule);
+}
+
+/* sidebar geometry. Only the padding is ours: Streamlit 1.67 has no sidebar-width option (its config
+   exposes theme.sidebar.* colours and nothing else), and the panel width lives in an inline
+   `width: 300px; flex-shrink: 0` written by the resizable panel - overriding that with !important stops the
+   navbar collapsing and stops the page reclaiming its space. The option boxes do span the full content
+   width, so their inset to each edge is the same 1rem of container padding. */
+[data-testid="stSidebarContent"] {
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+[data-testid="stSidebarUserContent"] [data-testid="stElementContainer"],
+[data-testid="stSidebarUserContent"] [data-testid="stVerticalBlock"] > div,
+[data-testid="stSidebarUserContent"],
+[data-testid="stSidebarUserContent"] [data-testid="stVerticalBlock"],
+[data-testid="stRadio"],
+[data-testid="stRadio"] [data-testid="stRadioGroup"],
+[data-testid="stRadio"] label,
+[data-testid="stRadio"] [data-testid="stRadioOption"] {
+  width: 100%;
+  padding-left: 0;
+  padding-right: 0;
+}
+/* the view switch: the selected page is a filled box, not a radio button */
+[data-testid="stRadio"] [data-testid="stRadioOption"] {
+  border-radius: 4px;
+  padding: 0.4rem 0.65rem;
+  margin-bottom: 0.2rem;
+  color: var(--ink-2);
+  border: 1px solid transparent;
+}
+[data-testid="stRadio"] [data-testid="stRadioOption"]:hover {
+  color: var(--ink);
+  background: var(--bg-3);
+}
+/* Streamlit draws the circle in the first inner div of each option: drop it, keep the input for the keyboard */
+[data-testid="stRadio"] [data-testid="stRadioOption"] > div > div:first-child {
+  display: none !important;
+}
+[data-testid="stRadio"] [data-testid="stRadioOption"] > div {
+  gap: 0;
+}
+[data-testid="stRadio"] [data-testid="stRadioOption"]:has(input:checked) {
+  background: var(--signal-bg);
+  border-color: var(--signal-rule);
+  color: var(--signal-ink);
+  font-weight: 650;
+}
+[data-testid="stRadio"] label {
+  padding-left: 0;
+}
+[data-testid="stRadio"] [data-testid="stRadioGroup"] {
+  width: 100%;
+  align-items: stretch;
+}
