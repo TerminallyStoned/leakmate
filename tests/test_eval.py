@@ -73,14 +73,15 @@ def test_latency_table():
 
     summary = pd.DataFrame(
         {
-            "model": ["fast", "fast", "slow"],
-            "latency_ms_per_query": [1.0, 3.0, 14.0],
-            "train_time_s": [10, 20, 30],
+            "model": ["fast", "fast", "slow", "edge", "edge", "edge"],
+            "latency_ms_per_query": [1.0, 3.0, 14.0, 9.0, 10.0, 13.0],
+            "train_time_s": [10, 20, 30, 40, 40, 40],
         }
     )
     t = latency_table(summary).set_index("model")
     assert t.loc["fast", "latency_ms_median"] == 2.0 and t.loc["fast", "n_runs"] == 2
     assert bool(t.loc["fast", "under_limit"]) and not bool(t.loc["slow", "under_limit"])
+    assert bool(t.loc["edge", "under_limit"])  # median 10 ms: within the rule's "at most 10 ms", like select_model
 
 
 def test_selection_uses_one_cpu_latency_when_present(tmp_path):

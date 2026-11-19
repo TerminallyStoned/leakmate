@@ -58,7 +58,7 @@ def latency_table(summary: pd.DataFrame, limit_ms: float = MAX_LATENCY_MS) -> pd
             "n_runs": g.size(),
         }
     ).reset_index()
-    table["under_limit"] = table["latency_ms_max"] < limit_ms
+    table["under_limit"] = table["latency_ms_median"] <= limit_ms  # the selection rule's test (select_model)
     return table.sort_values("latency_ms_median").round(4)
 
 
