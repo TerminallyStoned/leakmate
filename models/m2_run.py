@@ -52,12 +52,6 @@ except ModuleNotFoundError as e:
     ) from e
 
 
-def load_tranco(path, n: int | None) -> list[str]:
-    """Tranco CSV is `rank,domain` with no header."""
-    df = pd.read_csv(path, header=None, names=["rank", "domain"], nrows=n)
-    return df["domain"].astype(str).tolist()
-
-
 def split(df: pd.DataFrame, test_frac: float = 0.3):
     if "split" in df.columns:
         return df[df["split"] == "train"], df[df["split"] == "test"], "split_column"
@@ -208,7 +202,8 @@ def main(argv=None):
             if getattr(a, k) is not None:
                 cfg[k] = getattr(a, k)
         if a.tranco:
-            cfg["extra_benign"] = load_tranco(a.tranco, a.tranco_n)
+            tranco = pd.read_csv(a.tranco, header=None, names=["rank", "domain"], nrows=a.tranco_n)  # no header
+            cfg["extra_benign"] = tranco["domain"].astype(str).tolist()
     elif a.model == "m2sup":
         mod = m2_supervised
         cfg = {k: getattr(a, k) for k in ["epochs", "max_steps", "batch_size", "lr", "device", "init_from"]}
