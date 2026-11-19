@@ -1,7 +1,7 @@
 """M3: character-level CNN over the raw query name (supervised).
 
 Character embedding -> parallel Conv1D blocks (kernel 3/5/7) -> global max-pool
--> dense -> one logit. About 0.2M parameters with the defaults (limit: 1M).
+-> dense -> one logit. About 0.36M parameters with the defaults (limit: 1M).
 """
 
 from __future__ import annotations
