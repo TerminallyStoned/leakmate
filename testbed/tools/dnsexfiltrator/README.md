@@ -41,7 +41,7 @@ data query   <chunkIndex>.<label>.<label>…<domain>                expects TXT 
 
 `labelMaxSize` 63, `bytesLeft = requestMaxSize - 10`, `nbChunks = len(data)//chunkMaxSize + 1`,
 `--base32` for the Base32 alphabet, `--rate` for the per-chunk sleep. Because the names match
-upstream, they also match the signature `scripts/cic_to_queries.py` uses for CIC-Bell labels
+upstream, they also match the signature `parser/cic.py` uses for CIC-Bell labels
 (`^(init\.[A-Za-z2-7]{8,}|\d+\.[A-Za-z0-9_-]{8,})`).
 
 Verified on 13 Nov 2026 in the lab: 4 096 random bytes exfiltrated from

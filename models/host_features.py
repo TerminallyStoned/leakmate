@@ -38,11 +38,6 @@ HOST_COLS = ["h_qpm", "h_uniq_ratio", "h_parent_uniq", "h_ent_mean", "h_ent_std"
              "h_txt_null_ratio"]
 
 
-def _parent(q: str) -> str:
-    labels = [l for l in q.rstrip(".").split(".") if l]
-    return ".".join(labels[-2:])
-
-
 def _is_txt_null(qtype) -> bool:
     s = str(qtype).upper()
     code = QTYPE_CODES.get(s)
@@ -71,7 +66,7 @@ def compute(df: pd.DataFrame, window_s: float = 60.0, key: pd.Series | None = No
     ent = np.array([_entropy(q) for q in qnames], dtype=np.float64)
     qlen = np.array([len(q) for q in qnames], dtype=np.float64)
     tn = np.array([_is_txt_null(t) for t in qtypes], dtype=np.float64)
-    parents = [_parent(q) for q in qnames]
+    parents = [".".join([l for l in q.rstrip(".").split(".") if l][-2:]) for q in qnames]  # last two labels
 
     # stable order: by host, then time, then original position (ties keep row order)
     order = np.lexsort((np.arange(len(df)), ts, hosts))

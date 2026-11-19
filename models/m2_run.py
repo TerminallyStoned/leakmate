@@ -52,18 +52,6 @@ except ModuleNotFoundError as e:
     ) from e
 
 
-def result_path(out: str | Path, model_name: str, run_name: str) -> Path:
-    """results/<model>/<run>.json (contract section 3). Each variant (tag, _hostavg) gets its own
-    model folder, so the eval module groups e.g. E3_iodine for every variant the same way."""
-    return Path(out) / model_name / f"{run_name}.json"
-
-
-def load_tranco(path, n: int | None) -> list[str]:
-    """Tranco CSV is `rank,domain` with no header."""
-    df = pd.read_csv(path, header=None, names=["rank", "domain"], nrows=n)
-    return df["domain"].astype(str).tolist()
-
-
 def split(df: pd.DataFrame, test_frac: float = 0.3):
     if "split" in df.columns:
         return df[df["split"] == "train"], df[df["split"] == "test"], "split_column"
@@ -214,7 +202,8 @@ def main(argv=None):
             if getattr(a, k) is not None:
                 cfg[k] = getattr(a, k)
         if a.tranco:
-            cfg["extra_benign"] = load_tranco(a.tranco, a.tranco_n)
+            tranco = pd.read_csv(a.tranco, header=None, names=["rank", "domain"], nrows=a.tranco_n)  # no header
+            cfg["extra_benign"] = tranco["domain"].astype(str).tolist()
     elif a.model == "m2sup":
         mod = m2_supervised
         cfg = {k: getattr(a, k) for k in ["epochs", "max_steps", "batch_size", "lr", "device", "init_from"]}
@@ -250,6 +239,7 @@ def main(argv=None):
     if a.model == "m2":  # one pass gives both the PPL score and bits per query
         mean_nll, tot_nll = m2_dnsbert._score_both(model, test_df, None)
         scores = mean_nll.astype(np.float32)
+        # proposal eq. (1): I(q) = -sum_i log2 P(t_i | q without t_i); grows with name length, unlike the score
         extra["info_bits"] = [round(float(x) / math.log(2), 3) for x in tot_nll]
     else:
         scores = mod.score(model, test_df)
@@ -324,7 +314,9 @@ def main(argv=None):
         }
         if suffix:
             res["config"] = {**used_cfg, "host_window_s": a.host_window}
-        out = result_path(a.out, model_name + suffix, run_name)
+        # results/<model>/<run>.json: each variant (tag, _hostavg) gets its own model folder, so the
+        # eval module groups e.g. E3_iodine for every variant the same way
+        out = Path(a.out) / (model_name + suffix) / f"{run_name}.json"
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(json.dumps(res))
         # quick sanity print only; real metrics come from the shared eval module

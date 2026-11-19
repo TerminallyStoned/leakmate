@@ -23,7 +23,7 @@ DATA_FILES = [
     (
         "data/processed/cic/queries.parquet",
         "download the CIC PCAP zips (README > Data), unzip each into data/raw/cic/<name>/, then run\n"
-        "        python scripts/cic_to_queries.py --raw data/raw/cic --out data/processed/cic/queries.parquet",
+        "        python -m parser cic --raw data/raw/cic --out data/processed/cic/queries.parquet",
     ),
     (
         "data/external/tranco.csv",

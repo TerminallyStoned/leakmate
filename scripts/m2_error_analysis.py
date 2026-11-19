@@ -52,11 +52,6 @@ def align(result: dict, test_df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
-def _domain(q: str) -> str:
-    labels = [x for x in str(q).rstrip(".").split(".") if x]
-    return ".".join(labels[-2:]) if labels else ""
-
-
 def summarise_errors(aligned: pd.DataFrame, top: int = 15) -> dict[str, pd.DataFrame]:
     """Tables for the report: fp_by_name, fp_by_domain, fn_by_tool, fn_by_length, fn_examples."""
     fp = aligned[aligned["error"] == "FP"]
@@ -71,7 +66,7 @@ def summarise_errors(aligned: pd.DataFrame, top: int = 15) -> dict[str, pd.DataF
         .reset_index()
     )
     fp_by_domain = (
-        fp.assign(domain=fp["qname"].map(_domain))
+        fp.assign(domain=fp["qname"].map(lambda q: ".".join([x for x in str(q).rstrip(".").split(".") if x][-2:])))
         .groupby("domain")
         .agg(count=("qname", "size"), distinct_names=("qname", "nunique"))
         .sort_values("count", ascending=False)

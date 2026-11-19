@@ -46,7 +46,7 @@ def latency_table(summary: pd.DataFrame, limit_ms: float = MAX_LATENCY_MS) -> pd
     """One row per model: per-query latency across its runs and whether it meets the limit.
 
     Numbers come from each run's `latency_ms_per_query`, or from latency_cpu.csv when it exists
-    (with_cpu_latency): runs on different machines are not comparable."""
+    (see summarise): runs on different machines are not comparable."""
     g = summary.dropna(subset=["latency_ms_per_query"]).groupby("model")
     table = pd.DataFrame(
         {
@@ -60,20 +60,6 @@ def latency_table(summary: pd.DataFrame, limit_ms: float = MAX_LATENCY_MS) -> pd
     ).reset_index()
     table["under_limit"] = table["latency_ms_median"] <= limit_ms  # the selection rule's test (select_model)
     return table.sort_values("latency_ms_median").round(4)
-
-
-def with_cpu_latency(summary: pd.DataFrame, results_dir: Path) -> pd.DataFrame:
-    """summary with each model's latency replaced by its one-CPU timing (scripts/time_models.py), if any.
-
-    summary.csv keeps the per-run timings; the latency table and the selection use these.
-    Models not in latency_cpu.csv keep their own."""
-    path = results_dir / "latency_cpu.csv"
-    if not path.exists():
-        return summary
-    cpu = pd.read_csv(path).set_index("model")["latency_ms_per_query"]
-    out = summary.copy()
-    out["latency_ms_per_query"] = out["model"].map(cpu).fillna(out["latency_ms_per_query"])
-    return out
 
 
 def summarise(results_dir: str = "results", plots: bool = True) -> pd.DataFrame:
@@ -104,7 +90,12 @@ def summarise(results_dir: str = "results", plots: bool = True) -> pd.DataFrame:
     if tool_rows:
         pd.DataFrame(tool_rows).to_csv(results_dir / "per_tool.csv", index=False)
 
-    timed = with_cpu_latency(summary, results_dir)
+    # The latency table and the selection use each model's one-CPU timing (scripts/time_models.py) when
+    # latency_cpu.csv exists; summary.csv keeps the per-run timings, and models not in that file keep theirs.
+    timed = summary.copy()
+    if (results_dir / "latency_cpu.csv").exists():
+        cpu = pd.read_csv(results_dir / "latency_cpu.csv").set_index("model")["latency_ms_per_query"]
+        timed["latency_ms_per_query"] = timed["model"].map(cpu).fillna(timed["latency_ms_per_query"])
     latency = latency_table(timed)
     latency.to_csv(results_dir / "latency.csv", index=False)
 
