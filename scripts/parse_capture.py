@@ -32,7 +32,7 @@ from types import SimpleNamespace
 import dpkt
 import dpkt.dns as dns
 
-# The CONTRACTS card's column order. Extra columns are appended, never reordered.
+# Query-table column order (docs/contracts.md section 1). Extra columns are appended, never reordered.
 COLUMNS = (
     "ts",
     "src_host",

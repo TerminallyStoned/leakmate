@@ -8,10 +8,7 @@
 Each results file follows docs/contracts.md section 3 and is checked with contracts.py
 before it is written.
 
-Every model is a module models/<name>.py with
-    train(train_df, cfg) -> model
-    score(model, df) -> np.ndarray      (higher = more suspicious)
-    save(model, path) / load(path)
+Every model is a module models/<name>.py with the interface in docs/contracts.md section 2.
 A model may also expose a threshold chosen on its own validation split (`model.threshold`,
 or `model["threshold"]` for the dict models M1 / RF); it is saved in the JSON so the
 evaluation module does not have to pick a threshold on test data.
