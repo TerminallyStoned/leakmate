@@ -8,7 +8,7 @@ Contained DNS testbed: a recursive **resolver**, an attacker-controlled
 
 | Container     | Network(s)        | IP           | Role                                             |
 |---------------|-------------------|--------------|--------------------------------------------------|
-| `attacker-ns` | lab (internal)    | 172.28.0.3   | Authoritative NS for `tunnel.test`. Tool servers live here later. |
+| `attacker-ns` | lab (internal)    | 172.28.0.3   | Authoritative NS for `tunnel.test`. The tool servers are separate containers (`tools/`). |
 | `resolver`    | lab + upstream    | 172.28.0.2   | Recursive resolver. Forwards `tunnel.test` to attacker-ns, everything else to 1.1.1.1. |
 | `victim`      | lab (internal)    | 172.28.0.10  | Client. DNS pointed at the resolver. No internet of its own. |
 | `benign`      | lab (internal)    | dynamic      | *Optional, card 7.* Benign traffic generator. Behind `--profile benign`, so it is never started by the commands above. |
@@ -82,6 +82,6 @@ docker compose --profile benign down --remove-orphans   # plus any benign replic
 
 ## Tunnel tools
 
-`tools/` (card #8: dns2tcp, DNSExfiltrator) and `run_tool.sh` live alongside this file but
+`tools/` (dns2tcp, DNSExfiltrator, iodine, dnscat2) and `run_tool.sh` live alongside this file but
 use a **separate compose project** that joins `ict3214-testbed_lab` as an external network,
 so nothing here changes when they run: [`tools/README.md`](tools/README.md).
