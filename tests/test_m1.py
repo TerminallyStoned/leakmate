@@ -107,6 +107,9 @@ def test_eval_run_saves_the_models_own_threshold(tmp_path, monkeypatch):
         validate(res)
         assert 0.0 < res["threshold"] < 1.0
         assert evaluate_run(res)["threshold_source"] == "validation"
+        # not results/: the model goes to artifacts/res/, never over the artifacts/<module>/ that live loads
+        assert (tmp_path / "artifacts" / "res" / module / "E1.pt").exists()
+        assert not (tmp_path / "artifacts" / module).exists()
 
 
 def test_m1_early_stopping_keeps_probabilities_confident():
