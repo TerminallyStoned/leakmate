@@ -1,4 +1,4 @@
-"""Reading and writing results/<model>/<experiment>.json (format from the CONTRACTS card)."""
+"""Reading and writing results/<model>/<experiment>.json (format: docs/contracts.md section 3)."""
 
 from __future__ import annotations
 

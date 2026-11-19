@@ -61,7 +61,7 @@ the harvest. `--harvest-pages 0` falls back to invented names only.
 
 ## Contract mapping
 
-Rows carry the shared schema from the CONTRACTS card verbatim:
+Rows carry the shared schema from `docs/contracts.md` verbatim:
 `ts, src_host, session_id, qname, qtype, resp_size, rcode, label, tool, dataset, throttle`
 (`label=0`, `tool=benign`, `dataset=testbed`) plus one extra column, `engine`, which the
 parser may drop. `resp_size` and `rcode` are filled from `dig` for lookups we issue

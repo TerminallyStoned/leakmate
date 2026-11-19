@@ -13,7 +13,7 @@ learn that suffix instead of the tunnel.
 Score = logit margin (tunnel - benign): higher = more suspicious, finite, and unlike
 P(tunnel) it does not saturate at 1.0, so the validation threshold has no ties to fall on.
 
-Contract interface: train(train_df, cfg) -> model, score(model, df), save, load.
+Interface: docs/contracts.md section 2.
 """
 
 from __future__ import annotations

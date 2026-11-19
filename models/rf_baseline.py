@@ -1,6 +1,6 @@
 """Random Forest baseline for M1: supervised, same features as M1.
 
-Contract interface: train / score / save / load. Score = P(tunnel).
+Interface: docs/contracts.md section 2. Score = P(tunnel).
 Uses models/m1_features.py, so it sees exactly the columns M1 sees (including
 the CIC leakage guard).
 
