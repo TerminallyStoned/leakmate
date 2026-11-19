@@ -238,7 +238,8 @@ class BenignGenerator:
         # Lookups are still issued with dig, which the resolver does forward.
         self.http = http
         self._net: queue.Queue[str | None] = queue.Queue()
-        self._net_thread: threading.Thread | None = None
+        if self.send and self.http:  # fetches http_get queues; without this thread none is ever sent
+            threading.Thread(target=self._drain_net, daemon=True).start()
         self.dataset = dataset
         self.throttle = throttle
         # Real hashed edge names harvested from page HTML: invented ones answer NXDOMAIN,
