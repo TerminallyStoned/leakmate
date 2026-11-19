@@ -219,24 +219,14 @@ specialisation of it rather than a second source of truth.
 
 ## From captures to a model
 
-The rows are half a dataset: `eval/experiments.py` (card #10) wants one Parquet query table
-per dataset. `scripts/build_queries_parquet.py` is that bridge — concatenate the benign run
-and the tool captures into `data/processed/testbed/queries.parquet`:
+`python -m parser testbed` builds `data/processed/testbed/queries.parquet` from the tool
+captures and the resolver capture (labels from the client IPs above, `PCAP@MS` for the
+throttle; see `parser/testbed.py`). Then train as usual:
 
 ```bash
-python3 scripts/parse_capture.py testbed/out/dns2tcp_<utc>.pcap --out testbed/out/dns2tcp.ndjson --tool dns2tcp
-python3 scripts/build_queries_parquet.py \
-    --add data/raw/benign/<run id> \
-    --add testbed/out/dns2tcp.ndjson --add testbed/out/dnsexfiltrator.ndjson \
-    --out data/processed/testbed/queries.parquet
-python -m eval.run --model m1 --exp E1        # once eval/ merges
+python -m parser testbed --capture data/raw/tools/dns2tcp_<utc>.pcap     --capture data/raw/benign/resolver_<utc>.pcap --tools-map 172.28.0.30=iodine,172.28.0.31=dnscat2
+python -m eval.run --model m1 --exp E1
 ```
-
-Pass **one source per capture window**. A benign sidecar and the pcap of that same run are
-two views of one traffic and their timestamps differ by `dig` latency (measured 44 ms, tail
-over half a second), so no fuzzy merge can separate them from two genuinely identical
-lookups; the script instead warns when two sources overlap. A test loads the output through
-`eval.experiments.get_split` and is skipped until card #10 merges.
 
 ## Tests
 
