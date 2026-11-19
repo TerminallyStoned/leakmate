@@ -212,10 +212,9 @@ traffic crosses that interface in both directions) and `--out` receives
   record fall outside the capture window because tcpdump is killed while writing. The
   parser says so (`WARN dropped a trailing …partial record`) instead of hiding it.
 
-Parsing is `scripts/parse_capture.py` (dpkt) → the CONTRACTS query table plus `resp_size`
-and `rcode` joined from the matching reply. It emits exactly the contract columns, so its
-output is a drop-in for Yehan's card-9 parser; when that lands this script becomes a
-specialisation of it rather than a second source of truth.
+Parsing is `scripts/parse_capture.py` (dpkt), the quick per-capture check: the query-table
+columns of `docs/contracts.md` plus `resp_size` and `rcode` joined from the matching reply.
+The dataset table is built by `python -m parser testbed` (next section).
 
 ## From captures to a model
 
