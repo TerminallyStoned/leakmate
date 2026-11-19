@@ -54,7 +54,12 @@ class ModelScorer:
         self.mod = importlib.import_module(f"models.{self.name}")
         self.model = self.mod.load(weights)
         own = self.model.get("threshold") if isinstance(self.model, dict) else getattr(self.model, "threshold", None)
-        self.threshold = threshold if threshold is not None else (DEFAULT_THRESHOLD if own is None else float(own))
+        if threshold is None and own is None:  # M2 and the Isolation Forest keep it in the results JSON only
+            raise SystemExit(
+                f"{weights} has no threshold of its own: pass --threshold, "
+                "the `threshold` key of the run's results file in results/<model>/"
+            )
+        self.threshold = float(own) if threshold is None else threshold
 
     def score(self, df: pd.DataFrame) -> np.ndarray:
         return np.asarray(self.mod.score(self.model, df), dtype=float)
