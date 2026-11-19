@@ -15,7 +15,6 @@ Drop `eval/`, `models/`, `scripts/` and `tests/` into the repo root. Every comma
 | `models/m3_cnn.py` | Char-CNN: embedding, Conv1D kernels 3/5/7, global max-pool, dense (~0.36M params) |
 | `models/m3_bilstm.py` | Char-BiLSTM: 1 layer × 128 units, mean+max pooling (~0.23M params) |
 | `models/m3_common.py` | Shared encoding, training loop, threshold, save/load for both M3 variants |
-| `scripts/make_fake_data.py` | Fake, contract-valid results JSONs and query tables for testing |
 | `tests/test_eval.py` | Unit tests for the metric code |
 
 ## Quick start
@@ -23,7 +22,6 @@ Drop `eval/`, `models/`, `scripts/` and `tests/` into the repo root. Every comma
 ```bash
 python -m pytest -q tests/test_eval.py               # evaluation unit tests
 
-python scripts/make_fake_data.py results             # fake, contract-valid results for 5 models
 python -m eval.summarise                             # -> results/summary.csv, latency.csv, selection.csv, figures/
 
 python scripts/make_synthetic_sample.py              # the team's 1,000-row contract sample
