@@ -4,7 +4,7 @@
         --capture data/raw/tools/dns2tcp_<utc>.pcap \\
         --capture data/raw/tools/dnsexfiltrator_<utc>.pcap@200 \\
         --capture data/raw/benign/resolver_<utc>.pcap \\
-        --tools-map 172.28.0.45=iodine,172.28.0.46=dnscat2
+        --tools-map 172.28.0.30=iodine,172.28.0.31=dnscat2
 
 Labels come from the sender's lab address (each tool client has a fixed IP in the compose
 files), never from timestamps. Benign traffic comes from a capture at the resolver: the
