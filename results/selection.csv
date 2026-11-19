@@ -8,4 +8,3 @@ E3_iodine,Experiment 3 (leave-one-tool-out) - iodine,m3_bilstm,1.0,0.0,0.8111599
 E4_cic2testbed,Experiment 4 (cross-dataset) - cic2testbed,m1,0.8497391889618038,0.0,5.041627336000005
 E4_testbed2cic,Experiment 4 (cross-dataset) - testbed2cic,rf,0.9988794218081756,0.004476228314130579,8.069161145999999
 E5,Experiment 5 (low-and-slow),m3_bilstm,1.0,0.0,0.8111599800001841
-S,Experiment S (shuffled vs time split),m1,1.0,0.0,5.041627336000005
