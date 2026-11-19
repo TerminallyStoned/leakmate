@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Turn a lab pcap into rows of the contract query table.
 
-Card #8's acceptance is "a 1-minute capture of each tool parses with the parser". The
-group parser (card #9) does this for CIC and is not merged yet, so this script is the
-stand-in that proves the captures are usable: the output is the CONTRACTS column list,
-in the same order, so card #9 can drop its own reader in without touching a caller.
+The quick per-capture check: run_tool.sh calls it after each capture, and
+`python -m parser pcap` runs it too. The output has the query-table columns of
+docs/contracts.md, in the same order. The dataset table comes from
+`python -m parser testbed`.
 
     python3 scripts/parse_capture.py CAPTURE.pcap --out rows.ndjson --tool dnsexfiltrator
     python3 scripts/parse_capture.py CAPTURE.pcap --summary
