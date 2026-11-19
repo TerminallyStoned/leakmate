@@ -3,7 +3,7 @@
 One place decides which columns the supervised models see, so M1 and the RF
 baseline are always compared on identical inputs.
 
-  per-query   models.qname_features (stopgap until the parser's feature table)
+  per-query   models.qname_features
   wire size   `qlen_wire`: the true query size in bytes. Taken from the table
               when present (CIC extractor), otherwise estimated from the name
               as len(qname) + 18 (12 B header + 2 B name framing + 4 B qtype/qclass,
