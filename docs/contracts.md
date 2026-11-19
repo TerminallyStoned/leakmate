@@ -150,7 +150,7 @@ Example with made-up values, cut to 3 test rows:
 | `ts` | list[float] | **before Experiments 3 and 5** | `ts` per test row (Experiment 5 time to detect) |
 
 All per-row lists have length `n_test`, in the same order. Any other key (`feature_cols`, `shap`, `info_bits`,
-`score_time_s`, …) is allowed. `session_ids` and `ts` are optional now and become required before Experiment 3 and 5 runs.
+`score_time_s`, …) is allowed. `session_ids` and `ts` are optional (`contracts.OPTIONAL_RESULT_KEYS`); `eval.run` writes both.
 
 ## Changing the contract
 
