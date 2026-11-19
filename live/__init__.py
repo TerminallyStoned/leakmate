@@ -1,5 +1,12 @@
-"""Live detector: sniff DNS, score each query, write alerts to live/alerts.db.
+"""Live detector: sniff DNS, score each query with the selected model, write alerts to live/alerts.db.
 
-Run with `python -m live` (see live/README.md). The sniffer and its alert store are in place; the
-selected model with SHAP alerts is plugged in on 19 Nov.
+Run with `python -m live` (see live/README.md); `python -m live.report` reads a run back.
 """
+
+import os
+
+# One thread for the model's numeric library, unless the user set a number. A live batch is a handful of
+# queries, and XGBoost spends far longer starting a thread per core than scoring them: on a 22-core machine
+# M1 took about 19 ms to score 10 queries and 2 ms with one thread, with identical scores and explanations.
+# This has to be set before xgboost is first imported, which is why it lives here.
+os.environ.setdefault("OMP_NUM_THREADS", "1")

@@ -1,7 +1,8 @@
 """live/alerts.db: what the sniffer writes and the dashboard reads (SQLite).
 
-Tables `alerts` (one row per query at or above the threshold), `host_stats` (per host per BUCKET_S seconds)
-and `meta`. Every column is documented in live/README.md, which is what the dashboard is built against.
+Tables `alerts` (one row per query at or above the threshold), `host_stats` (per host per BUCKET_S seconds),
+`batches` (one row per scored batch, for the latency numbers) and `meta`. Every column is documented in
+live/README.md, which is what the dashboard is built against.
 """
 
 from __future__ import annotations
@@ -40,6 +41,15 @@ CREATE TABLE IF NOT EXISTS host_stats (
     sum_score REAL NOT NULL,
     PRIMARY KEY (bucket_ts, src_host)
 );
+CREATE TABLE IF NOT EXISTS batches (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    scored_ts REAL NOT NULL,
+    first_ts REAL NOT NULL,
+    last_ts REAL NOT NULL,
+    queries INTEGER NOT NULL,
+    alerts INTEGER NOT NULL,
+    process_ms REAL NOT NULL
+);
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 """
 
@@ -57,9 +67,24 @@ class AlertStore:
             self.db.execute("INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)", (key, str(value)))
         self.db.commit()
 
-    def write(self, alerts: list[dict], stats: dict[tuple[float, str], tuple[int, int, float, float]]) -> None:
-        """One scored batch: its alerts, and per (bucket, host) the queries, alerts, max score and score sum."""
+    def write(
+        self,
+        alerts: list[dict],
+        stats: dict[tuple[float, str], tuple[int, int, float, float]],
+        batch: tuple[float, float, int, float] | None = None,
+    ) -> None:
+        """One scored batch: its alerts, and per (bucket, host) the queries, alerts, max score and score sum.
+
+        `batch` is (first query ts, last query ts, queries, process_ms) and adds one row to `batches`,
+        which is what the latency numbers are read from (live/report.py)."""
         now = time.time()
+        if batch is not None:
+            first_ts, last_ts, queries, process_ms = batch
+            self.db.execute(
+                "INSERT INTO batches (scored_ts, first_ts, last_ts, queries, alerts, process_ms) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (now, first_ts, last_ts, queries, len(alerts), process_ms),
+            )
         self.db.executemany(
             f"INSERT INTO alerts ({', '.join(ALERT_COLS)}) VALUES ({', '.join('?' * len(ALERT_COLS))})",
             [

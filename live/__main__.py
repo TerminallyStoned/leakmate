@@ -5,8 +5,10 @@
     sudo python -m live --iface ip:172.28.0.2                     # sniff the interface holding that address
     python -m live --iface eth0 --model m1 --weights <m1.joblib>  # a trained model instead of the placeholder
     live/run_live.sh                                              # the same, inside the testbed (see live/README.md)
+    python -m live.report                                         # what a run detected and how fast (live/report.py)
 
 The default scorer is a placeholder (name length only). It is there to exercise the pipeline, not to detect.
+Detect with the selected model: --model m1 --weights artifacts/m1_xgb/E1.pt (live/README.md).
 """
 
 from __future__ import annotations
@@ -54,11 +56,12 @@ def main(argv: list[str] | None = None) -> None:
     ignore = [RESOLVER] if a.ignore_src is None else [s for s in a.ignore_src if s != "none"]
     scorer = load_scorer(a.model, a.weights, a.threshold)
     if a.pcap:
-        source, where = pcap_frames(a.pcap, a.speed), a.pcap
+        # mode: only a sniffed packet's timestamp is on the wall clock, so only then is there a time to alert
+        source, where, mode = pcap_frames(a.pcap, a.speed), a.pcap, "replay"
     else:
         where = find_interface(a.iface)
-        source = sniff_frames(where)
-    store = AlertStore(a.db, model=scorer.name, threshold=scorer.threshold, source=where)
+        source, mode = sniff_frames(where), "sniff"
+    store = AlertStore(a.db, model=scorer.name, threshold=scorer.threshold, source=where, mode=mode)
     print(
         f"live: {where} -> {a.db} | model {scorer.name}, alert at score >= {scorer.threshold} | ignoring {ignore}",
         flush=True,

@@ -122,6 +122,36 @@ def test_a_contract_model_plugs_in_with_its_explanations(tmp_path):
     assert meta["model"] == "m1_xgb" and meta["schema_version"] == "1" and meta["source"] == str(cap)
 
 
+def test_every_batch_is_timed_and_the_report_reads_it_back(tmp_path):
+    from live import report
+
+    db = tmp_path / "alerts.db"
+    main(["--pcap", str(_capture(tmp_path / "cap.pcap")), "--db", str(db), "--batch", "0.2"])
+    data = report.load(db)
+    b = data["batches"]
+    assert len(b) > 5 and b.queries.sum() == 60 and b.alerts.sum() == 30  # every query is in exactly one batch
+    assert (b.process_ms > 0).all() and (b.first_ts <= b.last_ts).all() and b.first_ts.is_monotonic_increasing
+
+    hosts = report.per_host(data["hosts"], report.LAB_TOOLS).set_index("src_host")
+    assert hosts.loc[VICTIM, ["traffic", "queries", "alerts", "flagged"]].tolist() == ["dnscat2", 30, 30, 1.0]
+    assert hosts.loc[BENIGN, ["traffic", "queries", "alerts", "flagged"]].tolist() == ["benign", 30, 0, 0.0]
+    tot = report.totals(report.per_host(data["hosts"], report.LAB_TOOLS)).set_index("kind")
+    assert tot.loc["tunnel", "flagged"] == 1.0 and tot.loc["benign", "flagged"] == 0.0
+
+    lat = report.latency(data["alerts"], b)
+    assert lat["queries"] == 60 and lat["ms_per_query"] > 0 and lat["batch_queries_max"] <= 60
+    text = report.render(data, report.LAB_TOOLS)
+    assert "| 172.28.0.31 | dnscat2 | 30 | 30 | 100.00% |" in text
+    assert "Time to alert: not measured" in text  # a replayed packet's timestamp is not on the wall clock
+    report.main(["--db", str(db), "--out", str(tmp_path / "run.md")])
+    assert (tmp_path / "run.md").read_text(encoding="utf-8") == text
+
+    # the same rows as a sniffer would have written them: alerts 0.3 s after their packets
+    data["meta"].loc[data["meta"]["key"] == "mode", "value"] = "sniff"
+    data["alerts"]["detected_ts"] = data["alerts"]["ts"] + 0.3
+    assert "30 alerts: median 0.30 s, 95th percentile 0.30 s, max 0.30 s" in report.render(data, report.LAB_TOOLS)
+
+
 def test_an_alias_for_several_models_asks_to_pick_one():
     with pytest.raises(SystemExit, match="m3_cnn, m3_bilstm"):
         load_scorer("m3", "unused.joblib")
