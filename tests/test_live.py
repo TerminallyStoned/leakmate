@@ -11,7 +11,7 @@ from test_parser import _dns, _pcap, _query, _reply
 from live.__main__ import main
 from live.capture import pcap_frames
 from live.pipeline import QUERY_COLS, HostWindows, QueryAssembler
-from live.scorers import load_scorer
+from live.scorers import M1_WEIGHTS, load_scorer
 from live.store import ALERT_COLS
 from models import m1_features, m1_xgb
 from parser.pcap import parse_pcap
@@ -47,7 +47,7 @@ def _alerts(db):
 
 def test_replay_writes_alerts_for_the_tunnel_only(tmp_path):
     db = tmp_path / "alerts.db"
-    main(["--pcap", str(_capture(tmp_path / "cap.pcap")), "--db", str(db)])
+    main(["--pcap", str(_capture(tmp_path / "cap.pcap")), "--db", str(db), "--model", "dummy"])
     alerts, stats = _alerts(db)
     assert list(alerts.columns) == ["id", *ALERT_COLS]
     assert len(alerts) == 30 and set(alerts.src_host) == {VICTIM}  # every tunnel query, no benign one
@@ -126,7 +126,7 @@ def test_every_batch_is_timed_and_the_report_reads_it_back(tmp_path):
     from live import report
 
     db = tmp_path / "alerts.db"
-    main(["--pcap", str(_capture(tmp_path / "cap.pcap")), "--db", str(db), "--batch", "0.2"])
+    main(["--pcap", str(_capture(tmp_path / "cap.pcap")), "--db", str(db), "--batch", "0.2", "--model", "dummy"])
     data = report.load(db)
     b = data["batches"]
     assert len(b) > 5 and b.queries.sum() == 60 and b.alerts.sum() == 30  # every query is in exactly one batch
@@ -150,6 +150,30 @@ def test_every_batch_is_timed_and_the_report_reads_it_back(tmp_path):
     data["meta"].loc[data["meta"]["key"] == "mode", "value"] = "sniff"
     data["alerts"]["detected_ts"] = data["alerts"]["ts"] + 0.3
     assert "30 alerts: median 0.30 s, 95th percentile 0.30 s, max 0.30 s" in report.render(data, report.LAB_TOOLS)
+
+
+def test_no_model_flag_runs_m1_from_its_default_file(tmp_path, monkeypatch):
+    """`python -m live` with no --model is M1 from artifacts/m1_xgb/E1.pt, and never the placeholder."""
+    cap = _capture(tmp_path / "cap.pcap")
+    monkeypatch.chdir(tmp_path)  # the default file is looked up from the working directory (the repo root)
+    args = ["--pcap", str(cap), "--db", str(tmp_path / "alerts.db")]
+    with pytest.raises(SystemExit, match="not found: the live detector runs M1 by default") as err:
+        main(args)
+    assert M1_WEIGHTS in str(err.value) and "--model dummy" in str(err.value)
+    assert not (tmp_path / "alerts.db").exists()  # nothing was scored by a fallback
+
+    table = parse_pcap(cap, lambda src, _q: None if src == RESOLVER else ("dnscat2" if src == VICTIM else "benign"))
+    model = m1_xgb.train(table, {"n_estimators": 20})
+    assert model["threshold"] is not None  # trained the normal way, M1 carries its own threshold
+    m1_xgb.save(model, tmp_path / M1_WEIGHTS)
+    main(args)
+    alerts, stats = _alerts(tmp_path / "alerts.db")
+    assert set(alerts.model) == {"m1_xgb"} and set(alerts.src_host) == {VICTIM} and len(alerts) == 30
+    assert (alerts.threshold == model["threshold"]).all()
+    assert stats.groupby("src_host").alerts.sum().to_dict() == {VICTIM: 30, BENIGN: 0}
+
+    with pytest.raises(SystemExit, match="--model rf needs --weights"):  # the default file is M1's alone
+        main([*args, "--model", "rf"])
 
 
 def test_an_alias_for_several_models_asks_to_pick_one():

@@ -9,35 +9,43 @@ features, to `live/alerts.db` (SQLite), which the dashboard reads. Owner: Justin
 "Live test" below.
 
 ## The model
-`--model m1 --weights artifacts/m1_xgb/E1.pt` is M1 trained on the testbed training split, the model behind
-`results/m1/E1.json`. It carries its own threshold (0.4999, chosen on validation data), so no `--threshold` is
-needed. `artifacts/` is not committed. Get the file either way:
+**M1 is the default.** With no `--model`, the detector loads M1 from `artifacts/m1_xgb/E1.pt`: M1 trained on
+the testbed training split, the model behind `results/m1/E1.json`. It carries its own threshold (0.4999, chosen
+on validation data), so no `--threshold` is needed. `artifacts/` is not committed, so get the file once, either
+way:
 
 ```bash
 # from the shared Drive: artifacts/m1_xgb/E1.pt inside "leakmate captures"/m1/m1rf_valthr.zip
-# or retrain (about 30 s, needs data/processed/testbed); writes artifacts/live/m1_xgb/E1.pt, not results/
+# or retrain (about 30 s, needs data/processed/testbed); writes artifacts/live/m1_xgb/E1.pt, not results/,
+# so then add --weights artifacts/live/m1_xgb/E1.pt
 python -m eval.run --model m1 --exp E1 --results-dir /tmp/live
 ```
 
-Any model with the contract interface plugs in the same way (`--model rf`, `m3_cnn`, ...). Alerts carry
-explanations only if the model's module has `explain`, which M1 does (exact TreeSHAP). M2 and the Isolation Forest
-keep their threshold in the results file, so they need `--threshold`; M2 also takes 23 to 28 ms per query on a
-CPU (`results/latency_cpu.csv`), which is why it is not the live model.
+If the file is missing the detector stops and prints these two options. It never falls back to another scorer.
+
+- `--weights <file>` loads a different M1 file.
+- `--model <name> --weights <file>` loads another model through the contract interface (`models/<name>.py`).
+  Only M1 has been run live. Alerts carry explanations only if the model's module has `explain`, which M1 does
+  (exact TreeSHAP). M2 and the Isolation Forest keep their threshold in the results file, so they need
+  `--threshold`; M2 also takes 23 to 28 ms per query on a CPU (`results/latency_cpu.csv`), which is why it is
+  not the live model.
+- `--model dummy` is a placeholder that scores a name by its length alone, for testing the pipeline without a
+  model. It is not a detector.
 
 ## Run it
 
 ```bash
 # Replay a capture file. No root, no Scapy: needs only requirements-m1.txt.
-python -m live --pcap data/raw/tools/<capture>.pcap --model m1 --weights artifacts/m1_xgb/E1.pt
-python -m live --pcap <capture>.pcap --speed 1          # at the recorded pace; no --model = the placeholder
+python -m live --pcap data/raw/tools/<capture>.pcap
+python -m live --pcap <capture>.pcap --speed 1          # at the recorded pace
 
 # In the testbed (docker compose up -d in testbed/ first). Builds a small image the first time.
-live/run_live.sh --model m1 --weights artifacts/m1_xgb/E1.pt                 # at the resolver
-live/run_live.sh --at bridge --model m1 --weights artifacts/m1_xgb/E1.pt     # on the lab bridge: every lab host
-live/run_live.sh --at dns2tcp-client --model m1 --weights artifacts/m1_xgb/E1.pt   # in one container's network
+live/run_live.sh                                        # at the resolver
+live/run_live.sh --at bridge                            # on the lab bridge: every lab host at once
+live/run_live.sh --at dns2tcp-client                    # inside one container's network
 
 # On any Linux interface. Needs root and requirements-live.txt (Scapy, libpcap).
-sudo python -m live --iface eth0 --model m1 --weights artifacts/m1_xgb/E1.pt
+sudo python -m live --iface eth0
 
 # What a run detected and how fast, as Markdown (reads live/alerts.db)
 python -m live.report
@@ -159,8 +167,8 @@ the other tables did not change.
 
 ## Known limits
 
-- **The placeholder scorer is not a detector.** Without `--model`, a name is scored by its length alone (0 up
-  to 40 characters, 1 from 100). It exists to exercise the pipeline.
+- **The placeholder scorer is not a detector.** `--model dummy` scores a name by its length alone (0 up to 40
+  characters, 1 from 100). It exists to exercise the pipeline.
 - **One vantage point per sniffer.** At the resolver it does not see the dns2tcp and DNSExfiltrator clients,
   which talk straight to their own servers (`testbed/tools/README.md`). Either sniff the lab bridge
   (`--at bridge`, one sniffer for every lab host, as the live test does), or run a second sniffer with

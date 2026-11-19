@@ -3,7 +3,7 @@
     frame source (live/capture.py)
       -> QueryAssembler   parser.pcap.dns_packet per frame; pairs each query with its reply
       -> HostWindows      the M1 feature set (models.m1_features), host part on each host's last `window_s` s
-      -> scorer           live/scorers.py (dummy, or a model behind the contract interface)
+      -> scorer           live/scorers.py (a model behind the contract interface, M1 by default; or dummy)
       -> AlertStore       live/store.py (alerts.db)
 
 Nothing here re-implements parsing or features: the frame decoder is the file parser's, and the features

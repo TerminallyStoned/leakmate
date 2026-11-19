@@ -1,14 +1,14 @@
-"""Live sniffer: score DNS queries as they are seen and write alerts to live/alerts.db.
+"""Live detector: score DNS queries as they are seen and write alerts to live/alerts.db.
 
     python -m live --pcap data/raw/tools/<capture>.pcap           # replay a capture, no root needed
     python -m live --pcap <capture>.pcap --speed 1                # ... at the recorded pace
     sudo python -m live --iface ip:172.28.0.2                     # sniff the interface holding that address
-    python -m live --iface eth0 --model m1 --weights <m1.joblib>  # a trained model instead of the placeholder
+    python -m live --iface eth0 --model <name> --weights <file>   # another model: models/<name>.py and its save()
     live/run_live.sh                                              # the same, inside the testbed (see live/README.md)
     python -m live.report                                         # what a run detected and how fast (live/report.py)
 
-The default scorer is a placeholder (name length only). It is there to exercise the pipeline, not to detect.
-Detect with the selected model: --model m1 --weights artifacts/m1_xgb/E1.pt (live/README.md).
+With no --model it runs M1, the selected model, from artifacts/m1_xgb/E1.pt (live/README.md says how to get
+that file). --model dummy is a placeholder scorer (name length only) for testing the pipeline without a model.
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ import signal
 
 from live.capture import find_interface, pcap_frames, sniff_frames
 from live.pipeline import Detector, QueryAssembler, run
-from live.scorers import load_scorer
+from live.scorers import DEFAULT_MODEL, M1_WEIGHTS, load_scorer
 from live.store import AlertStore
 from models import m1_features
 from parser.testbed import RESOLVER
@@ -34,8 +34,14 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument(
         "--speed", type=float, default=0.0, help="with --pcap: 0 = as fast as possible (default), 1 = real time"
     )
-    ap.add_argument("--model", default="dummy", help="dummy (default), m1, or any models/<name>.py")
-    ap.add_argument("--weights", help="file written by that model's save(); needed for every model but dummy")
+    ap.add_argument(
+        "--model",
+        default=DEFAULT_MODEL,
+        help=f"{DEFAULT_MODEL} (default), any models/<name>.py, or dummy (placeholder, not a detector)",
+    )
+    ap.add_argument(
+        "--weights", help=f"file written by that model's save() (default for m1: {M1_WEIGHTS}; dummy needs none)"
+    )
     ap.add_argument(
         "--threshold", type=float, help="alert when score >= this (default: the model's own; required if it has none)"
     )

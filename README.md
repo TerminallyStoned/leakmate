@@ -140,7 +140,7 @@ The user manual is built from these commands.
 | Train + score M1 with SHAP | `python -m models.m1_run --model m1 --exp E2 --data data/processed/cic/queries.parquet` | ✅ |
 | Train + score M2 | `python -m models.m2_run --model m2 --exp E2 --data ... --tranco data/external/tranco.csv` | ✅ |
 | Metrics, plots, selection | `python -m eval.summarise` | ✅ |
-| Live detector | `live/run_live.sh --at bridge --model m1 --weights artifacts/m1_xgb/E1.pt` in the testbed, or `python -m live --pcap <capture>.pcap --model m1 --weights ...` | ✅ M1 scores live traffic and writes alerts with their top SHAP features to `live/alerts.db` ([`live/README.md`](live/README.md)) |
+| Live detector | `live/run_live.sh --at bridge` in the testbed, or `python -m live --pcap <capture>.pcap` | ✅ M1 by default (needs `artifacts/m1_xgb/E1.pt`): scores live traffic and writes alerts with their top SHAP features to `live/alerts.db` ([`live/README.md`](live/README.md)) |
 | Live test + report | `live/live_test.sh`, then `python -m live.report` | ✅ 19 Nov run: all 1,720 tunnel queries flagged, 0 of 5,405 benign, median 0.43 s to alert ([`live/live_test.md`](live/live_test.md)) |
 | Dashboard | `streamlit run dashboard/app.py` | placeholder (20 Nov) |
 
