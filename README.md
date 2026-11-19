@@ -9,8 +9,8 @@ send data slowly, are not. This project builds a contained testbed that generate
 traffic, compares three ML/AI detectors on it and on a public benchmark, and runs the best one on live
 DNS traffic behind a dashboard.
 
-> Status: **Phase 3 (experiments and results freeze, 18 Nov)**. Every model has result files for Experiments 1–5
-> on `main`; the freeze tag is not set yet. Sections marked *planned* are not in the repo yet.
+> Status: **Phase 4 (report and submission)**. Every model has result files for Experiments 1–5 on `main`, and
+> the frozen results are at the `results-freeze` tag. Sections marked *planned* are not in the repo yet.
 > The plan and owners live on the team Trello board **ICT3214**.
 
 ## Research questions
