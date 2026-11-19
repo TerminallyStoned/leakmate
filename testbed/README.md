@@ -70,13 +70,8 @@ cd testbed
 `<its-ip>.ndjson` — the IP is what `tcpdump` at the resolver sees, so the parser can join
 sidecar rows to packets. Rows already carry `label=0, tool=benign, dataset=testbed`.
 
-One consequence of the containment design is worth knowing before you read the numbers:
-`lab` has no route, so the container cannot download Tranco, load web pages, or run the HTTP
-half of `apt`/`curl`. The generator runs with `--no-http`, which keeps every engine's DNS
-fan-out (a page view still resolves its CDN and third-party hosts) and drops only the TCP
-traffic — measured mix over a 1-minute 2-replica run: page 844, dns 321, cdn 190, curl 91,
-apt 5. Tranco and the harvested CDN names are refreshed on the host by `run_benign.sh` and
-read from the mounted `../data/external/`, so nothing needs downloading inside the lab.
+`lab` has no route, so the generator runs with `--no-http` (DNS fan-out kept, TCP dropped); the
+measured mix and why are in [`benign/README.md`](benign/README.md#running-inside-the-lab---docker).
 
 ## Tear down
 
