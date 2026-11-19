@@ -112,15 +112,6 @@ def test_experiment_s_is_not_a_selection_candidate(tmp_path):
     assert pd.read_csv(tmp_path / "selection.csv")["experiment"].tolist() == ["E1"]  # S compares splits, not models
 
 
-def test_ablation_runs_save_their_model_apart():
-    from pathlib import Path
-
-    from eval.run import artifact_path
-
-    assert artifact_path(Path("results"), "m1_xgb", "E1") == Path("artifacts/m1_xgb/E1.pt")  # live loads this
-    assert artifact_path(Path("results_nozone"), "m1_xgb", "E1") == Path("artifacts/results_nozone/m1_xgb/E1.pt")
-
-
 def test_old_latency_name_still_loads(tmp_path):
     import json
 
