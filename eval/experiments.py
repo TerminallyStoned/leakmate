@@ -68,14 +68,6 @@ def default_split(df: pd.DataFrame):
     return tr, te, f"time_session_{int(TRAIN_FRAC * 100)}_{100 - int(TRAIN_FRAC * 100)}"
 
 
-def shuffled_split(df: pd.DataFrame, train_frac: float = TRAIN_FRAC, seed: int = 0):
-    """The WRONG way (rows shuffled). Only used by experiment S to show the inflation."""
-    shuf = df.sample(frac=1.0, random_state=seed)
-    cut = int(len(shuf) * train_frac)
-    desc = f"shuffled_{int(train_frac * 100)}_{100 - int(train_frac * 100)}"
-    return shuf.iloc[:cut], shuf.iloc[cut:], desc
-
-
 def tools_in(dataset: str, root: Path = DATA_ROOT) -> list[str]:
     df = load_queries(dataset, root)
     return sorted(t for t in df["tool"].unique() if t != "benign")
@@ -126,6 +118,9 @@ def get_split(exp: str, root: Path = DATA_ROOT, holdout_tool: str | None = None,
         te = te[(te["label"] == 0) | (te["throttle"] >= LOW_AND_SLOW_MS)]
         return tr, te, "E5", "E5", f"{desc};train throttle<{LOW_AND_SLOW_MS}ms;test throttle>={LOW_AND_SLOW_MS}ms"
     if exp in ("S", "S_shuffled"):
-        tr, te, desc = shuffled_split(load_queries(dataset, root))
-        return tr, te, "S", "S", desc
+        # The WRONG way, on purpose: rows shuffled, to show how much that inflates scores
+        shuf = load_queries(dataset, root).sample(frac=1.0, random_state=0)
+        cut = int(len(shuf) * TRAIN_FRAC)
+        desc = f"shuffled_{int(TRAIN_FRAC * 100)}_{100 - int(TRAIN_FRAC * 100)}"
+        return shuf.iloc[:cut], shuf.iloc[cut:], "S", "S", desc
     raise ValueError(f"Unknown experiment {exp!r}")
