@@ -62,10 +62,6 @@ def load_model(name: str, path: str | None, train_df: pd.DataFrame):
     return mod, (mod.load(path, device="cpu") if module == "m2_dnsbert" else mod.load(path))
 
 
-def read_done(out: Path) -> pd.DataFrame:
-    return pd.read_csv(out) if out.exists() else pd.DataFrame(columns=COLUMNS)
-
-
 def write_rows(out: Path, rows: pd.DataFrame) -> None:
     """Write atomically, so a crash mid-write never leaves a half-written checkpoint."""
     tmp = out.with_suffix(".tmp")
@@ -87,7 +83,7 @@ def main(argv: list[str] | None = None) -> int:
 
     paths = {name: path for name, (_, path) in MODELS.items()} | {"m2": a.m2_bpe, "m2_ablation1_char": a.m2_char}
     out = Path(a.results_dir) / "latency_cpu.csv"
-    done = read_done(out)
+    done = pd.read_csv(out) if out.exists() else pd.DataFrame(columns=COLUMNS)  # the checkpoint so far
     todo = [m for m in (a.only or MODELS) if a.redo or m not in set(done["model"])]
     if not todo:
         print(f"all models already in {out}; pass --redo to time them again")
