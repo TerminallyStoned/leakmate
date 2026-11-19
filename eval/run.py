@@ -53,6 +53,13 @@ def per_query_latency_ms(mod, model, df, n: int = 1000) -> float:
     return (time.perf_counter() - t0) * 1000 / len(sample)
 
 
+def artifact_path(results_dir: Path, model_name: str, run_name: str) -> Path:
+    """artifacts/<model>/<run>.pt for runs into results/; artifacts/<results folder>/<model>/<run>.pt otherwise,
+    so an ablation (e.g. --results-dir results_nozone) never replaces the model live and time_models load."""
+    base = Path("artifacts") if results_dir.name == "results" else Path("artifacts") / results_dir.name
+    return base / model_name / f"{run_name}.pt"
+
+
 def _subsample(df, max_rows: int):
     """Up to max_rows/2 rows per class, kept in time order."""
     parts = [g.sample(min(len(g), max_rows // 2), random_state=0) for _, g in df.groupby("label")]
@@ -92,7 +99,7 @@ def run_one(
     scores = mod.score(model, test_df)
     latency = per_query_latency_ms(mod, model, test_df, n=cfg.get("latency_n", 500))
 
-    mod.save(model, Path("artifacts") / model_name / f"{run_name}.pt")
+    mod.save(model, artifact_path(results_dir, model_name, run_name))
 
     # Every key the contract (docs/contracts.md section 3) requires, plus optional extras.
     # M3 models carry .cfg; M1/RF/IF models are dicts with a "cfg" key
