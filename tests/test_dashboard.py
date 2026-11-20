@@ -76,7 +76,7 @@ def test_live_page_renders_from_a_database(demo_db: Path) -> None:
     text = " ".join(str(w.value) for w in at.markdown)
     assert len(at.get("tabs")) == 4  # feed, score over time, why it fired, latency
     assert "queries scored" in text and "median latency" in text  # the batches table reached the strip
-    assert at.get("dataframe"), "the alert feed is empty"
+    assert _feed_rows(at) > 0, "the alert feed is empty"
     # score over time and the latency histogram. The SHAP bars are not among them: nothing is explained
     # until a feed row is clicked.
     assert len(at.get("vega_lite_chart")) == 2
@@ -216,7 +216,7 @@ def test_query_names_are_escaped_before_they_reach_the_page(tmp_path: Path) -> N
         if page == "Overview":
             assert escaped in body, page  # the overview writes the newest alerts into HTML itself
         else:
-            assert evil in _feed_names(at), page  # the grid receives the name as data, not as markup
+            assert evil in _feed_names(at), page  # the row label is plain text, so it cannot be markup
             _click_row(at, _feed_names(at).index(evil))
             detail = " ".join(str(m.value) for m in at.markdown)
             assert escaped in detail, page  # the detail panel writes HTML, so there it must be escaped
@@ -310,27 +310,39 @@ def test_results_directory_can_be_pointed_elsewhere(tmp_path: Path, monkeypatch)
     assert data.figure("roc", experiment="E1") is None
 
 
-def _feed_frame(at):
-    """The rows the feed is showing. It is a real grid, because a row has to be clickable."""
-    return at.get("dataframe")[0].value
+def _feed_buttons(at):
+    """The feed rows: one button each, keyed by alert id."""
+    return [b for b in at.button if str(b.key).startswith("lm_open_")]
+
+
+def _feed_labels(at) -> list[str]:
+    return [str(b.label) for b in _feed_buttons(at)]
 
 
 def _feed_rows(at) -> int:
-    return len(_feed_frame(at))
+    return len(_feed_buttons(at))
 
 
+#: the offsets follow `_row_label`: time 9 + host 16 + score 6 + 2 spaces + why 32, then the name
 def _feed_names(at) -> list[str]:
-    return list(_feed_frame(at)["query name"])
+    return [label[65:] for label in _feed_labels(at)]
 
 
 def _feed_scores(at) -> list[float]:
-    return [float(x) for x in _feed_frame(at)["score"]]
+    return [float(label[25:31]) for label in _feed_labels(at)]
 
 
 def _click_row(at, index: int) -> None:
-    """Select a feed row the way the grid reports it, and run."""
-    at.session_state["lm_feed_grid_1_50"] = {"selection": {"rows": [index], "columns": [], "cells": []}}
-    at.run()
+    """Press a feed row, the way the user does."""
+    _feed_buttons(at)[index].set_value(True).run()
+
+
+def _feed_caption(at) -> str:
+    return next(str(c.value) for c in at.caption if str(c.value).startswith("Rows "))
+
+
+def _feed_total(at) -> int:
+    return int(re.search(r"of ([\d,]+) alerts", _feed_caption(at))[1].replace(",", ""))
 
 
 def test_feed_pages_through_every_alert_it_matches(demo_db: Path) -> None:
@@ -390,14 +402,8 @@ def test_no_alert_is_explained_until_one_is_clicked(demo_db: Path) -> None:
 
 def test_clicking_a_feed_row_opens_that_alert(demo_db: Path) -> None:
     at = _page(_app(LEAKMATE_ALERTS_DB=str(demo_db)), "Live")
-    import sqlite3
-
-    from dashboard import data
-
-    with sqlite3.connect(demo_db) as conn:
-        conn.row_factory = sqlite3.Row
-        alert_id = int(data.alert_page(conn, limit=50)[0]["id"].iloc[2])  # the third row of the first page
     _click_row(at, 2)
+    alert_id = int(_feed_buttons(at)[2].key.split("_")[-1])
     assert at.session_state["lm_alert"] == alert_id
     assert f"alert {alert_id:,}" in _page_text(at)
     # the point of the click: the section changed too, and nothing reloaded

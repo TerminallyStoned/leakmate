@@ -31,7 +31,6 @@ def render() -> None:
         _empty_db()
         return
     try:
-        _open_clicked_alert()  # before the tab strip is built
         meta = data.read_meta(conn)
         alerts = data.read_alerts(conn)
         stats = data.read_host_stats(conn)
@@ -229,10 +228,14 @@ def _score_over_time(stats: pd.DataFrame, alerts: pd.DataFrame) -> None:
 
 
 def _feed(conn: sqlite3.Connection, view: dict) -> None:
-    """Every alert the query matches, a page at a time.
+    """Every alert the query matches, a page at a time, one button per row.
 
     `alerts` is capped where it is read, so the feed does not use it: it asks SQLite for one page of the
     filtered, sorted set. A long capture holds far more alerts than any browser should be handed at once.
+
+    Rows are buttons rather than a selectable grid. A canvas grid makes its checkbox column the click target,
+    and the alert is the row; a button covers the row, is real DOM, and is testable. Fixed field widths keep
+    the columns lined up, so the monospace label still reads as a table.
     """
     st.markdown('<div class="lm-sec">Alert feed</div>', unsafe_allow_html=True)
     cols = st.columns([2.1, 1.5, 1.6, 1.5, 1.3])
@@ -255,59 +258,49 @@ def _feed(conn: sqlite3.Connection, view: dict) -> None:
         return
     first = (page - 1) * size + 1
     st.caption(
-        f"Rows {first:,}-{first + len(frame) - 1:,} of {total:,} alerts"
-        + ("" if size * pages >= total and total <= size else f" ({pages:,} pages at {size} rows)")
-        + ", sorted by "
-        + sort.lower()
-        + "."
-    )
-    show = frame.copy()
-    show["time"] = pd.to_datetime(show["ts"], unit="s", utc=True).dt.strftime("%H:%M:%S")
-    show["why"] = show["features"].map(explain.headline)
-    show["score"] = show["score"].map("{:.3f}".format)
-    show = show[["id", "time", "src_host", "qname", "qtype", "score", "why"]].rename(
-        columns={"src_host": "host", "qname": "query name", "qtype": "type"}
-    )
-    grid_key = f"lm_feed_grid_{page}_{size}"
-    st.session_state["lm_feed_grid_key"] = grid_key
-    st.session_state["lm_feed_ids"] = [int(i) for i in show["id"]]
-    st.dataframe(
-        show[["time", "host", "query name", "type", "score", "why"]],
-        key=grid_key,
-        hide_index=True,
-        width="stretch",
-        height=min(640, 96 + 36 * len(frame)),
-        on_select="rerun",
-        selection_mode="single-row",
-        column_config={
-            "time": st.column_config.TextColumn("time", width=88),
-            "host": st.column_config.TextColumn("host", width=130),
-            "query name": st.column_config.TextColumn("query name", width="large"),
-            "type": st.column_config.TextColumn("type", width=70),
-            "score": st.column_config.TextColumn("score", width=78, alignment="right"),
-            "why": st.column_config.TextColumn("why", width="medium"),
-        },
+        f"Rows {first:,}-{first + len(frame) - 1:,} of {total:,} alerts ({pages:,} pages at {size} rows), "
+        f"sorted by {sort.lower()}."
     )
 
+    frame = frame.assign(
+        time=pd.to_datetime(frame["ts"], unit="s", utc=True).dt.strftime("%H:%M:%S"),
+        why=frame["features"].map(explain.headline),
+        score=frame["score"].map("{:.3f}".format),
+    )
+    st.markdown(_rows_head(), unsafe_allow_html=True)
+    chosen = st.session_state.get("lm_alert")
+    with st.container(key="lm_feed_stack"):
+        for row in frame.itertuples(index=False):
+            st.button(
+                _row_label(row),
+                key=f"lm_open_{row.id}",
+                width="stretch",
+                type="primary" if chosen is not None and int(row.id) == int(chosen) else "secondary",
+                on_click=_open_alert,
+                args=(int(row.id),),
+            )
 
-def _open_clicked_alert() -> None:
-    """Turn the feed's row selection into "this alert, in its own section".
 
-    Called at the top of the page, before the tab strip exists: `live_section` is bound to the tabs widget, so
-    the value has to be in place when the widget is created - setting it later raises, and a row click would
-    otherwise show the alert but leave the user on the feed tab. The grid reports the click by rerunning the
-    app, so this is one step from the user's side, with no page load.
+def _row_label(row) -> str:
+    """One alert as a line of fixed-width columns, for the row button."""
+    why = str(row.why)
+    why = why if len(why) <= 30 else why[:29] + "\u2026"
+    return f"{row.time:<9}{str(row.src_host):<16}{row.score:>6}  {why:<32}{row.qname}"
+
+
+def _rows_head() -> str:
+    cols = f"{'time':<9}{'host':<16}{'score':>6}  {'why':<32}query name"
+    return f'<div class="lm-rows-head">{cols}</div>'
+
+
+def _open_alert(alert_id: int) -> None:
+    """A row was pressed: remember the alert and move to its section.
+
+    A callback, so it runs before the app renders and the tab strip is created with the right section already
+    selected. One press, one rerun, no page load.
     """
-    key = st.session_state.get("lm_feed_grid_key")
-    state = st.session_state.get(key) if key else None
-    rows = (state or {}).get("selection", {}).get("rows") if isinstance(state, dict) else None
-    if not rows:
-        return
-    ids = st.session_state.get("lm_feed_ids") or []
-    index = int(rows[0])
-    if 0 <= index < len(ids):
-        st.session_state["lm_alert"] = ids[index]
-        st.session_state["live_section"] = TRIGGER_TAB
+    st.session_state["lm_alert"] = alert_id
+    st.session_state["live_section"] = TRIGGER_TAB
 
 
 def _clear_alert() -> None:
@@ -318,9 +311,6 @@ def _clear_alert() -> None:
     """
     st.session_state.pop("lm_alert", None)
     st.session_state["live_section"] = "Alert feed"
-    key = st.session_state.get("lm_feed_grid_key")
-    if key:
-        st.session_state[key] = {"selection": {"rows": [], "columns": [], "cells": []}}
 
 
 def _why(conn: sqlite3.Connection) -> None:

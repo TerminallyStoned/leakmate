@@ -42,6 +42,7 @@
   --grid: oklch(100% 0 0 / 0.06);
 
   --pad: 0.9rem;
+  --mono: ui-monospace, "SFMono-Regular", "JetBrains Mono", Menlo, Consolas, monospace;
   --r-outer: 16px;
   --r-inner: max(5px, calc(var(--r-outer) - var(--pad)));
   --ease: cubic-bezier(0.2, 0, 0.38, 0.9);
@@ -229,6 +230,73 @@ code,
   color: var(--accent);
 }
 
+/* The alert feed is a stack of row buttons inside one bordered surface: rows are separated by hairlines, not
+   gaps, so it reads as a table. Labels are fixed-width monospace, so the columns line up with the header. */
+.lm-rows-head,
+.st-key-lm_feed_stack [data-testid^="stBaseButton-"] p,
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  white-space: pre;
+  letter-spacing: 0;
+}
+.lm-rows-head {
+  color: var(--text-3);
+  text-transform: uppercase;
+  font-size: 0.66rem;
+  letter-spacing: 0.07em;
+  padding: 0 0.85rem 0.35rem;
+  overflow: hidden;
+}
+.st-key-lm_feed_stack {
+  border: 1px solid var(--border);
+  border-radius: var(--r-outer);
+  background: var(--surface-1);
+  overflow: hidden;
+  padding: 0.2rem 0;
+}
+.st-key-lm_feed_stack [data-testid^="stButton"] {
+  margin: 0;
+}
+.st-key-lm_feed_stack [data-testid^="stBaseButton-"] {
+  display: flex;
+  justify-content: flex-start;
+  width: 100%;
+  min-height: 0;
+  height: auto;
+  padding: 0.36rem 0.85rem;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--text-2);
+  font-weight: 450;
+  text-align: left;
+  box-shadow: none;
+  overflow: hidden;
+  transition: background var(--fast), color var(--fast);
+}
+.st-key-lm_feed_stack [data-testid^="stBaseButton-"] p,
+  width: 100%;
+  margin: 0;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.st-key-lm_feed_stack [data-testid^="stBaseButton-"]:hover {
+  background: var(--surface-2);
+  color: var(--text-1);
+}
+/* the row that is open: the same raised box language as the navbar, not a filled button */
+.st-key-lm_feed_stack [data-testid="stBaseButton-primary"] {
+  background: var(--surface-3);
+  color: var(--text-1);
+  font-weight: 650;
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.st-key-lm_feed_stack [data-testid="stBaseButton-primary"]:hover {
+  background: var(--surface-3);
+}
+
 /* long tables keep their header: 250 alerts without a column label is a wall of text */
 .lm-table thead th {
   position: sticky;
@@ -238,7 +306,7 @@ code,
 }
 
 .lm-wire {
-  font-family: ui-monospace, "SFMono-Regular", "JetBrains Mono", Menlo, Consolas, monospace;
+  font-family: var(--mono);
   font-size: 0.8125rem;
   color: var(--text-1);
   background: var(--surface-2);

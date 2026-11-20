@@ -48,16 +48,18 @@ letters inside the orange chip opaque.
 
 ## Opening an alert
 
-A row in the feed is selected like a table row: no page load, no link. `st.dataframe(on_select="rerun",
-selection_mode="single-row")` reports the click, and `view_live._open_clicked_alert` reads it at the top of the
-page - before the tab strip is built - to set the alert and move to **Alert trigger**. The order matters: the
-strip is bound to the URL (`st.tabs(..., bind="query-params")`), and a widget's bound key cannot be written
-after the widget exists, so setting it from inside the tab body raises and blanks the page.
+Every row of the feed is one full-width button: the whole row is the control, there is no checkbox column and
+no link. `view_live._open_alert` is the button's callback, and because a callback runs before the app renders,
+the press sets the alert **and** selects the **Alert trigger** section in the same step, with no page load. The
+strip is bound to the URL (`st.tabs(..., bind="query-params")`), which is also the only way a tab can be moved
+programmatically: writing `live_section` through `st.query_params` raises, and writing it after the strip
+exists does nothing.
 
-Nothing is explained until a row is chosen; the trigger section then opens with an invitation. The alert is read
-by primary key, so any alert in the file can be explained, not only the ones a panel happens to hold. `Clear`
-forgets the alert, empties the grid's selection (a callback may write a widget's state, and leaving it would
-put the alert straight back), and returns to the feed.
+Row labels are monospace with fixed field widths, so the columns line up with the header (`_row_label`) while
+the row remains a single button. Long query names truncate at the end, where the label is least informative.
+
+Nothing is explained until a row is pressed. The alert is then read by primary key, so any alert in the file can
+be explained, not only the ones a panel happens to hold. `Clear` forgets it and returns to the feed.
 
 ## Live page
 
@@ -65,7 +67,7 @@ put the alert straight back), and returns to the feed.
 |---|---|---|
 | Status strip | `meta` + `host_stats` + `batches` | model, threshold, queries scored, alerts, alert rate, median ms/query, mode. The alert counters are `COUNT(*)` over the window, not a count of the loaded rows |
 | Score over time | `host_stats` | mean score per host per 10 s bucket; red dots mark buckets containing an alert |
-| Alert feed | `alerts` | filter (name contains, minimum score), sort, page. SQLite does all three, so the page is a slice and the count is the whole set. A row is selected to open that alert |
+| Alert feed | `alerts` | filter (name contains, minimum score), sort, page. SQLite does all three, so the page is a slice and the count is the whole set. Each row is a button that opens that alert |
 | Alert trigger | `alerts` by id | nothing until a row is clicked, then the score, the threshold, time to alert, the SHAP bars and one sentence per feature |
 | Processing latency | `batches` | ms per query, median and 95th percentile, against the 10 ms rule |
 
