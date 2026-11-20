@@ -198,7 +198,6 @@ body,
   font-size: 0.875rem;
   color: var(--text-2);
   margin: 0;
-  max-width: 78ch;
 }
 
 /* text sits above the plates: a glow that reaches a paragraph should illuminate the gap, not the words */
@@ -287,7 +286,6 @@ p.lm-kv {
   font-size: 0.78125rem;
   color: var(--text-3);
   margin: 0.1rem 0 0.8rem;
-  max-width: 92ch;
 }
 
 /* the feed's invitation: an alert has to be clicked, so the empty state says so without decoration */
@@ -551,7 +549,6 @@ code,
   font-size: 0.78125rem;
   line-height: 1.5;
   color: var(--text-3);
-  max-width: 44ch;
 }
 .lm-verdict svg {
   /* large, with a proportionally lighter stroke so it carries the same optical weight as the small text

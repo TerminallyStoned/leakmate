@@ -108,7 +108,7 @@ def _strip(summary: pd.DataFrame, selection: pd.DataFrame) -> None:
 def _comparison(summary: pd.DataFrame, selection: pd.DataFrame, experiment: str) -> None:
     st.markdown(
         f'<div class="lm-sec">Model comparison - {data.experiment_label(experiment)}</div>'
-        '<p class="lm-note">Sorted by F1. "picked" marks the model <code>selection.csv</code> chose for this '
+        '<p class="lm-note">Sorted by F1. "picked" marks the model that <code>selection.csv</code> chose for this '
         "experiment under the rule: best F1 with a false-positive rate of at most 1% and at most 10 ms per "
         "query; an F1 tie goes to the faster model.</p>",
         unsafe_allow_html=True,
