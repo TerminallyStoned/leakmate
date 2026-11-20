@@ -323,13 +323,17 @@ def _feed_rows(at) -> int:
     return len(_feed_buttons(at))
 
 
-#: the offsets follow `_row_label`: time 9 + host 16 + score 6 + 2 spaces + why 32, then the name
+def _feed_fields(at) -> list[list[str]]:
+    """Row labels split into columns. The padding is non-breaking spaces, so an ordinary-space split fails."""
+    return [f for label in _feed_labels(at) for f in [re.split(r"\u00a0+", label)]]
+
+
 def _feed_names(at) -> list[str]:
-    return [label[65:] for label in _feed_labels(at)]
+    return [fields[-1] for fields in _feed_fields(at)]
 
 
 def _feed_scores(at) -> list[float]:
-    return [float(label[25:31]) for label in _feed_labels(at)]
+    return [float(fields[2]) for fields in _feed_fields(at)]
 
 
 def _click_row(at, index: int) -> None:
@@ -440,3 +444,14 @@ def test_the_sections_are_nouns(demo_db: Path) -> None:
     at = _page(_app(LEAKMATE_ALERTS_DB=str(demo_db)), "Live")
     labels = [str(t.label) for t in at.get("tabs")]
     assert labels == ["Alert feed", "Score over time", "Alert trigger", "Latency"], labels
+
+
+def test_live_starts_on_the_feed_and_only_moves_on_a_press(demo_db: Path) -> None:
+    at = _page(_app(LEAKMATE_ALERTS_DB=str(demo_db)), "Live")
+    assert at.session_state["live_section"] == "Alert feed", "entering Live must start at the feed"
+    _click_row(at, 1)
+    assert at.session_state["live_section"] == "Alert trigger"
+    at.sidebar.radio[0].set_value("Overview").run()
+    at.sidebar.radio[0].set_value("Live").run()
+    assert at.session_state["live_section"] == "Alert feed", "a trip back must not reopen the trigger section"
+    assert at.session_state.get("lm_alert") is not None  # the alert itself stays available

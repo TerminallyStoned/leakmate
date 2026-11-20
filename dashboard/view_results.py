@@ -387,7 +387,7 @@ def _split_gap(summary: pd.DataFrame) -> None:
         .mark_bar(size=16)
         .encode(
             x=alt.X("metric:N", title=None),
-            y=alt.Y("value:Q", title=None, axis=alt.Axis(format="%.3f")),
+            y=alt.Y("value:Q", title=None, axis=alt.Axis(format=".3f")),
             color=alt.Color(
                 "split:N",
                 scale=alt.Scale(domain=["time", "shuffled"], range=[p["ink2"], p["signal"]]),

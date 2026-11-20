@@ -191,6 +191,7 @@ def _score_over_time(stats: pd.DataFrame, alerts: pd.DataFrame) -> None:
     if frame.empty:
         st.caption("No traffic in this window.")
         return
+    # live/store.sql accumulates `sum_score` per bucket; the mean is derived here, not stored
     frame["mean_score"] = frame["sum_score"] / frame["queries"].clip(lower=1)
     top = frame["src_host"].value_counts().head(6).index.tolist()
     frame = frame[frame["src_host"].isin(top)].copy()
@@ -281,16 +282,37 @@ def _feed(conn: sqlite3.Connection, view: dict) -> None:
             )
 
 
+#: the fixed fields of a row label, and the query name takes whatever width is left
+FIELDS = (("time", 9, "<"), ("host", 16, "<"), ("score", 6, ">"), ("why", 32, "<"))
+
+
+def _columns(**values: str) -> str:
+    """The padded fields of a row, as one line.
+
+    The padding is non-breaking spaces on purpose: Streamlit collapses runs of ordinary spaces in a button
+    label, and `white-space: pre` cannot rescue text that arrived collapsed. The header is built here too,
+    which is the only reason its columns still sit over the rows'.
+    """
+    cells = []
+    for name, width, align in FIELDS:
+        value = values[name]
+        if len(value) > width:
+            value = value[: width - 1] + "\u2026"
+        pad = "\u00a0" * (width - len(value))  # only the padding needs to survive; text spaces are fine
+        cells.append((value + pad) if align == "<" else (pad + value))
+    # a separator between fields, not just trailing padding: without it a right-aligned score runs into the
+    # next column ("0.922name length 53 chars")
+    return "\u00a0".join(cells) + "\u00a0"
+
+
 def _row_label(row) -> str:
     """One alert as a line of fixed-width columns, for the row button."""
-    why = str(row.why)
-    why = why if len(why) <= 30 else why[:29] + "\u2026"
-    return f"{row.time:<9}{str(row.src_host):<16}{row.score:>6}  {why:<32}{row.qname}"
+    return _columns(time=str(row.time), host=str(row.src_host), score=str(row.score), why=str(row.why)) + str(row.qname)
 
 
 def _rows_head() -> str:
-    cols = f"{'time':<9}{'host':<16}{'score':>6}  {'why':<32}query name"
-    return f'<div class="lm-rows-head">{cols}</div>'
+    head = _columns(time="time", host="host", score="score", why="why") + "query name"
+    return f'<div class="lm-rows-head">{html.escape(head)}</div>'
 
 
 def _open_alert(alert_id: int) -> None:
@@ -301,6 +323,7 @@ def _open_alert(alert_id: int) -> None:
     """
     st.session_state["lm_alert"] = alert_id
     st.session_state["live_section"] = TRIGGER_TAB
+    st.session_state["lm_opened_alert"] = True  # app.py: this press, not a page change, chose the section
 
 
 def _clear_alert() -> None:
@@ -311,6 +334,7 @@ def _clear_alert() -> None:
     """
     st.session_state.pop("lm_alert", None)
     st.session_state["live_section"] = "Alert feed"
+    st.session_state["lm_opened_alert"] = True
 
 
 def _why(conn: sqlite3.Connection) -> None:

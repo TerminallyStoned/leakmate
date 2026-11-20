@@ -101,6 +101,24 @@ def read_frame(conn: sqlite3.Connection, table: str, columns: str = "*", order: 
     return pd.DataFrame([dict(r) for r in rows])
 
 
+#: what a missing host is called in the UI: the row is real data, so it stays in every panel
+NO_HOST = "(no host)"
+
+#: the SQL side of `NO_HOST`. `src_host` is NOT NULL, but NOT NULL permits '', so both are covered.
+_HOST_EXPR = "COALESCE(NULLIF(src_host, ''), ?)"
+
+
+def _hosts(frame: pd.DataFrame) -> pd.DataFrame:
+    """A NULL `src_host` becomes a name, not a dropped row.
+
+    Without this, one unattributed query puts NaN into a set of strings and `sorted()` raises
+    `'<' not supported between instances of 'float' and 'str'`, which blanks the page.
+    """
+    if "src_host" in frame:
+        frame["src_host"] = frame["src_host"].fillna(NO_HOST).replace("", NO_HOST)
+    return frame
+
+
 def read_alerts(conn: sqlite3.Connection, limit: int = 5000) -> pd.DataFrame:
     """Alerts oldest first, with `top_features` decoded from its JSON string.
 
@@ -116,6 +134,7 @@ def read_alerts(conn: sqlite3.Connection, limit: int = 5000) -> pd.DataFrame:
         return df
     df = df.iloc[::-1].reset_index(drop=True)
     df["features"] = df["top_features"].fillna("[]").map(_loads)
+    df = _hosts(df)
     df["host"] = df["src_host"]
     return df
 
@@ -142,8 +161,10 @@ def _alert_where(hosts: Sequence[str], since: float, min_score: float, search: s
     clauses: list[str] = []
     args: list = []
     if hosts:
-        clauses.append(f"src_host IN ({','.join('?' * len(hosts))})")
-        args.extend(hosts)
+        # the same expression `_hosts` applies to the frame: filtering on the raw column would drop every row
+        # whose host was empty, because the UI only ever offers the replacement name
+        clauses.append(f"{_HOST_EXPR} IN ({','.join('?' * len(hosts))})")
+        args.extend([NO_HOST] + list(hosts))
     if since:
         clauses.append("ts >= ?")
         args.append(float(since))
@@ -202,6 +223,7 @@ def alert_page(
     frame = pd.DataFrame([dict(r) for r in conn.execute(sql, [*args, int(limit), int(offset)]).fetchall()])
     if not frame.empty:
         frame["features"] = frame["top_features"].fillna("[]").map(_loads)
+        frame = _hosts(frame)
     return frame, total
 
 
@@ -218,7 +240,8 @@ def alert_by_id(conn: sqlite3.Connection, alert_id: int) -> pd.Series | None:
 
 
 def read_host_stats(conn: sqlite3.Connection) -> pd.DataFrame:
-    return read_frame(conn, "host_stats", order="bucket_ts ASC")
+    frame = read_frame(conn, "host_stats", order="bucket_ts ASC")
+    return _hosts(frame) if not frame.empty else frame
 
 
 def read_batches(conn: sqlite3.Connection) -> pd.DataFrame:
@@ -227,11 +250,16 @@ def read_batches(conn: sqlite3.Connection) -> pd.DataFrame:
 
 
 def _loads(raw: str) -> list[dict]:
+    """`top_features` decoded: always a list of objects, whatever the writer stored.
+
+    The column is JSON text, so a half-written row or a different scorer can put anything in it. Consumers
+    index the entries as dicts, so non-objects are dropped here rather than guarded at each use.
+    """
     try:
         out = json.loads(raw)
     except (TypeError, json.JSONDecodeError):
         return []
-    return out if isinstance(out, list) else []
+    return [item for item in out if isinstance(item, dict)] if isinstance(out, list) else []
 
 
 # --------------------------------------------------------------------------- labels

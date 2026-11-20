@@ -231,20 +231,20 @@ code,
 }
 
 /* The alert feed is a stack of row buttons inside one bordered surface: rows are separated by hairlines, not
-   gaps, so it reads as a table. Labels are fixed-width monospace, so the columns line up with the header. */
-.lm-rows-head,
-.st-key-lm_feed_stack [data-testid^="stBaseButton-"] p,
+   gaps, so it reads as a table. Each label is a fixed-width monospace line (see `_row_label`), and the header
+   repeats the same widths, so the columns line up even though a row is a single control. 1.67 puts the label
+   in a plain div inside the button, so both the font and the space-preserving `pre` have to be set on the
+   button and inherited - styling a `p` that is never rendered is how this broke once. */
+.lm-rows-head {
+  /* identical font, size and spacing to the row labels: the columns line up by character count, so any
+     difference here shifts every column against the rows */
   font-family: var(--mono);
   font-size: 0.78rem;
-  white-space: pre;
   letter-spacing: 0;
-}
-.lm-rows-head {
-  color: var(--text-3);
   text-transform: uppercase;
-  font-size: 0.66rem;
-  letter-spacing: 0.07em;
-  padding: 0 0.85rem 0.35rem;
+  color: var(--text-3);
+  white-space: pre;
+  padding: 0 0.85rem 0.3rem;
   overflow: hidden;
 }
 .st-key-lm_feed_stack {
@@ -273,14 +273,28 @@ code,
   text-align: left;
   box-shadow: none;
   overflow: hidden;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  letter-spacing: 0;
+  white-space: pre;
   transition: background var(--fast), color var(--fast);
 }
-.st-key-lm_feed_stack [data-testid^="stBaseButton-"] p,
+.st-key-lm_feed_stack [data-testid^="stBaseButton-"] > div,
+.st-key-lm_feed_stack [data-testid^="stBaseButton-"] > div > * {
+  /* Streamlit centers button content and nests the label, so the alignment is forced all the way down */
+  display: block;
   width: 100%;
   margin: 0;
-  text-align: left;
   overflow: hidden;
   text-overflow: ellipsis;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  white-space: pre;
+}
+/* rows are separated, not spaced: that is what makes a stack of buttons read as a table */
+.st-key-lm_feed_stack [data-testid^="stButton"]:not(:last-child) {
+  border-bottom: 1px solid var(--border);
 }
 .st-key-lm_feed_stack [data-testid^="stBaseButton-"]:hover {
   background: var(--surface-2);
@@ -638,6 +652,21 @@ h3 {
   background: var(--surface-3);
   color: var(--text-1);
   transform: translateY(-1px);
+}
+
+/* Below a laptop the fixed-width line is wider than the viewport. Clipping the tail would hide the query
+   name, which is the point of the row, so at phone widths the header and each row scroll on their own. */
+@media (max-width: 47.99em) {
+  .lm-rows-head,
+  .st-key-lm_feed_stack [data-testid^="stBaseButton-"] {
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+  .st-key-lm_feed_stack [data-testid^="stBaseButton-"] > div {
+    width: max-content;
+    min-width: 100%;
+    text-overflow: clip;
+  }
 }
 
 /* keyboard focus is always visible, and never a bare outline on a dark ground */

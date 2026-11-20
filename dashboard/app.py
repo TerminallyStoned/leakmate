@@ -34,4 +34,12 @@ if st.session_state.get("page") not in PAGES:
     st.session_state["page"] = DEFAULT
 
 page = shell.nav(list(PAGES), key="page")
+
+# Entering a page starts at its first section. Without this, the section bound to the tab strip survives a trip
+# to Results and back, so Live reopens on whatever alert was last open. A row press is the exception: its
+# callback runs before this and asks for the trigger section by setting the marker.
+if not st.session_state.pop("lm_opened_alert", False) and st.session_state.get("lm_last_page") != page:
+    st.session_state["live_section"] = "Alert feed"
+st.session_state["lm_last_page"] = page
+
 PAGES[page].render()
