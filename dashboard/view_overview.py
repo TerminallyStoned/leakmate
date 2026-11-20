@@ -38,7 +38,9 @@ def render() -> None:
         _top_hosts(live["hosts"])
         _latest(live["latest"])
     with right:
-        shell.section("Evaluation", f"from <code>{data.results_dir().name}/</code>, tag <code>results-freeze</code>")
+        shell.section(
+            "Evaluation", f"from <code>{data.results_dir().name}/</code> at tag <code>results-freeze</code>"
+        )
         shell.strip(results["cells"])
         _picks(results["selection"])
         _latency_overview(results["latency"])
@@ -297,79 +299,98 @@ def _num(value) -> str:
 # --------------------------------------------------------------------------- conclusions
 
 
-def _conclusions() -> list[tuple[str, str, str]]:
-    """Four or five sentences the frozen tables support, so the page says what was found, not only what
-    was measured. Every number is read from a committed file; nothing here is recomputed."""
+def _conclusions() -> list[dict]:
+    """Five cards: the questions the frozen tables answer, and the answer.
+
+    Nothing is typed in. Models, experiments, scores, recalls and timings come from `results/summary.csv`,
+    `results/selection.csv` and `results/latency.csv`, the latency gate from `data.LIMIT_MS`, and the machine
+    the timings ran on from `results/latency_cpu.csv`. Written by hand is only the question each card asks (its
+    kicker) and the plain reading of the number.
+    """
     summary = data.read_table("summary")
     selection = data.read_table("selection")
     latency = data.read_table("latency")
-    out: list[tuple[str, str, str]] = []
     if summary.empty:
         return [
-            ("warn", "<strong>No frozen results here.</strong> Run <code>python -m eval.summarise</code>.", "tone-warn")
+            {
+                "icon": "warn",
+                "tone": "tone-warn",
+                "kicker": "No frozen results",
+                "hero": "Run eval.summarise",
+                "detail": "The dashboard reads results/*.csv and computes nothing itself.",
+            }
         ]
-
+    out: list[dict] = []
     headline = data.drop_variants(summary)
+
     best = headline.loc[headline["f1"].idxmax()]
     out.append(
-        (
-            "ok",
-            f"<strong>{data.model_label(best['model'])} reaches the top of the rule at F1 {best['f1']:.4f}</strong> "
-            f"<span>in {data.experiment_label(best['experiment']).lower()}, with {best['fpr']:.5f} false positives "
-            "per benign query.</span>",
-            "tone-good",
-        )
+        {
+            "icon": "ok",
+            "tone": "tone-good",
+            "kicker": "Top F1",
+            "hero": data.model_label(best["model"]),
+            "detail": f"F1 {best['f1']:.4f} in {data.experiment_label(best['experiment']).lower()}, with "
+            f"{best['fpr']:.5f} false positives per benign query.",
+        }
     )
 
     if not selection.empty:
         counts = selection["selected_model"].value_counts()
         top_model, top_n = counts.index[0], int(counts.iloc[0])
         out.append(
-            (
-                "trend",
-                f"<strong>{data.model_label(top_model)} is what the selection rule picks in {top_n} of "
-                f"{len(selection)} experiments</strong> <span>- best F1 subject to the false-positive ceiling "
-                "and the 10 ms rule.</span>",
-                "tone-good",
-            )
+            {
+                "icon": "trend",
+                "tone": "tone-good",
+                "kicker": "Rule picks",
+                "hero": data.model_label(top_model),
+                "detail": f"Chosen in {top_n} of {len(selection)} experiments by best F1 subject to the "
+                f"false-positive ceiling and the {data.LIMIT_MS:.0f} ms per-query gate.",
+            }
         )
 
     held_out = headline[headline["experiment"].str.startswith("E3")].sort_values("recall")
     if not held_out.empty:
         worst = held_out.iloc[0]
         out.append(
-            (
-                "alert",
-                f"<strong>The supervised model is the least honest about a tool it never met:</strong> "
-                f"<span>{data.model_label(worst['model'])} catches {worst['recall']:.1%} of "
-                f"{worst['experiment'].replace('E3_', '')} traffic when that tool is held out of training, "
-                f"against {worst['f1']:.4f} F1 there.</span>",
-                "tone-alert",
-            )
+            {
+                "icon": "alert",
+                "tone": "tone-alert",
+                "kicker": "Held-out tool",
+                "hero": f"{worst['recall']:.1%}",
+                "detail": f"{data.model_label(worst['model'])} catches this much "
+                f"{worst['experiment'].removeprefix('E3_')} traffic when that tool is unseen in training, "
+                f"against {worst['f1']:.4f} F1 there.",
+            }
         )
 
     cross = headline[headline["experiment"] == "E4_cic2testbed"].sort_values("f1")
     if not cross.empty:
         c = cross.iloc[-1]
         out.append(
-            (
-                "warn",
-                f"<strong>Cross-dataset is where the headroom is:</strong> <span>the same features carry "
-                f"{c['recall']:.1%} recall on {data.experiment_label('E4_cic2testbed').lower()}, the only "
-                "experiment where the models are not saturated.</span>",
-                "tone-warn",
-            )
+            {
+                "icon": "warn",
+                "tone": "tone-warn",
+                "kicker": "Cross-dataset",
+                "hero": f"{c['recall']:.1%}",
+                "detail": f"The best {data.model_label(c['model'])} recall on "
+                f"{data.experiment_label('E4_cic2testbed').lower()}: the same features against a network they "
+                "were never trained on, and the only experiment where nothing is saturated.",
+            }
         )
 
     if not latency.empty:
-        ok = latency[latency["latency_ms_median"] < data.LIMIT_MS]["model"].nunique()
+        under = latency[latency["latency_ms_median"] < data.LIMIT_MS]["model"].nunique()
+        cpu = data.read_table("latency_cpu")
+        box = str(cpu["cpu"].iloc[0]).replace(" Processor", "") if not cpu.empty else "one CPU box"
         out.append(
-            (
-                "clock",
-                f"<strong>{ok} of {latency['model'].nunique()} timed models clear the "
-                f"{data.LIMIT_MS:.0f} ms per-query rule on one CPU box</strong> <span>- the rule is what "
-                "13,000 queries/s implies, and it removes candidates that win on accuracy alone.</span>",
-                "tone-warn",
-            )
+            {
+                "icon": "clock",
+                "tone": "tone-warn",
+                "kicker": "Latency gate",
+                "hero": f"{under} of {latency['model'].nunique()}",
+                "detail": f"Timed models holding median under {data.LIMIT_MS:.0f} ms per query on one core of "
+                f"a {box}. The gate is what removes candidates that win on accuracy alone.",
+            }
         )
     return out

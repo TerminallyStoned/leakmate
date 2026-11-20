@@ -259,7 +259,20 @@ def key() -> None:
     st.markdown(f'<div class="lm-key">{spans}</div>', unsafe_allow_html=True)
 
 
-def verdicts(rows: list[tuple[str, str, str]]) -> None:
-    """Conclusions as statements: (icon, html body, tone class)."""
-    items = "".join(f'<div class="lm-verdict {tone}">{icon(name)}<p>{body}</p></div>' for name, body, tone in rows)
+def verdicts(rows: list[dict]) -> None:
+    """What the frozen numbers say, as a grid of cards.
+
+    Each card is `{icon, kicker, hero, detail, tone}`: the kicker and icon on the left say which question the
+    card answers, the hero on the right is the one number or name worth reading first, and the detail carries
+    the qualifications. A row of sentences made these look like warnings; a grid of figures makes them look
+    like findings.
+    """
+    items = "".join(
+        f'<div class="lm-verdict {row["tone"]}">'
+        f'<div class="lm-v-left">{icon(row["icon"])}<span>{row["kicker"]}</span></div>'
+        f'<div class="lm-v-right"><div class="lm-v-hero">{row["hero"]}</div>'
+        f'<p class="lm-v-detail">{row["detail"]}</p></div>'
+        f"</div>"
+        for row in rows
+    )
     st.markdown(f'<div class="lm-verdicts">{items}</div>', unsafe_allow_html=True)

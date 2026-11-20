@@ -2,8 +2,12 @@
 
    House rules this file follows, kept here so the next edit does not undo them:
    - colour is authored in OKLCH, so equal lightness actually looks equal across the purple family ramp;
-   - borders are alpha, never a solid hex, so they blend into whichever surface they sit on;
-   - depth comes from lighter surfaces rather than shadows, which barely read on a dark ground;
+   - NOTHING is demarcated by a stroke. A panel separates by luminance, is lit along its top-left edge with a
+     gradient rim (`--rim`), and throws a coloured ambient glow to the lower-right (`--lift`) - the inverse of a
+     drop shadow, which does nothing on a dark ground. A hairline between two rows is a gradient that fades at
+     both ends (`--rule`), never a solid line that runs edge to edge;
+   - because the ground is a wash rather than flat black, the ladder of surfaces actually reads;
+   - depth comes from lighter surfaces rather than shadows;
    - nested radii are derived: an inner corner is the outer radius minus the padding around it;
    - motion is 90-180ms on transform/opacity/border only, and `prefers-reduced-motion` turns it off;
    - the horizontal tab strip fades its edges with a mask instead of a hard crop;
@@ -21,10 +25,32 @@
   --text-2: oklch(80% 0.014 285);
   --text-3: oklch(65% 0.016 285);
 
+  /* accent ramp: purple is the voice, blue and cyan are the punctuation */
   --accent: oklch(76% 0.14 300);
-  --accent-text: oklch(84% 0.1 300);
+  --accent-2: oklch(72% 0.13 258);
+  --accent-3: oklch(84% 0.11 200);
+  --accent-text: oklch(86% 0.1 300);
   --accent-soft: oklch(76% 0.14 300 / 0.14);
   --accent-line: oklch(76% 0.14 300 / 0.45);
+
+  /* demarcation, in one place. A raised surface is: a flat fill, a rim that is bright at the top-left and
+     gone by the bottom-right (light falling on it, not a border drawn around it), and an ambient glow in the
+     accent's hue. `--rule` and `--rule-v` are the only separators, and both fade out at their ends. */
+  /* diffuse, not drawn: bright enough at the top-left corner to read as light, gone before halfway down
+     either axis, so no side of a panel ever looks like it has a stroke */
+  --rim: linear-gradient(152deg, oklch(100% 0 0 / 0.11), oklch(76% 0.14 300 / 0.085) 22%,
+         oklch(72% 0.13 258 / 0.03) 44%, transparent 66%);
+  --rim-alert: linear-gradient(148deg, oklch(100% 0 0 / 0.14), oklch(66% 0.19 22 / 0.3) 26%, transparent 70%);
+  /* the glow has to stay inside the gap beneath a plate: a long, strong one reads as a smudge across the
+     paragraph below, which is what the first pass did */
+  --lift: inset 0 1px 0 oklch(100% 0 0 / 0.045), 0 16px 30px -24px oklch(58% 0.2 296 / 0.34),
+          0 2px 8px -7px oklch(60% 0.16 255 / 0.22);
+  --rule: linear-gradient(90deg, transparent, oklch(76% 0.14 300 / 0.26) 14% 86%, transparent);
+  --rule-bright: linear-gradient(90deg, transparent, oklch(76% 0.14 300 / 0.5) 12% 88%, transparent);
+  --rule-v: linear-gradient(180deg, transparent, oklch(76% 0.14 300 / 0.24) 16% 84%, transparent);
+  --glass: oklch(22% 0.024 288 / 0.62);
+  --wash: linear-gradient(112deg, oklch(76% 0.14 300 / 0.06), oklch(72% 0.13 258 / 0.035) 40%,
+          oklch(84% 0.11 200 / 0.03) 68%, transparent 90%);
 
   /* model families: three hues, matched lightness, readable side by side */
   --fam-supervised: oklch(74% 0.16 305);
@@ -59,11 +85,30 @@ body,
   color: var(--text-1);
 }
 [data-testid="stApp"] {
-  background: var(--surface-0);
+  background:
+    radial-gradient(115% 70% at 8% -6%, oklch(34% 0.075 298 / 0.5), transparent 58%),
+    radial-gradient(90% 55% at 100% 0%, oklch(32% 0.055 232 / 0.4), transparent 55%),
+    var(--surface-0);
+  background-attachment: fixed;
+}
+/* one recipe for every raised panel, so demarcation is never reinvented per component */
+.lm-strip,
+.lm-table-wrap,
+.st-key-lm_feed_stack,
+.lm-verdict,
+.lm-hint {
+  border: 1px solid transparent;
+  background:
+    linear-gradient(var(--surface-1), var(--surface-1)) padding-box,
+    var(--rim) border-box;
+  box-shadow: var(--lift);
 }
 [data-testid="stSidebar"] {
-  background: var(--surface-1);
-  border-right: 1px solid var(--border);
+  /* glass, so the wash behind it is visible: the bar is a plane over the page, not a box beside it */
+  background: linear-gradient(var(--glass), var(--glass));
+  backdrop-filter: blur(14px) saturate(150%);
+  box-shadow: inset -1px 0 0 oklch(100% 0 0 / 0.05), 18px 0 30px -26px oklch(50% 0.2 296 / 0.4);
+  border-right: 0;
 }
 [data-testid="stAppViewContainer"] main {
   padding-top: 1.6rem;
@@ -71,7 +116,8 @@ body,
 
 /* ------------------------------- masthead ------------------------------- */
 .lm-head {
-  border-bottom: 1px solid var(--border);
+  border-bottom: 0;
+  background: var(--rule-bright) bottom / 100% 1px no-repeat;
   padding-bottom: 0.9rem;
   margin-bottom: 1.4rem;
 }
@@ -115,7 +161,7 @@ body,
 [data-testid="stMarkdownContainer"] code,
 [data-testid="stCaptionContainer"] code {
   background: var(--surface-2);
-  border: 1px solid var(--border);
+  box-shadow: inset 0 1px 0 oklch(100% 0 0 / 0.06);
   color: var(--text-1);
 }
 .lm-title {
@@ -132,28 +178,43 @@ body,
   max-width: 78ch;
 }
 
+/* text sits above the plates: a glow that reaches a paragraph should illuminate the gap, not the words */
+.lm-note,
+.lm-sec,
+.lm-rows-head,
+.stCaptionContainer,
+[data-testid="stCaptionContainer"],
+p.lm-kv {
+  position: relative;
+  z-index: 1;
+}
+
 /* ------------------------------ status strip ---------------------------- */
 .lm-strip {
   display: flex;
   flex-wrap: wrap;
-  background: var(--surface-1);
-  border: 1px solid var(--border);
   border-radius: var(--r-outer);
   overflow: hidden;
   margin-bottom: 1.1rem;
 }
 .lm-cell {
   flex: 1 1 7.5rem;
+  /* no margin: the UA gives <dl> a 16px bottom margin, and a flex item's outer size includes it, so the cell's
+     border box - the hairline and the hover fill - would stop 16px short of the strip's bottom curve */
+  margin: 0;
+  align-self: stretch;
   padding: 0.65rem var(--pad);
-  border-right: 1px solid var(--border);
+  border-right: 0;
   min-width: 0;
-  transition: background var(--fast);
+  /* the separator is a vertical gradient that stops short of both corners, so it reads as a light seam */
+  background: var(--rule-v) right / 1px 100% no-repeat;
+  transition: background-color var(--fast), color var(--fast);
 }
 .lm-cell:last-child {
-  border-right: 0;
+  background: none;
 }
 .lm-cell:hover {
-  background: var(--surface-2);
+  background-color: var(--surface-2);
 }
 .lm-cell dt {
   font-size: 0.6875rem;
@@ -196,8 +257,9 @@ body,
   font-weight: 650;
   color: var(--text-2);
   margin: 1.5rem 0 0.6rem;
-  padding-bottom: 0.35rem;
-  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.4rem;
+  border-bottom: 0;
+  background: var(--rule) bottom / 100% 1px no-repeat;
 }
 .lm-note {
   font-size: 0.78125rem;
@@ -206,8 +268,6 @@ body,
   max-width: 92ch;
 }
 
-/* ------------------------------- the wire ------------------------------- */
-code,
 /* the feed's invitation: an alert has to be clicked, so the empty state says so without decoration */
 .lm-hint {
   display: flex;
@@ -215,9 +275,7 @@ code,
   gap: 0.6rem;
   margin: 0;
   padding: 0.85rem 1rem;
-  border: 1px dashed var(--border-strong);
-  border-radius: var(--r-inner);
-  background: var(--surface-1);
+  border-radius: var(--r-outer);
   color: var(--text-2);
   font-size: 0.9rem;
   line-height: 1.45;
@@ -248,9 +306,7 @@ code,
   overflow: hidden;
 }
 .st-key-lm_feed_stack {
-  border: 1px solid var(--border);
   border-radius: var(--r-outer);
-  background: var(--surface-1);
   overflow: hidden;
   padding: 0.2rem 0;
 }
@@ -294,21 +350,29 @@ code,
 }
 /* rows are separated, not spaced: that is what makes a stack of buttons read as a table */
 .st-key-lm_feed_stack [data-testid^="stButton"]:not(:last-child) {
-  border-bottom: 1px solid var(--border);
+  background: var(--rule) bottom / 100% 1px no-repeat;
 }
 .st-key-lm_feed_stack [data-testid^="stBaseButton-"]:hover {
   background: var(--surface-2);
   color: var(--text-1);
 }
-/* the row that is open: the same raised box language as the navbar, not a filled button */
+/* the open row: lifted and lit rather than stroked - a vertical accent that fades at both ends, over a
+   surface one step above the plate, and the ambient glow the plate itself carries */
 .st-key-lm_feed_stack [data-testid="stBaseButton-primary"] {
-  background: var(--surface-3);
   color: var(--text-1);
   font-weight: 650;
-  box-shadow: inset 2px 0 0 var(--accent);
+  background-color: oklch(26% 0.032 292 / 0.9);
+  background-image:
+    linear-gradient(90deg, oklch(76% 0.14 300 / 0.9), oklch(72% 0.13 258 / 0.25) 30%, transparent 62%),
+    linear-gradient(var(--rule), var(--rule));
+  background-position: left center, bottom;
+  background-size: 2px 68%, 100% 1px;
+  background-repeat: no-repeat;
+  box-shadow: inset 0 1px 0 oklch(100% 0 0 / 0.07), inset 0 -1px 0 oklch(100% 0 0 / 0.03);
+  text-shadow: 0 0 18px oklch(76% 0.14 300 / 0.35);
 }
 .st-key-lm_feed_stack [data-testid="stBaseButton-primary"]:hover {
-  background: var(--surface-3);
+  background-color: oklch(28% 0.036 292 / 0.95);
 }
 
 /* long tables keep their header: 250 alerts without a column label is a wall of text */
@@ -319,12 +383,14 @@ code,
   z-index: 1;
 }
 
+/* ------------------------------- the wire ------------------------------- */
+code,
 .lm-wire {
   font-family: var(--mono);
   font-size: 0.8125rem;
   color: var(--text-1);
   background: var(--surface-2);
-  border: 1px solid var(--border);
+  box-shadow: inset 0 1px 0 oklch(100% 0 0 / 0.06);
   border-radius: var(--r-inner);
   padding: 0.05rem 0.3rem;
 }
@@ -335,9 +401,7 @@ code,
   gap: 0.6rem;
   margin: 0;
   padding: 0.85rem 1rem;
-  border: 1px dashed var(--border-strong);
-  border-radius: var(--r-inner);
-  background: var(--surface-1);
+  border-radius: var(--r-outer);
   color: var(--text-2);
   font-size: 0.9rem;
   line-height: 1.45;
@@ -363,21 +427,111 @@ code,
   font-family: ui-monospace, "SFMono-Regular", "JetBrains Mono", Menlo, monospace;
   font-size: 0.6875rem;
   letter-spacing: 0.04em;
-  padding: 0.08rem 0.4rem;
-  border: 1px solid var(--border-strong);
+  padding: 0.08rem 0.42rem;
   border-radius: 999px;
   color: var(--text-2);
   background: var(--surface-2);
+  box-shadow: inset 0 1px 0 oklch(100% 0 0 / 0.07);
 }
 .lm-badge.is-alert {
-  color: var(--alert);
-  border-color: oklch(66% 0.19 22 / 0.4);
+  color: oklch(80% 0.14 22);
   background: var(--alert-soft);
+  box-shadow: inset 0 1px 0 oklch(100% 0 0 / 0.08), 0 0 18px -6px oklch(66% 0.19 22 / 0.8);
+}
+
+/* --------------------------- what the numbers say ----------------------- */
+/* A grid of findings, not a stack of notices: two columns of cards, each card asking its question on the
+   left and answering it in large figures on the right. */
+.lm-verdicts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 21rem), 1fr));
+  gap: 0.75rem;
+  margin: 0 0 1.4rem;
+}
+.lm-verdict {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.9rem;
+  align-items: start;
+  min-height: 7.5rem;
+  border-radius: var(--r-outer);
+  padding: 0.95rem 1.05rem;
+  /* the plate recipe owns fill, rim and glow; this only lays the card out and animates it */
+  transition: transform var(--mid), box-shadow var(--mid), background-color var(--fast);
+}
+.lm-v-left {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  min-width: 0;
+}
+.lm-v-left span {
+  font-size: 0.625rem;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  font-weight: 650;
+  color: var(--text-3);
+  writing-mode: initial;
+}
+.lm-v-hero {
+  font-size: 1.5rem;
+  line-height: 1.12;
+  font-weight: 680;
+  letter-spacing: -0.02em;
+  color: var(--text-1);
+  font-variant-numeric: tabular-nums;
+  /* the hero carries the tone: the accent tint on the text, not a coloured box around it */
+  text-shadow: 0 0 26px oklch(76% 0.14 300 / 0.22);
+}
+.lm-v-detail {
+  margin: 0.45rem 0 0;
+  font-size: 0.78125rem;
+  line-height: 1.5;
+  color: var(--text-3);
+  max-width: 44ch;
+}
+.lm-verdict svg {
+  width: 1.05rem;
+  height: 1.05rem;
+  stroke-width: 1.6;
+  color: var(--accent);
+}
+.tone-alert svg {
+  color: var(--alert);
+}
+.tone-warn svg {
+  color: var(--over);
+}
+.tone-alert .lm-v-hero {
+  color: oklch(84% 0.11 22);
+  text-shadow: 0 0 26px oklch(66% 0.19 22 / 0.3);
+}
+.tone-warn .lm-v-hero {
+  color: oklch(88% 0.09 80);
+  text-shadow: 0 0 26px oklch(80% 0.12 80 / 0.22);
+}
+.lm-verdict:hover {
+  /* background-color, not background: the plate's layered fill must survive the hover */
+  background-color: var(--surface-2);
+  box-shadow: inset 0 1px 0 oklch(100% 0 0 / 0.07), 0 18px 32px -24px oklch(62% 0.2 296 / 0.5);
+  transform: translateY(-1px);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .lm-verdict:hover {
+    transform: translateY(-2px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lm-verdict:hover {
+    transform: none;
+  }
 }
 
 /* --------------------------- one alert explained ------------------------ */
 .lm-why {
-  border-left: 2px solid var(--accent);
+  border-left: 0;
+  background: linear-gradient(180deg, oklch(76% 0.14 300 / 0.8), oklch(84% 0.11 200 / 0.18)) left / 2px 100%
+    no-repeat;
   padding: 0.15rem 0 0.15rem 0.85rem;
   margin: 0.5rem 0 0.9rem;
   font-size: 0.875rem;
@@ -391,67 +545,17 @@ code,
   gap: 0.5rem;
 }
 .lm-dl div {
-  border-bottom: 1px solid var(--border);
+  border-bottom: 0;
+  background: var(--rule) bottom / 100% 1px no-repeat;
   padding-bottom: 0.45rem;
 }
 .lm-dl div:last-child {
-  border-bottom: 0;
+  background: none;
 }
 .lm-kv {
   font-size: 0.78125rem;
   color: var(--text-2);
   font-variant-numeric: tabular-nums;
-}
-
-/* --------------------------- conclusions band --------------------------- */
-.lm-verdicts {
-  display: grid;
-  gap: 0.55rem;
-  margin-bottom: 0.4rem;
-}
-.lm-verdict {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 0.6rem;
-  align-items: start;
-  background: var(--surface-1);
-  border: 1px solid var(--border);
-  border-radius: var(--r-outer);
-  padding: 0.7rem var(--pad);
-  transition: border-color var(--fast), background var(--fast), transform var(--fast);
-}
-.lm-verdict:hover {
-  border-color: var(--accent-line);
-  background: var(--surface-2);
-  transform: translateY(-1px);
-}
-.lm-verdict svg {
-  width: 1rem;
-  height: 1rem;
-  margin-top: 0.12rem;
-  /* stroke matches the 500-weight body text it sits beside */
-  stroke-width: 1.6;
-}
-.lm-verdict p {
-  margin: 0;
-  font-size: 0.875rem;
-  line-height: 1.45;
-  color: var(--text-1);
-}
-.lm-verdict p strong {
-  font-weight: 660;
-}
-.lm-verdict p span {
-  color: var(--text-2);
-}
-.tone-good svg {
-  color: var(--accent);
-}
-.tone-warn svg {
-  color: var(--over);
-}
-.tone-alert svg {
-  color: var(--alert);
 }
 
 /* --------------------------- family legend dots ------------------------- */
@@ -478,9 +582,7 @@ code,
 /* --------------------------------- tables ------------------------------- */
 .lm-table-wrap {
   overflow-x: auto;
-  border: 1px solid var(--border);
   border-radius: var(--r-outer);
-  background: var(--surface-1);
 }
 table.lm-table {
   border-collapse: collapse;
@@ -492,7 +594,10 @@ table.lm-table th,
 table.lm-table td {
   text-align: left;
   padding: 0.45rem 0.7rem;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 0;
+  /* the row separator is a gradient that fades before either edge, painted as a background layer so a hover
+     fill can still sit underneath it */
+  background: var(--rule) bottom / 100% 1px no-repeat;
   color: var(--text-1);
   white-space: nowrap;
 }
@@ -502,7 +607,7 @@ table.lm-table th {
   text-transform: uppercase;
   color: var(--text-3);
   font-weight: 600;
-  border-bottom: 1px solid var(--border-strong);
+  background: var(--surface-2) padding-box, var(--rule-bright) bottom / 100% 1px no-repeat;
   position: sticky;
   top: 0;
   background: var(--surface-2);
@@ -624,8 +729,8 @@ h3 {
   padding: 0.5rem 0.75rem;
   margin-bottom: 0.3rem;
   color: var(--text-2);
-  border: 1px solid transparent;
-  transition: color var(--fast), background var(--fast), border-color var(--fast), transform var(--fast);
+  border: 0;
+  transition: color var(--fast), background-color var(--fast), box-shadow var(--mid), transform var(--fast);
 }
 [data-testid="stRadio"] [data-testid="stRadioOption"]:hover {
   color: var(--text-1);
@@ -633,15 +738,18 @@ h3 {
   transform: translateX(2px);
 }
 [data-testid="stRadio"] [data-testid="stRadioOption"]:has(input:checked) {
-  background: var(--surface-3);
-  border-color: var(--accent-line);
+  background:
+    linear-gradient(90deg, oklch(76% 0.14 300 / 0.22), oklch(72% 0.13 258 / 0.06) 46%, transparent 78%),
+    var(--surface-3);
   color: var(--text-1);
   font-weight: 650;
+  box-shadow: inset 0 1px 0 oklch(100% 0 0 / 0.1), 0 10px 22px -18px oklch(62% 0.2 296 / 0.7);
 }
 
 .stButton > button {
-  background: var(--surface-2);
-  border: 1px solid var(--border-strong);
+  border: 1px solid transparent;
+  background: linear-gradient(var(--surface-2), var(--surface-2)) padding-box, var(--rim) border-box;
+  box-shadow: inset 0 1px 0 oklch(100% 0 0 / 0.06);
   border-radius: var(--r-inner);
   color: var(--text-1);
   font-weight: 600;
@@ -688,9 +796,12 @@ h3 {
 }
 
 [data-testid="stWarning"] {
-  background: oklch(30% 0.05 22 / 0.35) !important;
-  border: 1px solid oklch(66% 0.19 22 / 0.35) !important;
+  background:
+    linear-gradient(oklch(28% 0.05 24 / 0.55), oklch(28% 0.05 24 / 0.55)) padding-box,
+    var(--rim-alert) border-box !important;
+  border: 1px solid transparent !important;
   border-radius: var(--r-outer) !important;
+  box-shadow: 0 14px 26px -22px oklch(56% 0.19 22 / 0.5) !important;
 }
 [data-testid="stWarning"] div,
 [data-testid="stWarning"] p {
@@ -698,11 +809,14 @@ h3 {
 }
 [data-testid="stCode"] {
   background: var(--surface-1);
-  border: 1px solid var(--border);
+  border: 0;
+  box-shadow: inset 0 1px 0 oklch(100% 0 0 / 0.05);
   border-radius: var(--r-inner);
 }
 hr {
-  border-color: var(--border);
+  border: 0;
+  height: 1px;
+  background: var(--rule);
 }
 
 /* sidebar width hugs its content: the wordmark is the widest thing in it. Streamlit sizes the bar from an
