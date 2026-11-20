@@ -91,6 +91,14 @@ says which is which instead of showing a number that would be wrong.
 The `batches` table and `meta.mode` were added on 19 Nov. On an older database the latency panel says so and
 points at `results/latency_cpu.csv`; every other panel is unaffected.
 
+Paging is offered twice, because a fifty row page puts the controls at the top out of reach: the number input
+above the table is labelled with the running total (`Page 3/97`), and a strip below the table carries
+**Previous**, the position (`3 / 97`), and **Next**. The strip is not a plate and adds no box of its own - the
+two buttons sit on the table's own left and right edges with the position centred between them, so it reads as
+belonging to the rows it moves. `Previous` and `Next` are disabled at the first and last page rather than
+wrapping, and they write the paging widget's key from a callback, which is what lets one press both move the
+page and re-render the slice.
+
 Query names, host addresses and anything else read from `alerts.db` are escaped before they go into the page:
 a DNS name is whatever the client sent, and the tables and alert panels are the dashboard's own HTML.
 

@@ -76,6 +76,31 @@ FEED_ALIGN = """() => {
   return {drift: drift, worst: Math.max(...drift.map((d) => Math.abs(d[1])))};
 }"""
 
+PAGER = """() => {
+  const q = document.querySelector('.st-key-lm_pager');
+  if (!q) { return {error: 'no pager'}; }
+  const on = (el) => el.getBoundingClientRect().width > 0;
+  const btns = [...q.querySelectorAll('button')].filter(on);
+  const plate = document.querySelector('.st-key-lm_feed_stack').getBoundingClientRect();
+  const num = q.querySelector('.lm-pager-num');
+  if (btns.length < 2 || !num) { return {error: 'pager incomplete', btns: btns.length}; }
+  // the glyphs, not the block: the number sits in a full width element, so its box is centred even when the
+  // text inside it is not
+  const tn = [...num.childNodes].find((c) => c.nodeType === 3 && c.nodeValue.trim());
+  const range = document.createRange();
+  range.selectNodeContents(tn || num);
+  const nr = range.getBoundingClientRect();
+  return {
+    leftGap: Math.round(Math.abs(btns[0].getBoundingClientRect().left - plate.left)),
+    rightGap: Math.round(Math.abs(btns[1].getBoundingClientRect().right - plate.right)),
+    centreGap: Math.round(Math.abs(nr.left + nr.width / 2 - (plate.left + plate.width / 2))),
+    text: num.textContent.trim(),
+    prevOff: btns[0].disabled,
+    nextOff: btns[1].disabled,
+    below: Math.round(btns[0].getBoundingClientRect().top - plate.bottom)
+  };
+}"""
+
 SELECTED = (
     "() => [...document.querySelectorAll('[role=tab]')].find(t => t.getAttribute('aria-selected') === 'true').innerText"
 )
@@ -202,8 +227,60 @@ def live_controls(pg, width: int) -> None:
         pg.wait_for_timeout(12000)
         moved = pg.locator(".st-key-lm_feed_stack button:not([disabled])").first.inner_text()
         check(f"{width}px Live: paging changes the rows", before != moved, before[:24])
+    feed_pager(pg, width)
     m = pg.evaluate(METRICS)
     check(f"{width}px Live: no overflow after interaction", m["overflow"] <= 1, str(m["overflow"]))
+
+
+def feed_pager(pg, width: int) -> None:
+    """The flipper below the table: where it sits, that it moves the rows, and that both ends stop."""
+    soft_click(pg.locator("[role='tab']", has_text="Alert feed"), "feed tab")
+    pg.wait_for_timeout(6000)
+    # earlier checks page the feed, so go back to page one deliberately: the end-of-range assertions are about
+    # page one, not about wherever the last check happened to leave it
+    box = pg.locator("[data-testid='stNumberInput'] input")
+    box.first.fill("1")
+    box.first.press("Enter")
+    pg.wait_for_timeout(11000)
+    g = pg.evaluate(PAGER)
+    check(f"{width}px Live: pager exists below the table", "error" not in g, str(g)[:70])
+    if "error" in g:
+        return
+    # the strip belongs to the table, so its ends are the table's ends and the position is centred on it
+    check(f"{width}px Live: Previous sits on the table edge", g["leftGap"] <= 2, str(g["leftGap"]))
+    check(f"{width}px Live: Next sits on the table edge", g["rightGap"] <= 2, str(g["rightGap"]))
+    check(f"{width}px Live: page position is centred", g["centreGap"] <= 2, str(g["centreGap"]))
+    check(f"{width}px Live: pager is outside the plate", g["below"] >= 0, str(g["below"]))
+    check(f"{width}px Live: position shows current and total", "/" in g["text"], g["text"])
+    check(f"{width}px Live: Previous is disabled on page one", g["prevOff"] is True, str(g["prevOff"]))
+
+    pages = int(g["text"].split("/")[1])
+    before = pg.locator(".st-key-lm_feed_stack button:not([disabled])").first.inner_text()
+    nxt = pg.get_by_role("button", name="Next", exact=True)
+    check(f"{width}px Live: Next is clickable", nxt.count() > 0 and not nxt.first.is_disabled(), str(nxt.count()))
+    if nxt.count():
+        nxt.first.click(force=True)
+        pg.wait_for_timeout(11000)
+        g2 = pg.evaluate(PAGER)
+        moved = pg.locator(".st-key-lm_feed_stack button:not([disabled])").first.inner_text()
+        check(f"{width}px Live: Next advances the position", g2.get("text") == f"2 / {pages}", str(g2.get("text")))
+        check(f"{width}px Live: Next changes the rows", before != moved, moved[:24])
+        check(f"{width}px Live: Previous wakes up", g2.get("prevOff") is False, str(g2.get("prevOff")))
+        pg.get_by_role("button", name="Previous", exact=True).first.click(force=True)
+        pg.wait_for_timeout(11000)
+        back = pg.evaluate(PAGER)
+        check(f"{width}px Live: Previous returns", back.get("text") == f"1 / {pages}", str(back.get("text")))
+
+    if pages > 1:
+        box = pg.locator("[data-testid='stNumberInput'] input")
+        box.first.fill(str(pages))
+        box.first.press("Enter")
+        pg.wait_for_timeout(13000)
+        last = pg.evaluate(PAGER)
+        check(f"{width}px Live: Next is disabled on the last page", last.get("nextOff") is True, str(last)[:90])
+        box.first.fill("1")
+        box.first.press("Enter")
+        pg.wait_for_timeout(11000)
 
 
 def run() -> int:

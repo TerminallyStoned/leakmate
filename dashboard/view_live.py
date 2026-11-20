@@ -252,7 +252,10 @@ def _feed(conn: sqlite3.Connection, view: dict) -> None:
     where = {"hosts": view["hosts"], "since": view["since"], "min_score": floor, "search": search}
     total = data.alert_page(conn, limit=0, **where)[1]
     pages = max(1, -(-total // size))
-    page = min(cols[4].number_input("Page", 1, pages, 1, key="lm_feed_page"), pages)
+    # the label carries the running total because the number box alone only ever shows where you are
+    pending = st.session_state.get("lm_feed_page", 1)
+    label = f"Page {min(max(int(pending), 1), pages):,}/{pages:,}"
+    page = min(cols[4].number_input(label, 1, pages, 1, key="lm_feed_page"), pages)
     frame, _ = data.alert_page(conn, sort=sort, offset=(page - 1) * size, limit=size, **where)
     if not total:
         st.caption("No alert matches this window and these filters.")
@@ -284,6 +287,45 @@ def _feed(conn: sqlite3.Connection, view: dict) -> None:
                 on_click=_open_alert,
                 args=(int(row.id),),
             )
+
+    _pager(page, pages)
+
+
+def _pager(page: int, pages: int) -> None:
+    """Flip a page without leaving the bottom of a long table.
+
+    The controls at the top are far away once fifty rows are open, and paging should not require scrolling back
+    up. Previous and Next sit at the two extremes of the table width with the position between them, so the
+    control reads as belonging to the rows it moves.
+    """
+    with st.container(key="lm_pager"):
+        left, mid, right = st.columns([1, 2, 1], vertical_alignment="center", gap=0)
+        left.button(
+            "Previous",
+            key="lm_feed_prev",
+            disabled=page <= 1,
+            help=None if page <= 1 else f"Go to page {page - 1:,} of {pages:,}",
+            on_click=_goto_page,
+            args=(page - 1,),
+        )
+        mid.markdown(f'<div class="lm-pager-num">{page:,} / {pages:,}</div>', unsafe_allow_html=True)
+        right.button(
+            "Next",
+            key="lm_feed_next",
+            disabled=page >= pages,
+            help=None if page >= pages else f"Go to page {page + 1:,} of {pages:,}",
+            on_click=_goto_page,
+            args=(page + 1,),
+        )
+
+
+def _goto_page(page: int) -> None:
+    """Move the feed to `page`.
+
+    A callback runs before the script does, so writing the paging widget's key is how a button press reaches it:
+    the number input is created later in the run and picks the value up as its own.
+    """
+    st.session_state["lm_feed_page"] = int(page)
 
 
 #: the fixed fields of a row label, and the query name takes whatever width is left

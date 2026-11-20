@@ -354,6 +354,37 @@ p.lm-kv {
 .st-key-lm_feed_head {
   background: var(--rule-bright) bottom / 100% 1px no-repeat;
 }
+/* Paging below the plate. It is a control strip, not another card: no plate, no rim, and the two buttons sit
+   on the table's own edges so the strip reads as belonging to the rows it moves. */
+.st-key-lm_pager {
+  margin-top: 0.7rem;
+}
+.st-key-lm_pager [data-testid^="stBaseButton-"] {
+  border: 0;
+  border-radius: var(--r-inner);
+  background: none;
+  box-shadow: none;
+  color: var(--accent-text);
+  padding: 0.34rem 0.85rem;
+  min-width: 7.5rem;
+  justify-content: center;
+}
+.st-key-lm_pager [data-testid^="stBaseButton-"]:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+/* the element Streamlit keys per widget is the button's own wrapper, and it sits in a column-direction flex
+   box, so the horizontal axis here is align-self: that puts Next on the far edge of the table */
+.st-key-lm_feed_next {
+  align-self: flex-end;
+}
+.lm-pager-num {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.82rem;
+  color: var(--text-2);
+  text-align: center;
+  white-space: nowrap;
+}
 .st-key-lm_feed_stack {
   border-radius: var(--r-outer);
   overflow: hidden;
