@@ -55,8 +55,21 @@ strip is bound to the URL (`st.tabs(..., bind="query-params")`), which is also t
 programmatically: writing `live_section` through `st.query_params` raises, and writing it after the strip
 exists does nothing.
 
-Row labels are monospace with fixed field widths, so the columns line up with the header (`_row_label`) while
-the row remains a single button. Long query names truncate at the end, where the label is least informative.
+Row labels are padded to fixed field widths by `view_live._columns`, which the column header uses too, so one
+string is both the label and the header. For that to hold, four things have to be true at once, and `qa_visual.py`
+measures the result at every width rather than trusting them:
+
+- the label text is monospace **all the way down**. Streamlit sets its own `font-family` on the paragraph inside
+  a button label, and an inherited font on the wrapper loses to it, so every node holding label text is pinned
+  to `--mono`;
+- `--mono` starts with a real monospace face. `ui-monospace` looks correct in devtools but renders `U+00A0`
+  narrower than a digit in Chromium on Linux, and padding is `U+00A0`;
+- no `letter-spacing` and the same `font-weight` on header and rows. A wider face, or tracking, moves every
+  column by a fraction of a character each, so the error grows along the row;
+- the header is a button label, not HTML. Rendered through `st.markdown` it goes down a different text path and
+  the padding comes out at a different width.
+
+Long query names truncate at the end, where the label is least informative.
 
 Nothing is explained until a row is pressed. The alert is then read by primary key, so any alert in the file can
 be explained, not only the ones a panel happens to hold. `Clear` forgets it and returns to the feed.
