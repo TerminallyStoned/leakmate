@@ -89,28 +89,22 @@ body,
   color: var(--text-1);
 }
 
-/* Streamlit's header is an absolutely positioned 60px band at z-index 999990, and the page scrolls under it.
-   Painting it the page colour made that band an invisible wall that sliced text in half as you scrolled. It
-   stays transparent - it still has to exist, because the sidebar's expand control lives inside it - and the
-   fade that replaces the cut is drawn by the scroll container itself, so it never covers the sidebar. */
+/* The header is taken out of the layout rather than dressed up. It is an absolutely positioned 60px band at
+   z-index 999990 with a 96px allowance padded above the content block, which is where the gap at the top of
+   the page came from; painting it, or fading under it, only made the empty band visible in a different way
+   (the earlier "shadow" was that fade). Zeroing the band and its allowance means content simply starts at the
+   top and nothing floats over it. The node itself stays in the DOM because the sidebar's expand control is
+   rendered inside it. */
 [data-testid="stHeader"] {
+  height: 0;
+  min-height: 0;
   background: transparent;
+  box-shadow: none;
   color: var(--text-1);
+  overflow: visible;
 }
-[data-testid="stMain"] {
-  position: relative;
-}
-[data-testid="stAppViewScrollContainer"]::before,
-[data-testid="stMain"] [data-testid="stMainBlockContainer"]::before {
-  content: "";
-  position: sticky;
-  top: 0;
-  z-index: 4;
-  display: block;
-  height: 3.4rem;
-  margin: -3.4rem 0 0;
-  pointer-events: none;
-  background: linear-gradient(var(--surface-0) 34%, transparent);
+[data-testid="stMainBlockContainer"] {
+  padding-top: 1.1rem;
 }
 [data-testid="stApp"] {
   background:
@@ -138,9 +132,7 @@ body,
   box-shadow: inset -1px 0 0 oklch(100% 0 0 / 0.05), 20px 14px 34px -26px oklch(50% 0.2 296 / 0.42);
   border-right: 0;
 }
-[data-testid="stAppViewContainer"] main {
-  padding-top: 1.6rem;
-}
+
 
 /* ------------------------------- masthead ------------------------------- */
 .lm-head {
@@ -703,6 +695,15 @@ footer,
 [data-testid="stSidebarCollapsedControl"] {
   visibility: visible;
   pointer-events: auto;
+}
+/* The band that used to hold this control is zero-height now, and the button was centred inside it, so it
+   floated half above the viewport. Fixed positioning puts it back where the reader expects the only way back
+   into a closed navbar - top-left, over the space the bar just vacated. */
+[data-testid="stToolbar"] [data-testid="stExpandSidebarButton"] {
+  position: fixed;
+  top: 0.6rem;
+  left: 0.75rem;
+  z-index: 1000000;
 }
 [data-testid="stCaptionContainer"],
 [data-testid="stCaptionContainer"] p {
