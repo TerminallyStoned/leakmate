@@ -1,0 +1,28 @@
+# RITA v5.1.2 + ClickHouse, without RITA's syslog container. Run from a work folder that holds
+# RITA's config files from the v5.1.2 tag (docs/external-baselines.md) and zeek_test/:
+#   docker compose -f rita-compose.yml -p rita up -d clickhouse
+#   docker compose -f rita-compose.yml -p rita run --rm rita import --database leakmate_e1 --logs /logs --rebuild
+#   docker compose -f rita-compose.yml -p rita run --rm -T rita view --stdout leakmate_e1 > rita_e1.csv
+services:
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.1.6
+    healthcheck:
+      test: wget --no-verbose --tries=1 --spider http://localhost:8123/ping || exit 1
+      interval: 3s
+      retries: 40
+    volumes:
+      - ./config.xml:/etc/clickhouse-server/users.d/custom_config.xml
+    ulimits:
+      nofile: { soft: 131070, hard: 131070 }
+  rita:
+    image: ghcr.io/activecm/rita:v5.1.2
+    depends_on:
+      clickhouse: { condition: service_healthy }
+    links: ["clickhouse:db"]
+    environment: [DB_ADDRESS=db:9000, TERM=xterm-256color]
+    volumes:
+      - ./config.hjson:/config.hjson
+      - ./http_extensions_list.csv:/etc/rita/http_extensions_list.csv
+      - ./threat_intel_feeds:/etc/rita/threat_intel_feeds
+      - ./.env:/.env
+      - ./zeek_test:/logs:ro
