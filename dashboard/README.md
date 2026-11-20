@@ -1,6 +1,7 @@
 # leakmate dashboard
 
-Three pages, all read-only. **Overview** answers "is it working, and what did we find" on one screen;
+Three pages, all read-only, on a dark purple chrome: colour is authored in OKLCH, borders are alpha, depth
+comes from lighter surfaces rather than shadows, and every categorical colour in a chart means model family. **Overview** answers "is it working, and what did we find" on one screen;
 **Live** is the detector detail (feed, score over time, why each alert fired, batch latency) and **Results**
 is the evaluation detail (comparison, curves, latency, per tool, split order). Sidebar collapses to a rail and
 expands again, and the selected page is marked with a filled box rather than a radio button. Nothing recomputes a
@@ -29,6 +30,14 @@ Other switches:
 | `LEAKMATE_RESULTS=results_nozone` | the runs with the lab domain hidden, instead of `results/` |
 | `LEAKMATE_ALERTS_DB=/tmp/demo_alerts.db` | read another SQLite file |
 | `LEAKMATE_PAGE=Results` | open on that page; used to take the report screenshots one at a time |
+
+## Chrome
+
+Dark purple by default: `.streamlit/config.toml` resolves the theme when the server starts, which is the only
+moment Streamlit reads it. The bar itself (in `styles.css`) authors colour in OKLCH, uses alpha borders so
+they blend into whichever surface they sit on, and shows depth with lighter surfaces instead of shadows.
+The navbar hugs the wordmark's width and is not draggable; the override is scoped to
+`:not([data-collapsed="true"])` so Streamlit's own collapse still takes over when the bar is closed.
 
 ## Live page
 
@@ -68,12 +77,13 @@ Host-averaged and ablation runs are behind one toggle so the six headline models
 |---|---|
 | `dashboard/app.py` | entry point and page switch |
 | `dashboard/shell.py` | the palette, the navbar, status strips, the HTML tables |
-| `dashboard/styles.css` | chrome: hairlines, one signal colour, tabular figures |
+| `dashboard/styles.css` | chrome: OKLCH tokens, alpha hairlines, one accent, tabular figures |
+| `dashboard/assets/leakmate_logo.png` | the wordmark, background keyed out so it sits on the dark surface |
 | `dashboard/data.py` | the only place that opens `results/` and `alerts.db` |
 | `dashboard/view_live.py`, `dashboard/view_results.py` | the two pages |
 | `dashboard/explain.py` | plain words for the M1 feature names SHAP reports |
 | `dashboard/demo.py` | synthetic `alerts.db` for layout and screenshots, never for numbers |
-| `.streamlit/config.toml` | Streamlit's theme, fixed when the server starts |
+| `.streamlit/config.toml` | the dark purple theme, resolved by Streamlit when the server starts |
 
 Tests: `python -m pytest tests/test_dashboard.py` (renders the pages headlessly with Streamlit's AppTest; CI
 runs them in its m1 group).

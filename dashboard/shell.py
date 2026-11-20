@@ -16,23 +16,65 @@ import pandas as pd
 import streamlit as st
 
 HERE = Path(__file__).resolve().parent
+LOGO = HERE / "assets" / "leakmate_logo.png"
+
 #: x scale for every time axis. Vega draws times in the browser's zone unless told otherwise, and the feed,
 #: the captions and live/README.md are all in UTC.
 UTC = alt.Scale(type="utc")
 
-#: chart colours, matching the custom properties in styles.css
+#: chart colours, mirroring the OKLCH tokens in styles.css as sRGB (Vega needs concrete paint values)
 PALETTE = {
-    "light": {
-        "ink": "#1F2328",
-        "ink2": "#57606A",
-        "ink3": "#8C959F",
-        "rule": "#DDE0E3",
-        "grid": "#EFEFF0",
-        "signal": "#A31D1D",
-        "fade": "#C9CDD1",
-        "plot": "#6E7781",
-    },
+    "ink": "#EDEBF6",
+    "ink2": "#A9A4C0",
+    "ink3": "#6F6A87",
+    "rule": "rgba(255,255,255,0.20)",
+    "grid": "rgba(255,255,255,0.06)",
+    "signal": "#C4A6FF",
+    "fade": "#4C4767",
+    "plot": "#8B86A8",
+    "alert": "#F0616B",
+    "over": "#E3B163",
 }
+
+#: colour means model family, everywhere. Three hues at matched lightness plus a neutral for baselines,
+#: so a chart can be read by family without a legend hunt. Values match --fam-* in styles.css.
+FAMILIES = {
+    "supervised": "oklch(74% 0.16 305)",
+    "unsupervised": "oklch(76% 0.13 190)",
+    "leakage": "oklch(80% 0.14 78)",
+    "baseline": "oklch(70% 0.02 285)",
+}
+FAMILY_LABEL = {
+    "supervised": "Supervised (M1)",
+    "unsupervised": "Unsupervised (M2)",
+    "leakage": "Leakage (M3)",
+    "baseline": "Baseline",
+}
+FAMILY_OF = {
+    "m1": "supervised",
+    "m1_testbed": "supervised",
+    "m2": "unsupervised",
+    "m2_ablation1_char": "unsupervised",
+    "m3_cnn": "leakage",
+    "m3_bilstm": "leakage",
+    "rf": "baseline",
+    "iforest": "baseline",
+}
+
+
+def family(model: str) -> str:
+    """The model family a row belongs to: exact name, then prefix, then baseline."""
+    base = model.split("_hostavg")[0].split("_ablation")[0]
+    if base in FAMILY_OF:
+        return FAMILY_OF[base]
+    if base.startswith("m1"):
+        return "supervised"
+    if base.startswith("m2"):
+        return "unsupervised"
+    if base.startswith("m3"):
+        return "leakage"
+    return "baseline"
+
 
 TOOLTIP = (
     "Live detection runs M1 (XGBoost) on the testbed split and stores alerts with their SHAP features in "
@@ -46,12 +88,14 @@ TOOLTIP = (
 
 def setup() -> None:
     """Page config plus the stylesheet."""
-    st.set_page_config(page_title="leakmate", layout="wide", initial_sidebar_state="expanded")
+    icon = str(LOGO) if LOGO.exists() else None
+    st.set_page_config(page_title="leakmate", page_icon=icon, layout="wide", initial_sidebar_state="expanded")
     st.markdown(f"<style>{(HERE / 'styles.css').read_text()}</style>", unsafe_allow_html=True)
 
 
 def pal() -> dict[str, str]:
-    return PALETTE["light"]
+    """The one palette: the app is dark, and Vega needs sRGB rather than the CSS tokens."""
+    return PALETTE
 
 
 def chart_config() -> dict:
@@ -73,6 +117,7 @@ def chart(height: int = 240) -> dict:
                 "titleFontWeight": 600,
                 "domainColor": p["rule"],
                 "gridColor": p["grid"],
+                "gridWidth": 1,
                 "tickColor": p["rule"],
                 "labelFontSize": 11,
             },
@@ -94,7 +139,10 @@ def chart(height: int = 240) -> dict:
 def nav(pages: list[str], key: str = "page") -> str:
     """Brand and the view switch. The selected page is drawn as a filled box (styles.css)."""
     with st.sidebar:
-        st.markdown('<div class="lm-brand">leakmate</div>', unsafe_allow_html=True)
+        if LOGO.exists():
+            st.image(str(LOGO), width=150)
+        else:  # the asset is optional: the navbar still says what the app is
+            st.markdown('<div class="lm-brand">leakmate</div>', unsafe_allow_html=True)
         return st.radio("View", pages, key=key, label_visibility="collapsed", help=TOOLTIP, width="stretch")
 
 
@@ -165,3 +213,36 @@ def _cell(value, kind: str) -> str:
     if kind == "mark":
         return f'<span class="mark">{text}</span>' if text else ""
     return text
+
+
+# --------------------------------------------------------------------------- small icons
+
+
+def icon(name: str, tone: str = "") -> str:
+    """Inline SVG, 1.6 stroke - the weight of the body text it sits beside, per the icon rule."""
+    paths = {
+        "ok": '<path d="M20 6 9 17l-5-5"/>',
+        "warn": '<path d="M12 9v4m0 4h.01M10.3 3.9 2.5 17.5A2 2 0 0 0 4.2 20.5h15.6a2 2 0 0 0 1.7-3L13.7 3.9"/>',
+        "alert": '<circle cx="12" cy="12" r="9"/><path d="M12 8v4m0 4h.01"/>',
+        "clock": '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+        "trend": '<path d="M3 17l6-6 4 4 7-7"/><path d="M14 8h6v6"/>',
+    }
+    cls = f' class="{tone}"' if tone else ""
+    return (
+        f'<svg{cls} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" '
+        f'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">{paths.get(name, paths["ok"])}</svg>'
+    )
+
+
+def key() -> None:
+    """The family legend, once, where family colour is first used."""
+    spans = "".join(
+        f'<span><i class="lm-dot" style="background:{FAMILIES[f]}"></i>{FAMILY_LABEL[f]}</span>' for f in FAMILIES
+    )
+    st.markdown(f'<div class="lm-key">{spans}</div>', unsafe_allow_html=True)
+
+
+def verdicts(rows: list[tuple[str, str, str]]) -> None:
+    """Conclusions as statements: (icon, html body, tone class)."""
+    items = "".join(f'<div class="lm-verdict {tone}">{icon(name)}<p>{body}</p></div>' for name, body, tone in rows)
+    st.markdown(f'<div class="lm-verdicts">{items}</div>', unsafe_allow_html=True)

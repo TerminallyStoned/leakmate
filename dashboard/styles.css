@@ -1,26 +1,52 @@
-/* leakmate dashboard. Style meter 1: mainstream chrome, personality in type, colour and voice.
-   Rules for this file: hairlines instead of shadows, one saturated colour (an alert), tabular figures
-   for anything a human compares, and nothing that moves.
+/* leakmate dashboard - chrome for the dark purple theme.
 
-   Colours live in the custom properties on :root, which dashboard/shell.py mirrors for the charts.
-   Streamlit's own theme is fixed at server start and cannot change at runtime, so anything this file
-   retargets is written once, for light. */
+   House rules this file follows, kept here so the next edit does not undo them:
+   - colour is authored in OKLCH, so equal lightness actually looks equal across the purple family ramp;
+   - borders are alpha, never a solid hex, so they blend into whichever surface they sit on;
+   - depth comes from lighter surfaces rather than shadows, which barely read on a dark ground;
+   - nested radii are derived: an inner corner is the outer radius minus the padding around it;
+   - motion is 90-180ms on transform/opacity/border only, and `prefers-reduced-motion` turns it off;
+   - the horizontal tab strip fades its edges with a mask instead of a hard crop;
+   - one saturated colour (the accent) plus three categorical hues reserved for model families.
+*/
 
 :root {
-  --bg: #ffffff;
-  --bg-2: #f7f7f5;
-  --bg-3: #fafaf9;
-  --ink: #1f2328;
-  --ink-2: #57606a;
-  --ink-3: #8c959f;
-  --rule: #dde0e3;
-  --rule-strong: #c3c8cd;
-  --grid: #efeff0;
-  --signal: #a31d1d;
-  --signal-ink: #a31d1d;
-  --signal-bg: #fdf3f3;
-  --signal-rule: #e6bcbc;
-  --fade: #c9cdd1;
+  /* elevation: the page is the darkest plane, everything raised off it is lighter */
+  --surface-0: oklch(15% 0.016 285);
+  --surface-1: oklch(19% 0.018 285);
+  --surface-2: oklch(23% 0.02 285);
+  --surface-3: oklch(28% 0.022 285);
+
+  --text-1: oklch(96% 0.008 285);
+  --text-2: oklch(80% 0.014 285);
+  --text-3: oklch(65% 0.016 285);
+
+  --accent: oklch(76% 0.14 300);
+  --accent-text: oklch(84% 0.1 300);
+  --accent-soft: oklch(76% 0.14 300 / 0.14);
+  --accent-line: oklch(76% 0.14 300 / 0.45);
+
+  /* model families: three hues, matched lightness, readable side by side */
+  --fam-supervised: oklch(74% 0.16 305);
+  --fam-unsupervised: oklch(76% 0.13 190);
+  --fam-leakage: oklch(80% 0.14 78);
+  --fam-baseline: oklch(70% 0.02 285);
+
+  /* semantics */
+  --alert: oklch(66% 0.19 22);
+  --alert-soft: oklch(66% 0.19 22 / 0.16);
+  --over: oklch(80% 0.12 80);
+
+  --border: oklch(100% 0 0 / 0.1);
+  --border-strong: oklch(100% 0 0 / 0.2);
+  --grid: oklch(100% 0 0 / 0.06);
+
+  --pad: 0.9rem;
+  --r-outer: 16px;
+  --r-inner: max(5px, calc(var(--r-outer) - var(--pad)));
+  --ease: cubic-bezier(0.2, 0, 0.38, 0.9);
+  --fast: 90ms var(--ease);
+  --mid: 160ms var(--ease);
 }
 
 html,
@@ -28,91 +54,117 @@ body,
 .stApp,
 [data-testid="stAppViewContainer"],
 [data-testid="stHeader"] {
-  background: var(--bg);
-  color: var(--ink);
+  background: var(--surface-0);
+  color: var(--text-1);
 }
 [data-testid="stApp"] {
-  background: var(--bg);
+  background: var(--surface-0);
 }
 [data-testid="stSidebar"] {
-  background: var(--bg-2);
-  border-right: 1px solid var(--rule);
+  background: var(--surface-1);
+  border-right: 1px solid var(--border);
 }
-[data-testid="stSidebar"] * {
-  color: var(--ink-2);
-}
-[data-testid="stSidebar"] .lm-brand,
-[data-testid="stSidebar"] [data-testid="stSidebarCollapseButton"] {
-  color: var(--ink);
+[data-testid="stAppViewContainer"] main {
+  padding-top: 1.6rem;
 }
 
-/* ---- masthead ---- */
+/* ------------------------------- masthead ------------------------------- */
 .lm-head {
-  border-bottom: 1px solid var(--rule);
+  border-bottom: 1px solid var(--border);
   padding-bottom: 0.9rem;
-  margin-bottom: 1.25rem;
+  margin-bottom: 1.4rem;
 }
 .lm-eyebrow {
   font-size: 0.6875rem;
-  letter-spacing: 0.09em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--ink-3);
+  color: var(--text-3);
   font-weight: 600;
 }
 .lm-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   font-size: 1.05rem;
   font-weight: 650;
   letter-spacing: -0.01em;
+  margin: 0 0 1rem;
+  color: var(--text-1);
+}
+/* the mark's stroke matches the weight of the wordmark beside it */
+/* the wordmark: Streamlit's image block is stripped to the bitmap itself */
+[data-testid="stSidebar"] [data-testid="stImage"],
+[data-testid="stSidebar"] picture,
+[data-testid="stSidebar"] [data-testid="stImageContainer"] {
+  margin: 0 0 1rem;
+  padding: 0;
+  background: none;
+  border: 0;
+}
+[data-testid="stSidebar"] [data-testid="stImage"] img {
   display: block;
-  margin: 0 0 0.9rem;
+  width: 100%;
+  height: auto;
+  border-radius: var(--r-inner);
+}
+.stMarkdown code,
+[data-testid="stMarkdownContainer"] code,
+[data-testid="stCaptionContainer"] code {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-1);
 }
 .lm-title {
-  font-size: 1.5rem;
-  font-weight: 650;
-  letter-spacing: -0.015em;
-  margin: 0.15rem 0 0.2rem;
-  color: var(--ink);
+  font-size: 1.75rem;
+  font-weight: 680;
+  letter-spacing: -0.02em;
+  margin: 0.1rem 0 0.25rem;
+  color: var(--text-1);
 }
 .lm-sub {
-  font-size: 0.8125rem;
-  color: var(--ink-2);
+  font-size: 0.875rem;
+  color: var(--text-2);
   margin: 0;
+  max-width: 78ch;
 }
 
-/* ---- status strip ---- */
+/* ------------------------------ status strip ---------------------------- */
 .lm-strip {
   display: flex;
   flex-wrap: wrap;
-  border: 1px solid var(--rule);
-  border-radius: 4px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--r-outer);
   overflow: hidden;
-  margin-bottom: 1rem;
-  background: var(--bg);
+  margin-bottom: 1.1rem;
 }
 .lm-cell {
   flex: 1 1 7.5rem;
-  padding: 0.6rem 0.85rem;
-  border-right: 1px solid var(--rule);
+  padding: 0.65rem var(--pad);
+  border-right: 1px solid var(--border);
   min-width: 0;
+  transition: background var(--fast);
 }
 .lm-cell:last-child {
   border-right: 0;
 }
+.lm-cell:hover {
+  background: var(--surface-2);
+}
 .lm-cell dt {
-  white-space: nowrap;
   font-size: 0.6875rem;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
-  color: var(--ink-3);
+  color: var(--text-3);
   margin: 0 0 0.2rem;
   font-weight: 600;
 }
 .lm-cell dd {
   margin: 0;
   font-size: 1.0625rem;
-  font-weight: 600;
+  font-weight: 620;
   font-variant-numeric: tabular-nums;
-  color: var(--ink);
+  color: var(--text-1);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -120,90 +172,178 @@ body,
 .lm-cell dd small {
   font-size: 0.6875rem;
   font-weight: 500;
-  color: var(--ink-2);
+  color: var(--text-2);
 }
 .lm-hot dd {
-  color: var(--signal-ink);
+  color: var(--alert);
+}
+.lm-accent dd {
+  color: var(--accent-text);
 }
 
-/* ---- sections ---- */
+/* -------------------------------- sections ------------------------------ */
 .lm-sec {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
   font-size: 0.75rem;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
   font-weight: 650;
-  color: var(--ink-2);
-  margin: 1.4rem 0 0.55rem;
-  padding-bottom: 0.3rem;
-  border-bottom: 1px solid var(--rule);
+  color: var(--text-2);
+  margin: 1.5rem 0 0.6rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--border);
 }
 .lm-note {
-  font-size: 0.75rem;
-  color: var(--ink-3);
-  margin: 0.15rem 0 0.7rem;
+  font-size: 0.78125rem;
+  color: var(--text-3);
+  margin: 0.1rem 0 0.8rem;
+  max-width: 92ch;
 }
 
-/* ---- the wire ---- */
+/* ------------------------------- the wire ------------------------------- */
 code,
 .lm-wire {
   font-family: ui-monospace, "SFMono-Regular", "JetBrains Mono", Menlo, Consolas, monospace;
   font-size: 0.8125rem;
-  color: var(--ink);
+  color: var(--text-1);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-inner);
+  padding: 0.05rem 0.3rem;
 }
 .lm-wire {
   word-break: break-all;
+  background: none;
+  border: 0;
+  padding: 0;
 }
 
-/* ---- badges ---- */
+/* --------------------------------- badges ------------------------------- */
 .lm-badge {
   display: inline-block;
   font-family: ui-monospace, "SFMono-Regular", "JetBrains Mono", Menlo, monospace;
   font-size: 0.6875rem;
   letter-spacing: 0.04em;
-  padding: 0.05rem 0.35rem;
-  border: 1px solid var(--rule-strong);
-  border-radius: 3px;
-  color: var(--ink-2);
-  background: var(--bg-3);
+  padding: 0.08rem 0.4rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  color: var(--text-2);
+  background: var(--surface-2);
 }
 .lm-badge.is-alert {
-  color: var(--signal-ink);
-  border-color: var(--signal-rule);
-  background: var(--signal-bg);
+  color: var(--alert);
+  border-color: oklch(66% 0.19 22 / 0.4);
+  background: var(--alert-soft);
 }
 
-/* ---- one alert explained ---- */
+/* --------------------------- one alert explained ------------------------ */
 .lm-why {
-  border-left: 2px solid var(--signal);
-  padding: 0.15rem 0 0.15rem 0.8rem;
+  border-left: 2px solid var(--accent);
+  padding: 0.15rem 0 0.15rem 0.85rem;
   margin: 0.5rem 0 0.9rem;
   font-size: 0.875rem;
-  color: var(--ink);
+  color: var(--text-1);
 }
 .lm-why p {
   margin: 0 0 0.2rem;
 }
 .lm-dl {
   display: grid;
-  gap: 0.45rem;
+  gap: 0.5rem;
 }
 .lm-dl div {
-  border-bottom: 1px solid var(--rule);
-  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.45rem;
 }
 .lm-dl div:last-child {
   border-bottom: 0;
 }
 .lm-kv {
-  font-size: 0.75rem;
-  color: var(--ink-2);
+  font-size: 0.78125rem;
+  color: var(--text-2);
   font-variant-numeric: tabular-nums;
 }
 
-/* ---- tables we own: hairlines, right numerals, no zebra ---- */
+/* --------------------------- conclusions band --------------------------- */
+.lm-verdicts {
+  display: grid;
+  gap: 0.55rem;
+  margin-bottom: 0.4rem;
+}
+.lm-verdict {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.6rem;
+  align-items: start;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--r-outer);
+  padding: 0.7rem var(--pad);
+  transition: border-color var(--fast), background var(--fast), transform var(--fast);
+}
+.lm-verdict:hover {
+  border-color: var(--accent-line);
+  background: var(--surface-2);
+  transform: translateY(-1px);
+}
+.lm-verdict svg {
+  width: 1rem;
+  height: 1rem;
+  margin-top: 0.12rem;
+  /* stroke matches the 500-weight body text it sits beside */
+  stroke-width: 1.6;
+}
+.lm-verdict p {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: var(--text-1);
+}
+.lm-verdict p strong {
+  font-weight: 660;
+}
+.lm-verdict p span {
+  color: var(--text-2);
+}
+.tone-good svg {
+  color: var(--accent);
+}
+.tone-warn svg {
+  color: var(--over);
+}
+.tone-alert svg {
+  color: var(--alert);
+}
+
+/* --------------------------- family legend dots ------------------------- */
+.lm-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1rem;
+  margin: 0 0 0.7rem;
+  font-size: 0.75rem;
+  color: var(--text-2);
+}
+.lm-key span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.lm-dot {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 3px;
+  flex: none;
+}
+
+/* --------------------------------- tables ------------------------------- */
 .lm-table-wrap {
   overflow-x: auto;
-  border-top: 1px solid var(--rule);
+  border: 1px solid var(--border);
+  border-radius: var(--r-outer);
+  background: var(--surface-1);
 }
 table.lm-table {
   border-collapse: collapse;
@@ -214,21 +354,22 @@ table.lm-table {
 table.lm-table th,
 table.lm-table td {
   text-align: left;
-  padding: 0.4rem 0.6rem;
-  border-bottom: 1px solid var(--rule);
-  color: var(--ink);
+  padding: 0.45rem 0.7rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-1);
   white-space: nowrap;
 }
 table.lm-table th {
   font-size: 0.6875rem;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
-  color: var(--ink-3);
+  color: var(--text-3);
   font-weight: 600;
-  border-bottom: 1px solid var(--rule-strong);
+  border-bottom: 1px solid var(--border-strong);
   position: sticky;
   top: 0;
-  background: var(--bg);
+  background: var(--surface-2);
+  z-index: 1;
 }
 table.lm-table td.num,
 table.lm-table th.num {
@@ -239,118 +380,85 @@ table.lm-table td.wire {
   font-size: 0.75rem;
   white-space: nowrap;
 }
+table.lm-table tbody tr {
+  transition: background var(--fast);
+}
+table.lm-table tbody tr:hover {
+  background: var(--surface-2);
+}
+table.lm-table tbody tr:last-child td {
+  border-bottom: 0;
+}
 table.lm-table tr.is-picked td {
-  background: var(--signal-bg);
-  font-weight: 600;
+  background: var(--accent-soft);
+  font-weight: 620;
 }
 table.lm-table .mark {
-  color: var(--signal-ink);
+  color: var(--accent-text);
   font-size: 0.6875rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
-/* ---- streamlit chrome ---- */
+/* ---------------------------- streamlit chrome -------------------------- */
 #MainMenu,
 footer,
 [data-testid="stToolbar"] {
   visibility: hidden;
 }
 
-/* the toolbar carries the Deploy menu, but on a collapsed sidebar it also carries the only way back:
-   keep that control visible and let it take up no space when the sidebar is open */
-[data-testid="stSidebarCollapsedControl"],
-[data-testid="stExpandSidebarButton"] {
-  visibility: visible;
+/* the toolbar carries the Deploy menu, but when the bar is closed it also carries the only way back: keep
+   that control visible, and keep the header out of the way of everything else in it */
+[data-testid="stToolbar"] {
+  pointer-events: none;
 }
-[data-testid="stHeader"] {
-  background: transparent;
+[data-testid="stToolbar"] [data-testid="stExpandSidebarButton"],
+[data-testid="stSidebarCollapsedControl"] {
+  visibility: visible;
+  pointer-events: auto;
 }
 [data-testid="stCaptionContainer"],
 [data-testid="stCaptionContainer"] p {
-  color: var(--ink-3);
-  font-size: 0.75rem;
+  color: var(--text-3);
+  font-size: 0.78125rem;
 }
 .stMarkdown p,
 .stMarkdown li,
+.stMarkdown strong,
 h1,
 h2,
 h3 {
-  color: var(--ink);
+  color: var(--text-1);
+}
+.stMarkdown a {
+  color: var(--accent-text);
 }
 [data-testid="stMetricValue"] {
-  color: var(--ink);
+  color: var(--text-1);
   font-variant-numeric: tabular-nums;
 }
-[data-testid="stMetricLabel"] {
-  color: var(--ink-3);
+[data-testid="stMetricLabel"] p {
+  color: var(--text-3);
+}
+
+/* the tab strip scrolls sideways on narrow screens: fade the edges, do not crop them */
+[data-baseweb="tab-list"] {
+  background: transparent !important;
+  mask: linear-gradient(90deg, transparent, black 6% 94%, transparent);
 }
 [data-baseweb="tab"] {
-  color: var(--ink-2);
+  color: var(--text-3);
   font-weight: 600;
+  transition: color var(--fast);
 }
 [data-baseweb="tab"]:hover {
-  color: var(--ink);
+  color: var(--text-1);
 }
 [data-baseweb="tab-highlight"],
 [data-baseweb="tab-border"] {
-  background-color: var(--signal);
-}
-[data-baseweb="select"] > div {
-  background: var(--bg);
-  border-color: var(--rule);
-  color: var(--ink);
-}
-[data-baseweb="popover"] ul,
-[data-baseweb="menu"] ul {
-  background: var(--bg);
-}
-[data-baseweb="popover"] li {
-  color: var(--ink);
-}
-[data-testid="stBaseButton-"] button,
-.stButton > button,
-element-container .stButton > button {
-  background: var(--bg);
-  border: 1px solid var(--rule-strong);
-  color: var(--ink);
-  border-radius: 4px;
-  font-weight: 600;
-}
-.stButton > button:hover {
-  border-color: var(--ink-2);
-  color: var(--ink);
-}
-[data-testid="stRadio"] label,
-[data-testid="stWidgetLabel"] p,
-[data-testid="stToggle"] label p {
-  color: var(--ink-2);
-}
-[data-testid="stRadio"] label:hover,
-[data-testid="stRadio"] input:checked ~ * {
-  color: var(--ink);
-}
-[data-testid="stWarning"] {
-  border-color: var(--signal-rule);
-  background: var(--signal-bg);
-}
-[data-testid="stWarning"] div,
-[data-testid="stWarning"] p {
-  color: var(--ink);
-}
-hr {
-  border-color: var(--rule);
+  background-color: var(--accent);
 }
 
-/* sidebar geometry. Only the padding is ours: Streamlit 1.67 has no sidebar-width option (its config
-   exposes theme.sidebar.* colours and nothing else), and the panel width lives in an inline
-   `width: 300px; flex-shrink: 0` written by the resizable panel - overriding that with !important stops the
-   navbar collapsing and stops the page reclaiming its space. The option boxes do span the full content
-   width, so their inset to each edge is the same 1rem of container padding. */
-[data-testid="stSidebarContent"] {
-  padding-left: 1rem;
-  padding-right: 1rem;
-}
 [data-testid="stSidebarUserContent"] [data-testid="stElementContainer"],
 [data-testid="stSidebarUserContent"] [data-testid="stVerticalBlock"] > div,
 [data-testid="stSidebarUserContent"],
@@ -363,35 +471,114 @@ hr {
   padding-left: 0;
   padding-right: 0;
 }
-/* the view switch: the selected page is a filled box, not a radio button */
-[data-testid="stRadio"] [data-testid="stRadioOption"] {
-  border-radius: 4px;
-  padding: 0.4rem 0.65rem;
-  margin-bottom: 0.2rem;
-  color: var(--ink-2);
-  border: 1px solid transparent;
+[data-testid="stRadio"] [data-testid="stRadioGroup"] {
+  align-items: stretch;
 }
-[data-testid="stRadio"] [data-testid="stRadioOption"]:hover {
-  color: var(--ink);
-  background: var(--bg-3);
-}
-/* Streamlit draws the circle in the first inner div of each option: drop it, keep the input for the keyboard */
 [data-testid="stRadio"] [data-testid="stRadioOption"] > div > div:first-child {
   display: none !important;
 }
 [data-testid="stRadio"] [data-testid="stRadioOption"] > div {
   gap: 0;
 }
+
+/* the view switch: the selected page is a raised, accent-edged box */
+[data-testid="stRadio"] [data-testid="stRadioOption"] {
+  border-radius: var(--r-inner);
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.3rem;
+  color: var(--text-2);
+  border: 1px solid transparent;
+  transition: color var(--fast), background var(--fast), border-color var(--fast), transform var(--fast);
+}
+[data-testid="stRadio"] [data-testid="stRadioOption"]:hover {
+  color: var(--text-1);
+  background: var(--surface-2);
+  transform: translateX(2px);
+}
 [data-testid="stRadio"] [data-testid="stRadioOption"]:has(input:checked) {
-  background: var(--signal-bg);
-  border-color: var(--signal-rule);
-  color: var(--signal-ink);
+  background: var(--surface-3);
+  border-color: var(--accent-line);
+  color: var(--text-1);
   font-weight: 650;
 }
-[data-testid="stRadio"] label {
-  padding-left: 0;
+
+.stButton > button {
+  background: var(--surface-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-inner);
+  color: var(--text-1);
+  font-weight: 600;
+  transition: border-color var(--fast), background var(--fast), transform var(--fast);
 }
-[data-testid="stRadio"] [data-testid="stRadioGroup"] {
-  width: 100%;
-  align-items: stretch;
+.stButton > button:hover {
+  border-color: var(--accent-line);
+  background: var(--surface-3);
+  color: var(--text-1);
+  transform: translateY(-1px);
+}
+
+/* keyboard focus is always visible, and never a bare outline on a dark ground */
+:focus-visible,
+[data-testid="stRadioOption"]:has(input:focus-visible),
+[data-baseweb="tab"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--r-inner);
+}
+
+[data-testid="stWarning"] {
+  background: oklch(30% 0.05 22 / 0.35) !important;
+  border: 1px solid oklch(66% 0.19 22 / 0.35) !important;
+  border-radius: var(--r-outer) !important;
+}
+[data-testid="stWarning"] div,
+[data-testid="stWarning"] p {
+  color: var(--text-1) !important;
+}
+[data-testid="stCode"] {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--r-inner);
+}
+hr {
+  border-color: var(--border);
+}
+
+/* sidebar width hugs its content: the wordmark is the widest thing in it. Streamlit sizes the bar from an
+   inline `width` on the panel itself, so the override has to be !important - and it is scoped to
+   :not([data-collapsed="true"]), which is what keeps the collapse animation working: the moment the bar
+   closes the rule stops matching and Streamlit's own width takes over again. */
+[data-testid="stSidebar"]:not([data-collapsed="true"]) {
+  width: 12rem !important;
+  min-width: 12rem !important;
+  max-width: 12rem !important;
+}
+/* a bar that hugs its content is not a draggable pane: the handle would snap back */
+[data-testid="stSidebarResizeHandle"] {
+  display: none;
+}
+[data-testid="stSidebarContent"] {
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+[data-testid="stSidebarContent"],
+[data-testid="stSidebarUserContent"],
+[data-testid="stSidebarUserContent"] [data-testid="stVerticalBlock"] {
+  display: block;
+  height: auto;
+  min-height: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+  [data-testid="stRadio"] [data-testid="stRadioOption"]:hover,
+  .lm-verdict:hover,
+  .stButton > button:hover {
+    transform: none;
+  }
 }

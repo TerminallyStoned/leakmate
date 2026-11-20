@@ -50,6 +50,7 @@ def render() -> None:
         format_func=data.experiment_label,
         index=_default_experiment(summary["experiment"]),
     )
+    shell.key()
     compare, curves, latency, tools, split = st.tabs(
         ["Comparison", "ROC and matrices", "Latency", "Per tunnel tool", "Split order"]
     )
@@ -180,11 +181,14 @@ def _trade_off(summary: pd.DataFrame, experiment: str) -> None:
     frame = summary[summary["experiment"] == experiment].copy()
     if frame.empty or "recall_at_1pct_fpr" not in frame:
         return
-    frame["model"] = frame["model"].map(data.model_label)
     frame = frame.dropna(subset=["latency_ms_per_query", "recall_at_1pct_fpr"])
+    # family first: it is derived from the raw model name, which is about to be prettified for display
+    frame["family"] = frame["model"].map(shell.family)
+    frame["model"] = frame["model"].map(data.model_label)
     frame["cost"] = (frame["latency_ms_per_query"] > data.LIMIT_MS).map(
         {True: "over the rule", False: "under the rule"}
     )
+    scale = alt.Scale(domain=list(shell.FAMILIES), range=list(shell.FAMILIES.values()))
     pts = (
         alt.Chart(frame)
         .mark_point(size=95, filled=True)
@@ -200,13 +204,15 @@ def _trade_off(summary: pd.DataFrame, experiment: str) -> None:
                 title="recall at 1% false positives",
                 scale=alt.Scale(zero=False, nice=True),
             ),
-            # no legend: the key is in the caption under the chart, so nothing sits over the points
-            color=alt.Color(
+            # colour says the model family, shape says whether it clears the latency rule; the key sits
+            # above the tabs, so nothing is drawn over the points
+            color=alt.Color("family:N", scale=scale, legend=None),
+            shape=alt.Shape(
                 "cost:N",
-                scale=alt.Scale(domain=["under the rule", "over the rule"], range=[p["signal"], p["fade"]]),
+                scale=alt.Scale(domain=["under the rule", "over the rule"], range=["circle", "square"]),
                 legend=None,
             ),
-            tooltip=["model", "latency_ms_per_query", "recall_at_1pct_fpr", "fpr", "f1", "roc_auc"],
+            tooltip=["model", "family", "latency_ms_per_query", "recall_at_1pct_fpr", "fpr", "f1", "roc_auc"],
         )
     )
     rule = (
@@ -216,8 +222,9 @@ def _trade_off(summary: pd.DataFrame, experiment: str) -> None:
     )
     st.altair_chart(alt.layer(pts, rule).properties(**shell.chart(240)), use_container_width=True)
     st.caption(
-        f"Red clears the {data.LIMIT_MS:.0f} ms rule (dashed); grey does not. A flat top edge means the "
-        "experiment is saturated: several models separate every query, and cost is what tells them apart."
+        f"Colour is the model family; a square sits where measured cost passes the {data.LIMIT_MS:.0f} ms rule "
+        "(dashed) and a circle where it clears it. A flat top edge means the experiment is saturated: several "
+        "models separate every query, and cost is what tells them apart."
     )
 
 
@@ -257,20 +264,22 @@ def _latency(summary: pd.DataFrame) -> None:
             .rename(columns={"latency_ms_per_query": "latency_ms_median"})
         )
     frame = data.drop_variants(latency).copy()
+    frame["family"] = frame["model"].map(shell.family)
     frame["model"] = frame["model"].map(data.model_label)
     frame["over"] = frame["latency_ms_median"] > data.LIMIT_MS
+    scale = alt.Scale(domain=list(shell.FAMILIES), range=list(shell.FAMILIES.values()))
     bars = (
         alt.Chart(frame)
-        .mark_bar(color=p["ink2"], size=18)
+        .mark_bar(size=18)
         .encode(
             x=alt.X("model:N", title=None, sort=sorted(frame["model"])),
             y=alt.Y("latency_ms_median:Q", title="ms per query"),
             color=alt.Color(
-                "over:N",
-                legend=alt.Legend(title=None),
-                scale=alt.Scale(domain=[False, True], range=[p["signal"], p["fade"]]),
+                "family:N",
+                legend=alt.Legend(title=None, direction="horizontal"),
+                scale=scale,
             ),
-            tooltip=["model", "latency_ms_median", "queries_per_sec"],
+            tooltip=["model", "family", "latency_ms_median", "queries_per_sec"],
         )
     )
     rule = (
@@ -314,7 +323,7 @@ def _per_tool(summary: pd.DataFrame, variants: bool) -> None:
             y=alt.Y("model:N", title=None, sort=sorted(frame["model"].unique(), reverse=True)),
             color=alt.Color(
                 "recall:Q",
-                scale=alt.Scale(domain=[0, 1], range=["#F6E7E7", p["signal"]]),
+                scale=alt.Scale(domain=[0, 1], range=["#221F31", p["signal"]]),
                 legend=alt.Legend(title="recall"),
             ),
             row=alt.Row("held out:N", title="tool held out of training", header=alt.Header(labelFontSize=11)),

@@ -1,16 +1,19 @@
 # Theme for the leakmate dashboard (`streamlit run dashboard/app.py`).
-# Neutral chrome: the only saturated colour in the app is reserved for an alert.
+# Dark by default: Streamlit resolves the theme when the server starts, so this is the supported place for
+# it, and it themes Streamlit's own widgets, tables and chart defaults. dashboard/styles.css supplies the
+# surfaces on top. Accent is a single purple; alerts read from it, nothing else is saturated.
 [theme]
-base = "light"
-primaryColor = "#A31D1D"
-backgroundColor = "#FFFFFF"
-secondaryBackgroundColor = "#F4F4F2"
-textColor = "#1F2328"
+base = "dark"
+primaryColor = "#A78BFA"
+backgroundColor = "#151320"
+secondaryBackgroundColor = "#1E1B2C"
+textColor = "#EDEBF6"
+linkColor = "#C4A6FF"
+borderColor = "rgba(255,255,255,0.10)"
 font = "sans-serif"
 headingFont = "sans-serif"
 codeFont = "monospace"
-baseRadius = "small"
-borderColor = "#DDE0E3"
+baseRadius = "0.875rem"
 
 [server]
 headless = true

@@ -26,6 +26,8 @@ def render() -> None:
     live = _live_summary()
     results = _results_summary()
 
+    shell.verdicts(_conclusions())
+
     left, right = st.columns([1, 1], gap="large")
     with left:
         shell.section("Detector", "from <code>live/alerts.db</code>")
@@ -127,7 +129,7 @@ def _alerts_over_time(buckets: pd.DataFrame, bucket_s: float) -> None:
     )
     st.altair_chart(alt.layer(quiet, bars).properties(**shell.chart(132)), use_container_width=True)
     per = f"{bucket_s / 60:g} min" if bucket_s < 3_600 else f"{bucket_s / 3_600:g} h"
-    st.caption(f"Grey: queries scored per {per}. Red: of those, the alerts.")
+    st.caption(f"Grey: queries scored per {per}. Purple: of those, the alerts.")
 
 
 def _top_hosts(hosts: pd.DataFrame) -> None:
@@ -233,6 +235,7 @@ def _latency_overview(latency: pd.DataFrame) -> None:
     if latency.empty:
         return
     frame = data.drop_variants(latency).copy()
+    frame["family"] = frame["model"].map(shell.family)
     frame["model"] = frame["model"].map(data.model_label)
     frame["under"] = frame["latency_ms_median"] < data.LIMIT_MS
     chart = (
@@ -292,3 +295,84 @@ def _num(value) -> str:
         return f"{float(value):.4f}"
     except (TypeError, ValueError):
         return "-"
+
+
+# --------------------------------------------------------------------------- conclusions
+
+
+def _conclusions() -> list[tuple[str, str, str]]:
+    """Four or five sentences the frozen tables support, so the page says what was found, not only what
+    was measured. Every number is read from a committed file; nothing here is recomputed."""
+    summary = data.read_table("summary")
+    selection = data.read_table("selection")
+    latency = data.read_table("latency")
+    out: list[tuple[str, str, str]] = []
+    if summary.empty:
+        return [
+            ("warn", "<strong>No frozen results here.</strong> Run <code>python -m eval.summarise</code>.", "tone-warn")
+        ]
+
+    headline = data.drop_variants(summary)
+    best = headline.loc[headline["f1"].idxmax()]
+    out.append(
+        (
+            "ok",
+            f"<strong>{data.model_label(best['model'])} reaches the top of the rule at F1 {best['f1']:.4f}</strong> "
+            f"<span>in {data.experiment_label(best['experiment']).lower()}, with {best['fpr']:.5f} false positives "
+            "per benign query.</span>",
+            "tone-good",
+        )
+    )
+
+    if not selection.empty:
+        counts = selection["selected_model"].value_counts()
+        top_model, top_n = counts.index[0], int(counts.iloc[0])
+        out.append(
+            (
+                "trend",
+                f"<strong>{data.model_label(top_model)} is what the selection rule picks in {top_n} of "
+                f"{len(selection)} experiments</strong> <span>- best F1 subject to the false-positive ceiling "
+                "and the 10 ms rule.</span>",
+                "tone-good",
+            )
+        )
+
+    held_out = headline[headline["experiment"].str.startswith("E3")].sort_values("recall")
+    if not held_out.empty:
+        worst = held_out.iloc[0]
+        out.append(
+            (
+                "alert",
+                f"<strong>The supervised model is the least honest about a tool it never met:</strong> "
+                f"<span>{data.model_label(worst['model'])} catches {worst['recall']:.1%} of "
+                f"{worst['experiment'].replace('E3_', '')} traffic when that tool is held out of training, "
+                f"against {worst['f1']:.4f} F1 there.</span>",
+                "tone-alert",
+            )
+        )
+
+    cross = headline[headline["experiment"] == "E4_cic2testbed"].sort_values("f1")
+    if not cross.empty:
+        c = cross.iloc[-1]
+        out.append(
+            (
+                "warn",
+                f"<strong>Cross-dataset is where the headroom is:</strong> <span>the same features carry "
+                f"{c['recall']:.1%} recall on {data.experiment_label('E4_cic2testbed').lower()}, the only "
+                "experiment where the models are not saturated.</span>",
+                "tone-warn",
+            )
+        )
+
+    if not latency.empty:
+        ok = latency[latency["latency_ms_median"] < data.LIMIT_MS]["model"].nunique()
+        out.append(
+            (
+                "clock",
+                f"<strong>{ok} of {latency['model'].nunique()} timed models clear the "
+                f"{data.LIMIT_MS:.0f} ms per-query rule on one CPU box</strong> <span>- the rule is what "
+                "13,000 queries/s implies, and it removes candidates that win on accuracy alone.</span>",
+                "tone-warn",
+            )
+        )
+    return out

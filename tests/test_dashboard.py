@@ -74,7 +74,9 @@ def test_results_page_renders_from_the_committed_results() -> None:
     assert len(at.get("tabs")) == 5  # comparison, curves, latency, per tool, split order
     assert _has_table(at), "the comparison table is empty"
     assert len(at.get("vega_lite_chart")) == 4  # trade-off, latency, per-tool, split gap
-    assert len(at.get("image")) == 2  # ROC curve and one confusion matrix
+    # wordmark + the ROC curve + one confusion matrix. Streamlit keeps the file path out of the element, so
+    # the figure files themselves are asserted in test_data_loaders_read_the_documented_shape.
+    assert len(at.get("image")) == 3
     labels = [str(o) for o in at.selectbox[0].options]
     assert any("Experiment 1" in label for label in labels)
 
