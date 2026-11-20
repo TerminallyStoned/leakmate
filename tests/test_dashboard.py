@@ -201,8 +201,24 @@ def test_query_names_are_escaped_before_they_reach_the_page(tmp_path: Path) -> N
 def test_overview_shows_the_false_positive_rate_of_each_pick(demo_db: Path) -> None:
     at = _app(LEAKMATE_ALERTS_DB=str(demo_db))
     picks = next(str(m.value) for m in at.markdown if 'class="lm-table"' in str(m.value))
-    assert "false-positive rate" in picks and "&ndash;" not in picks  # every pick has a rate
+    assert ">FPR<" in picks and "&ndash;" not in picks  # every pick has a rate
     assert any("results_nozone" in str(c.value) for c in at.caption)  # and says which selection to quote
+
+
+def test_time_axes_are_in_utc(demo_db: Path) -> None:
+    """The feed and the captions give UTC; a chart axis in the browser's zone would disagree with them."""
+    import json
+
+    for page in ("Overview", "Live"):
+        at = (
+            _app(LEAKMATE_ALERTS_DB=str(demo_db))
+            if page == "Overview"
+            else _page(_app(LEAKMATE_ALERTS_DB=str(demo_db)), page)
+        )
+        specs = [json.dumps(json.loads(c.proto.spec)) for c in at.get("vega_lite_chart")]
+        timed = [s for s in specs if '"type": "temporal"' in s]
+        assert timed, page
+        assert all('"scale": {"type": "utc"}' in s for s in timed), page
 
 
 def test_data_loaders_read_the_documented_shape(demo_db: Path) -> None:

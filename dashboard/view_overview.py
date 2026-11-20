@@ -113,19 +113,17 @@ def _alerts_over_time(buckets: pd.DataFrame, bucket_s: float) -> None:
         return
     frame = buckets.copy()
     frame["at"] = pd.to_datetime(frame["bucket"], unit="s", utc=True)
+    frame["time (UTC)"] = frame["at"].dt.strftime("%H:%M")
+    x = alt.X("at:T", title="UTC", scale=shell.UTC, axis=alt.Axis(format="%H:%M", labelFontSize=10, titleFontSize=10))
     bars = (
         alt.Chart(frame)
         .mark_bar(color=p["signal"])
-        .encode(
-            x=alt.X("at:T", title=None, axis=alt.Axis(format="%H:%M", labelFontSize=10)),
-            y=alt.Y("alerts:Q", title="alerts"),
-            tooltip=["at", "queries", "alerts"],
-        )
+        .encode(x=x, y=alt.Y("alerts:Q", title="alerts"), tooltip=["time (UTC)", "queries", "alerts"])
     )
     quiet = (
         alt.Chart(frame)
         .mark_bar(color=p["fade"])
-        .encode(x=alt.X("at:T", title=None), y=alt.Y("queries:Q", title=None), tooltip=["queries"])
+        .encode(x=x, y=alt.Y("queries:Q", title=None), tooltip=["time (UTC)", "queries"])
     )
     st.altair_chart(alt.layer(quiet, bars).properties(**shell.chart(132)), use_container_width=True)
     per = f"{bucket_s / 60:g} min" if bucket_s < 3_600 else f"{bucket_s / 3_600:g} h"
@@ -200,14 +198,17 @@ def _picks(selection: pd.DataFrame) -> None:
         frame,
         [
             ("experiment", "experiment", "text"),
-            ("picked", "picked by the rule", "text"),
-            ("f1", "f1", "num"),
-            ("fpr", "false-positive rate", "num"),
+            ("picked", "picked", "text"),
+            ("f1", "F1", "num"),
+            ("fpr", "FPR", "num"),
             ("ms/query", "ms/query", "num"),
         ],
     )
     name = data.results_dir().name
-    st.caption(f"`{name}/selection.csv`: best F1 with a false-positive rate of at most 1% and at most 10 ms per query.")
+    st.caption(
+        f"`{name}/selection.csv`: the model the rule picked for each experiment. The rule is the best F1 with a "
+        "false-positive rate (FPR) of at most 1% and at most 10 ms per query."
+    )
     _selection_note(name)
 
 

@@ -11,10 +11,14 @@ import html
 
 from pathlib import Path
 
+import altair as alt
 import pandas as pd
 import streamlit as st
 
 HERE = Path(__file__).resolve().parent
+#: x scale for every time axis. Vega draws times in the browser's zone unless told otherwise, and the feed,
+#: the captions and live/README.md are all in UTC.
+UTC = alt.Scale(type="utc")
 
 #: chart colours, matching the custom properties in styles.css
 PALETTE = {

@@ -175,13 +175,17 @@ def _score_over_time(stats: pd.DataFrame, alerts: pd.DataFrame) -> None:
         return
     frame["mean_score"] = frame["sum_score"] / frame["queries"].clip(lower=1)
     top = frame["src_host"].value_counts().head(6).index.tolist()
-    frame = frame[frame["src_host"].isin(top)]
-    axis = alt.Axis(format="%H:%M:%S", tickCount=6)
-    base = alt.Chart(frame).encode(x=alt.X("bucket_ts:T", title=None, axis=axis))
+    frame = frame[frame["src_host"].isin(top)].copy()
+    # bucket_ts is epoch seconds; the axis and tooltips show it in UTC, like every other time on the page
+    frame["at"] = pd.to_datetime(frame["bucket_ts"], unit="s", utc=True)
+    frame["time (UTC)"] = frame["at"].dt.strftime("%H:%M:%S")
+    x = alt.X("at:T", title="UTC", scale=shell.UTC, axis=alt.Axis(format="%H:%M:%S", tickCount=6))
+    base = alt.Chart(frame).encode(x=x)
     line = base.mark_line(strokeWidth=1.2).encode(
         y=alt.Y("mean_score:Q", title="mean score", scale=alt.Scale(zero=True)),
-        color=alt.Color("src_host:N", legend=alt.Legend(title=None, orient="top", direction="horizontal"), scale=None),
-        tooltip=["bucket_ts", "src_host", "queries", "alerts", "mean_score", "max_score"],
+        # no `scale=None` here: that tells Vega the host address is itself a colour, and the lines vanish
+        color=alt.Color("src_host:N", legend=alt.Legend(title=None, orient="top", direction="horizontal")),
+        tooltip=["time (UTC)", "src_host", "queries", "alerts", "mean_score", "max_score"],
     )
     layers = [line]
     hit = frame[frame["alerts"] > 0]
@@ -192,9 +196,9 @@ def _score_over_time(stats: pd.DataFrame, alerts: pd.DataFrame) -> None:
             alt.Chart(hit)
             .mark_bar(size=6, color=p["signal"], opacity=0.35)
             .encode(
-                x=alt.X("bucket_ts:T", axis=axis),
+                x=x,
                 y=alt.Y("alerts:Q", title=None, axis=alt.Axis(labelExpr="datum.value + ' alert(s)'")),
-                tooltip=["bucket_ts", "src_host", "queries", "alerts", "max_score"],
+                tooltip=["time (UTC)", "src_host", "queries", "alerts", "max_score"],
             )
         )
     chart = alt.layer(*layers).resolve_scale(y="independent").properties(**shell.chart(210)).interactive()
