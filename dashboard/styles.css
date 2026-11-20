@@ -97,9 +97,18 @@ body,
   display: block;
   height: 2rem;
   width: auto;
-  margin: 0 0 1rem;
+  margin: 0;
   user-select: none;
   pointer-events: none;
+}
+/* Room between the wordmark and the switch. Streamlit puts margin-bottom: -1rem on the markdown container,
+   which pulls the first option up over the logo; the spacing therefore goes on the flex item above it, where
+   margins are honoured instead of collapsed away. */
+[data-testid="stSidebarUserContent"] [data-testid="stMarkdownContainer"] {
+  margin-bottom: 0;
+}
+[data-testid="stSidebarUserContent"] [data-testid="stMarkdown"] {
+  margin-bottom: 2rem;
 }
 .stMarkdown code,
 [data-testid="stMarkdownContainer"] code,
@@ -513,11 +522,20 @@ h3 {
 
 /* keyboard focus is always visible, and never a bare outline on a dark ground */
 :focus-visible,
-[data-testid="stRadioOption"]:has(input:focus-visible),
 [data-baseweb="tab"]:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
   border-radius: var(--r-inner);
+}
+
+/* Streamlit leaves a focus outline on the clicked label, which reads as a second box around the selected
+   one and stays until focus moves. The raised box already says "selected", so the ring is for keyboard
+   focus only, and drawn as an inset-free shadow so it cannot stack with the border. */
+[data-testid="stRadio"] [data-testid="stRadioOption"] {
+  outline: none !important;
+}
+[data-testid="stRadioOption"]:has(input:focus-visible):not(:has(input:checked)) {
+  box-shadow: 0 0 0 2px var(--accent);
 }
 
 [data-testid="stWarning"] {
