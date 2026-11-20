@@ -37,7 +37,14 @@ Dark purple by default: `.streamlit/config.toml` resolves the theme when the ser
 moment Streamlit reads it. The bar itself (in `styles.css`) authors colour in OKLCH, uses alpha borders so
 they blend into whichever surface they sit on, and shows depth with lighter surfaces instead of shadows.
 The navbar hugs the wordmark's width and is not draggable; the override is scoped to
-`:not([data-collapsed="true"])` so Streamlit's own collapse still takes over when the bar is closed.
+`:not([data-collapsed="true"])` so Streamlit's own collapse still takes over when the bar is closed. It opens
+on load (`initial_sidebar_state="expanded"`); a browser that was closed by hand remembers that in
+`localStorage` and reopens closed, which is the user's own last choice rather than the app's.
+
+The wordmark is an inline `<img>` with a data URI, not `st.image`, so it has no hover toolbar and no
+click-to-fullscreen: it is page furniture. `dashboard/assets/leakmate_logo.png` is derived from the provided
+artwork by keying the black background out with a flood fill from the frame, which is what keeps the black
+letters inside the orange chip opaque.
 
 ## Live page
 

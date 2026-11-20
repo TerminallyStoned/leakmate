@@ -7,6 +7,7 @@ Runs the real `dashboard/app.py` with Streamlit's headless AppTest: no browser, 
 from __future__ import annotations
 
 import os
+import re
 from pathlib import Path
 
 import pandas as pd
@@ -74,9 +75,9 @@ def test_results_page_renders_from_the_committed_results() -> None:
     assert len(at.get("tabs")) == 5  # comparison, curves, latency, per tool, split order
     assert _has_table(at), "the comparison table is empty"
     assert len(at.get("vega_lite_chart")) == 4  # trade-off, latency, per-tool, split gap
-    # wordmark + the ROC curve + one confusion matrix. Streamlit keeps the file path out of the element, so
-    # the figure files themselves are asserted in test_data_loaders_read_the_documented_shape.
-    assert len(at.get("image")) == 3
+    # the ROC curve and one confusion matrix. The wordmark is deliberately not counted: it is an inline
+    # <img> in the navbar, not an st.image, so it carries no hover toolbar and no lightbox.
+    assert len(at.get("image")) == 2
     labels = [str(o) for o in at.selectbox[0].options]
     assert any("Experiment 1" in label for label in labels)
 
@@ -196,7 +197,9 @@ def test_query_names_are_escaped_before_they_reach_the_page(tmp_path: Path) -> N
         )
         assert not at.exception, at.exception
         body = " ".join(str(m.value) for m in at.markdown)
-        assert "<img" not in body, page
+        # the navbar wordmark is the only <img> the page owns, and it is a local data URI; what must never
+        # appear unescaped is markup that came off the wire
+        assert not re.search(r"<img[^>]*onerror", body, re.I), page
         assert escaped in body, page
 
 

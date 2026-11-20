@@ -1,14 +1,15 @@
 """Page furniture shared by the three pages: theme, navigation, masthead, strips, tables.
 
-One source of colour and type, so the pages read as one product. Light only: Streamlit resolves its theme
-when the server starts and cannot change it at runtime, so the dashboard owns one palette and the charts read
-it from here rather than from module constants.
+One source of colour and type, so the pages read as one product. The dark purple theme is resolved by
+Streamlit when the server starts (see .streamlit/config.toml) and cannot change at runtime, so the dashboard
+owns one palette and the charts read it from here rather than from module constants.
 """
 
 from __future__ import annotations
 
+import base64
+import functools
 import html
-
 from pathlib import Path
 
 import altair as alt
@@ -136,13 +137,23 @@ def chart(height: int = 240) -> dict:
 # --------------------------------------------------------------------------- navigation
 
 
+@functools.lru_cache(maxsize=1)
+def logo_tag() -> str:
+    """The wordmark as a data URI: an inline <img> is page furniture, with no toolbar and no lightbox."""
+    if not LOGO.exists():
+        return ""
+    b64 = base64.b64encode(LOGO.read_bytes()).decode()
+    return f'<img class="lm-logo" src="data:image/png;base64,{b64}" alt="leakmate" draggable="false">'
+
+
 def nav(pages: list[str], key: str = "page") -> str:
     """Brand and the view switch. The selected page is drawn as a filled box (styles.css)."""
     with st.sidebar:
-        if LOGO.exists():
-            st.image(str(LOGO), width=150)
-        else:  # the asset is optional: the navbar still says what the app is
-            st.markdown('<div class="lm-brand">leakmate</div>', unsafe_allow_html=True)
+        brand = logo_tag()
+        st.markdown(
+            brand or '<div class="lm-brand">leakmate</div>',
+            unsafe_allow_html=True,  # the asset is optional: the navbar still says what the app is
+        )
         return st.radio("View", pages, key=key, label_visibility="collapsed", help=TOOLTIP, width="stretch")
 
 

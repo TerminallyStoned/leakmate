@@ -92,20 +92,14 @@ body,
   color: var(--text-1);
 }
 /* the mark's stroke matches the weight of the wordmark beside it */
-/* the wordmark: Streamlit's image block is stripped to the bitmap itself */
-[data-testid="stSidebar"] [data-testid="stImage"],
-[data-testid="stSidebar"] picture,
-[data-testid="stSidebar"] [data-testid="stImageContainer"] {
-  margin: 0 0 1rem;
-  padding: 0;
-  background: none;
-  border: 0;
-}
-[data-testid="stSidebar"] [data-testid="stImage"] img {
+/* the wordmark: page furniture, so it is inert - no text selection, no drag, no click target */
+.lm-logo {
   display: block;
-  width: 100%;
-  height: auto;
-  border-radius: var(--r-inner);
+  height: 2rem;
+  width: auto;
+  margin: 0 0 1rem;
+  user-select: none;
+  pointer-events: none;
 }
 .stMarkdown code,
 [data-testid="stMarkdownContainer"] code,
