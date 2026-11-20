@@ -288,3 +288,53 @@ def test_results_directory_can_be_pointed_elsewhere(tmp_path: Path, monkeypatch)
     assert data.results_dir() == tmp_path
     assert data.read_table("summary").empty  # missing file is an empty frame, not an error
     assert data.figure("roc", experiment="E1") is None
+
+
+def _feed_rows(at) -> list[str]:
+    """The alert feed table body, as rendered rows."""
+    table = next(str(m.value) for m in at.markdown if "query name" in str(m.value) and "lm-table" in str(m.value))
+    return re.findall(r"<tr[^>]*>(.*?)</tr>", table.split("<tbody>")[1], re.S)
+
+
+def test_feed_pages_through_every_alert_it_matches(demo_db: Path) -> None:
+    at = _page(_app(LEAKMATE_ALERTS_DB=str(demo_db)), "Live")
+    caption = next(str(m.value) for m in at.caption if "alerts" in str(m.value))
+    total = int(re.search(r"of ([\d,]+) alerts", caption)[1].replace(",", ""))
+    assert total > 250, "the demo database should be big enough to need pages"
+    assert len(_feed_rows(at)) == 50, "default page size"
+
+    at.sidebar.radio[0].set_value("Live")  # stay on the page: the widgets below belong to the feed tab
+    at.session_state["lm_feed_rows"] = 25
+    at.run()
+    assert len(_feed_rows(at)) == 25
+    page1 = _feed_rows(at)
+
+    at.session_state["lm_feed_page"] = 2
+    at.run()
+    page2 = _feed_rows(at)
+    assert page2 and not set(page2) & set(page1), "page 2 repeated page 1"
+    assert "Rows 26-50" in next(str(m.value) for m in at.caption if "alerts" in str(m.value))
+
+    at.session_state["lm_feed_search"] = ".tunnel.test"
+    at.run()
+    narrow = int(
+        re.search(r"of ([\d,]+) alerts", next(str(m.value) for m in at.caption if "alerts" in str(m.value)))[1].replace(
+            ",", ""
+        )
+    )
+    assert 0 < narrow <= total
+
+
+def test_feed_sort_changes_what_the_first_page_holds(demo_db: Path) -> None:
+    at = _page(_app(LEAKMATE_ALERTS_DB=str(demo_db)), "Live")
+    scores = lambda at: [
+        float(re.search(r">(0\.\d+)<", r).group(1)) for r in _feed_rows(at) if re.search(r">(0\.\d+)<", r)
+    ]
+    at.session_state["lm_feed_sort"] = "Highest score"
+    at.run()
+    top = scores(at)
+    assert top and top == sorted(top, reverse=True), top[:4]
+    at.session_state["lm_feed_sort"] = "Lowest score"
+    at.run()
+    low = scores(at)
+    assert low and low == sorted(low) and low[0] <= top[-1], low[:4]

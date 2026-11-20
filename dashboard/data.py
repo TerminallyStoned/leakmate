@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import os
 import sqlite3
+from collections.abc import Sequence
 from pathlib import Path
 
 import pandas as pd
@@ -104,7 +105,8 @@ def read_alerts(conn: sqlite3.Connection, limit: int = 5000) -> pd.DataFrame:
     """Alerts oldest first, with `top_features` decoded from its JSON string.
 
     The cap keeps the **newest** rows: `alerts` is appended to forever, so `ORDER BY id ASC LIMIT n` would
-    hand back the oldest ones and every window control would then see an empty recent past.
+    hand back the oldest ones and every window control would then see an empty recent past. Panels that need a
+    total - the strip, the feed - ask `alert_counts` or `alert_page` instead of counting this slice.
     """
     if not has_table(conn, "alerts"):
         return pd.DataFrame()
@@ -116,6 +118,91 @@ def read_alerts(conn: sqlite3.Connection, limit: int = 5000) -> pd.DataFrame:
     df["features"] = df["top_features"].fillna("[]").map(_loads)
     df["host"] = df["src_host"]
     return df
+
+
+#: the feed's sort menu: label -> (column, descending). A whitelist, because the widget value picks the
+#: `ORDER BY` and must not be able to name anything else.
+ALERT_SORTS: dict[str, tuple[str, bool]] = {
+    "Newest first": ("id", True),
+    "Oldest first": ("id", False),
+    "Highest score": ("score", True),
+    "Lowest score": ("score", False),
+    "Host": ("src_host", False),
+    "Query name": ("qname", False),
+}
+
+
+def _like(text: str) -> str:
+    """A query name typed by a user, made into a LIKE pattern. `%` and `_` are text, not wildcards."""
+    escaped = text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return f"%{escaped}%"
+
+
+def _alert_where(hosts: Sequence[str], since: float, min_score: float, search: str) -> tuple[str, list]:
+    clauses: list[str] = []
+    args: list = []
+    if hosts:
+        clauses.append(f"src_host IN ({','.join('?' * len(hosts))})")
+        args.extend(hosts)
+    if since:
+        clauses.append("ts >= ?")
+        args.append(float(since))
+    if min_score > 0:
+        clauses.append("score >= ?")
+        args.append(float(min_score))
+    if search:
+        clauses.append(r"qname LIKE ? ESCAPE '\'")
+        args.append(_like(search))
+    return (f"WHERE {' AND '.join(clauses)}" if clauses else ""), args
+
+
+def alert_counts(
+    conn: sqlite3.Connection, *, hosts: Sequence[str] = (), since: float = 0.0, min_score: float = 0.0, search: str = ""
+) -> dict:
+    """How many alerts, and how many distinct hosts, match. Counted by SQLite, not by the loaded slice."""
+    if not has_table(conn, "alerts"):
+        return {"alerts": 0, "hosts": 0}
+    where, args = _alert_where(hosts, since, min_score, search)
+    row = conn.execute(
+        f"SELECT COUNT(*) AS alerts, COUNT(DISTINCT src_host) AS hosts FROM alerts {where}", args
+    ).fetchone()
+    return {"alerts": int(row[0]), "hosts": int(row[1])}
+
+
+def count_alerts(conn: sqlite3.Connection) -> int:
+    """Every alert in the file, not just the newest slice the panels load."""
+    if not has_table(conn, "alerts"):
+        return 0
+    return int(conn.execute("SELECT COUNT(*) FROM alerts").fetchone()[0])
+
+
+def alert_page(
+    conn: sqlite3.Connection,
+    *,
+    hosts: Sequence[str] = (),
+    since: float = 0.0,
+    min_score: float = 0.0,
+    search: str = "",
+    sort: str = "Newest first",
+    offset: int = 0,
+    limit: int = 50,
+) -> tuple[pd.DataFrame, int]:
+    """One page of alerts, plus the size of the whole filtered set.
+
+    Filtering, ordering and paging all happen in SQLite: a capture can hold hundreds of thousands of alerts and
+    the page should not pay for the ones it does not show. `id DESC` breaks ties so two pages never disagree
+    about the order of equal scores or equal timestamps.
+    """
+    if not has_table(conn, "alerts"):
+        return pd.DataFrame(), 0
+    where, args = _alert_where(hosts, since, min_score, search)
+    total = int(conn.execute(f"SELECT COUNT(*) FROM alerts {where}", args).fetchone()[0])
+    col, desc = ALERT_SORTS.get(sort, ALERT_SORTS["Newest first"])
+    sql = f"SELECT * FROM alerts {where} ORDER BY {col} {'DESC' if desc else 'ASC'}, id DESC LIMIT ? OFFSET ?"
+    frame = pd.DataFrame([dict(r) for r in conn.execute(sql, [*args, int(limit), int(offset)]).fetchall()])
+    if not frame.empty:
+        frame["features"] = frame["top_features"].fillna("[]").map(_loads)
+    return frame, total
 
 
 def read_host_stats(conn: sqlite3.Connection) -> pd.DataFrame:

@@ -57,6 +57,7 @@ def _live_summary() -> dict:
     try:
         meta = data.read_meta(conn)
         alerts = data.read_alerts(conn)
+        total_alerts = data.alert_counts(conn)["alerts"]
         stats = data.read_host_stats(conn)
         batches = data.read_batches(conn)
     finally:
@@ -73,7 +74,7 @@ def _live_summary() -> dict:
     cells = [
         ("model", html.escape(str(meta.get("model", "unknown"))), False),
         ("queries scored", f"{queries:,}", False),
-        ("alerts", f"{len(alerts):,}", bool(len(alerts))),
+        ("alerts", f"{total_alerts:,}", bool(total_alerts)),
         (
             "median latency",
             f"{median_ms:.2f} <small>ms/query</small>" if median_ms == median_ms else "no batches",

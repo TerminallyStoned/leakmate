@@ -7,6 +7,7 @@ Built against `live/alerts.db` as documented in live/README.md: `alerts`, `host_
 from __future__ import annotations
 
 import html
+import sqlite3
 
 import altair as alt
 import pandas as pd
@@ -39,12 +40,13 @@ def render() -> None:
             return
         view = _controls(alerts, stats, batches)
         alerts, stats, batches = _clip(view["since"], view["hosts"], alerts, stats, batches)
-        _strip(meta, alerts, stats, batches, view["note"])
+        counts = data.alert_counts(conn, hosts=view["hosts"], since=view["since"])
+        _strip(meta, stats, batches, view["note"], counts)
         feed, trend, why, latency = st.tabs(["Alert feed", "Score over time", "Why it fired", "Latency"])
         with trend:
             _score_over_time(stats, alerts)
         with feed:
-            _feed(alerts)
+            _feed(conn, view)
         with why:
             _detail(alerts)
         with latency:
@@ -135,16 +137,25 @@ def _clip(since: float, hosts: list[str], *frames: pd.DataFrame) -> tuple[pd.Dat
     return tuple(out)
 
 
-def _strip(meta: dict, alerts: pd.DataFrame, stats: pd.DataFrame, batches: pd.DataFrame, note: str) -> None:
+def _strip(
+    meta: dict,
+    stats: pd.DataFrame,
+    batches: pd.DataFrame,
+    note: str,
+    counts: dict,
+) -> None:
+    """The counters above the tabs. Alerts and alerting hosts are counted in SQL over the same window the
+    page filtered to, because the loaded frame is capped and a count off it would be a lie on a big capture.
+    """
     queries = int(stats["queries"].sum()) if not stats.empty and "queries" in stats else 0
-    alerting = alerts["src_host"].nunique() if not alerts.empty else 0
+    alerting = counts["hosts"]
     hosts = max(stats["src_host"].nunique() if not stats.empty else 0, 0)
-    rate = (len(alerts) / queries * 100) if queries else 0.0
+    rate = (counts["alerts"] / queries * 100) if queries else 0.0
     cells = [
         ("model", html.escape(str(meta.get("model", "unknown"))), False),
         ("threshold", _num(meta.get("threshold")), False),
         ("queries scored", f"{queries:,}", False),
-        ("alerts", f"{len(alerts):,}", bool(alerts.size)),
+        ("alerts", f"{counts['alerts']:,}", bool(counts["alerts"])),
         ("hosts alerting", f"{alerting} of {hosts}", alerting > 0),
         ("alert rate", f"{rate:.2f}%", False),
     ]
@@ -209,24 +220,47 @@ def _score_over_time(stats: pd.DataFrame, alerts: pd.DataFrame) -> None:
     )
 
 
-def _feed(alerts: pd.DataFrame) -> None:
-    st.markdown(
-        '<div class="lm-sec">Alert feed</div>'
-        '<p class="lm-note">Newest first. The last column is the strongest feature of that alert, in words.</p>',
-        unsafe_allow_html=True,
+def _feed(conn: sqlite3.Connection, view: dict) -> None:
+    """Every alert the query matches, a page at a time.
+
+    `alerts` is capped where it is read, so the feed does not use it: it asks SQLite for one page of the
+    filtered, sorted set. A long capture holds far more alerts than any browser should be handed at once.
+    """
+    st.markdown('<div class="lm-sec">Alert feed</div>', unsafe_allow_html=True)
+    cols = st.columns([2.1, 1.5, 1.6, 1.5, 1.3])
+    search = cols[0].text_input(
+        "Query name contains", key="lm_feed_search", help="Case-insensitive. `%` and `_` match themselves."
     )
-    if alerts.empty:
-        st.caption("Nothing crossed the threshold in this database.")
+    floor = cols[1].slider(
+        "Minimum score", 0.0, 1.0, 0.0, 0.01, format="%.2f", key="lm_feed_score", help="Alert score, 0 to 1."
+    )
+    sort = cols[2].selectbox("Sort by", list(data.ALERT_SORTS), key="lm_feed_sort")
+    size = cols[3].selectbox("Rows per page", [25, 50, 100, 250], index=1, key="lm_feed_rows")
+
+    where = {"hosts": view["hosts"], "since": view["since"], "min_score": floor, "search": search}
+    total = data.alert_page(conn, limit=0, **where)[1]
+    pages = max(1, -(-total // size))
+    page = min(cols[4].number_input("Page", 1, pages, 1, key="lm_feed_page"), pages)
+    frame, _ = data.alert_page(conn, sort=sort, offset=(page - 1) * size, limit=size, **where)
+    if not total:
+        st.caption("No alert matches this window and these filters.")
         return
-    frame = alerts.sort_values("id", ascending=False).head(250).copy()
-    frame["time"] = pd.to_datetime(frame["ts"], unit="s", utc=True).dt.strftime("%H:%M:%S")
-    frame["why"] = frame["features"].map(explain.headline)
-    frame["score"] = frame["score"].map("{:.3f}".format)
-    show = frame[["time", "src_host", "qname", "qtype", "score", "why"]].rename(
-        columns={"src_host": "host", "qname": "query name", "qtype": "type", "score": "score"}
+    first = (page - 1) * size + 1
+    st.caption(
+        f"Rows {first:,}-{first + len(frame) - 1:,} of {total:,} alerts"
+        + ("" if size * pages >= total and total <= size else f" ({pages:,} pages at {size} rows)")
+        + ", sorted by "
+        + sort.lower()
+        + "."
     )
+    show = frame.copy()
+    show["time"] = pd.to_datetime(show["ts"], unit="s", utc=True).dt.strftime("%H:%M:%S")
+    show["why"] = show["features"].map(explain.headline)
+    show["score"] = show["score"].map("{:.3f}".format)
     shell.table(
-        show,
+        show[["time", "src_host", "qname", "qtype", "score", "why"]].rename(
+            columns={"src_host": "host", "qname": "query name"}
+        ),
         [
             ("time", "time", "text"),
             ("host", "host", "text"),
@@ -235,7 +269,7 @@ def _feed(alerts: pd.DataFrame) -> None:
             ("score", "score", "num"),
             ("why", "why", "text"),
         ],
-        max_rows=250,
+        max_rows=size,
     )
 
 

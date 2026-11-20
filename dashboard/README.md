@@ -50,9 +50,9 @@ letters inside the orange chip opaque.
 
 | Panel | Source | Notes |
 |---|---|---|
-| Status strip | `meta` + `host_stats` + `batches` | model, threshold, queries scored, alerts, alert rate, median ms/query, mode |
+| Status strip | `meta` + `host_stats` + `batches` | model, threshold, queries scored, alerts, alert rate, median ms/query, mode. The alert counters are `COUNT(*)` over the window, not a count of the loaded rows |
 | Score over time | `host_stats` | mean score per host per 10 s bucket; red dots mark buckets containing an alert |
-| Alert feed | `alerts` | newest first, with the strongest feature of each alert in words |
+| Alert feed | `alerts` | filter (name contains, minimum score), sort, page. SQLite does all three, so the page is a slice and the count is the whole set |
 | Why this alert fired | `alerts.top_features` | SHAP contributions as bars, plus one sentence each (`dashboard/explain.py`) |
 | Processing latency | `batches` | ms per query, median and 95th percentile, against the 10 ms rule |
 
