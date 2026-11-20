@@ -138,7 +138,7 @@ def test_every_m1_feature_has_plain_words() -> None:
 
 
 def test_latency_panel_survives_a_pre_batches_database(tmp_path: Path) -> None:
-    """A database written before PR #47 has no `batches` table; the page must say so, not crash."""
+    """A database whose live.store predates `batches`: the page must say so, not crash."""
     import sqlite3
 
     path = tmp_path / "old.db"

@@ -1,7 +1,7 @@
 """Live page: what the detector is seeing right now, and why it alerted.
 
 Built against `live/alerts.db` as documented in live/README.md: `alerts`, `host_stats`, `batches`
-(19 Nov, PR #47) and `meta`. Every panel degrades to a message naming the command that fills it.
+(19 Nov) and `meta`. Every panel degrades to a message naming the command that fills it.
 """
 
 from __future__ import annotations

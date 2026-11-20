@@ -6,7 +6,7 @@ is the evaluation detail (comparison, curves, latency, per tool, split order). S
 expands again, and the selected page is marked with a filled box rather than a radio button. Nothing recomputes a
 metric: the numbers come from
 `results/*.csv` (`python -m eval.summarise`) and the alerts from `live/alerts.db` (`python -m live`), so the
-dashboard cannot disagree with them. Trello: "[Neo] Streamlit dashboard: results page + live alerts page".
+dashboard cannot disagree with them.
 
 ## Run it
 

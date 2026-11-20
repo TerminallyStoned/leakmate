@@ -1,5 +1,5 @@
 """Write a synthetic `live/alerts.db` so the dashboard can be built, checked and screenshotted before
-any capture run exists (Trello card 31: "Build against fake data from 18 Nov; don't wait").
+any capture run exists.
 
     python -m dashboard.demo                      # -> /tmp/demo_alerts.db
     LEAKMATE_ALERTS_DB=/tmp/demo_alerts.db streamlit run dashboard/app.py

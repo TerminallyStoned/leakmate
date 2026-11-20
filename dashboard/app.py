@@ -5,8 +5,8 @@
     LEAKMATE_ALERTS_DB=/tmp/demo_alerts.db streamlit run dashboard/app.py   # a demo database
 
 Overview summarises both halves of the project on one screen; Live and Results are the detailed views the
-Trello card names (comparison table, curves, latency, per-tool, split gap; feed, score over time, plain-words
-explanations, batch latency). Owner: Neo - backup: Kang Hao Wei. Nothing here recomputes a metric.
+The pages: a summary of both halves of the project, the live detector's detail, and the frozen comparison.
+Nothing here recomputes a metric.
 """
 
 from __future__ import annotations
