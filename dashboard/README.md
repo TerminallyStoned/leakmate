@@ -93,11 +93,12 @@ points at `results/latency_cpu.csv`; every other panel is unaffected.
 
 Paging is offered twice, because a fifty row page puts the controls at the top out of reach: the number input
 above the table is labelled with the running total (`Page 3/97`), and a strip below the table carries
-**Previous**, the position (`3 / 97`), and **Next**. The strip is not a plate and adds no box of its own - the
-two buttons sit on the table's own left and right edges with the position centred between them, so it reads as
-belonging to the rows it moves. `Previous` and `Next` are disabled at the first and last page rather than
-wrapping, and they write the paging widget's key from a callback, which is what lets one press both move the
-page and re-render the slice.
+**Previous**, the position (`3 / 97`), and **Next**. The two buttons are filled - the accent hue, the rim and the
+glow every other raised surface here uses - and they sit on the table's own left and right edges with the position
+centred between them, so the strip reads as belonging to the rows it moves. At the first page `Previous` and at
+the last page `Next` lose the accent, the rim and the light and go flat grey in place, rather than wrapping to the
+other end: a control that jumps somewhere unexpected is worse than one that does nothing. Pressing either writes
+the paging widget's key from a callback, which is what lets one press both move the page and re-render the slice.
 
 Query names, host addresses and anything else read from `alerts.db` are escaped before they go into the page:
 a DNS name is whatever the client sent, and the tables and alert panels are the dashboard's own HTML.

@@ -360,17 +360,35 @@ p.lm-kv {
   margin-top: 0.7rem;
 }
 .st-key-lm_pager [data-testid^="stBaseButton-"] {
-  border: 0;
+  /* a filled control, built from the same recipe as every raised surface here: a flat fill, the rim that is
+     bright at the top-left, the glow toward the bottom-right. Accent hue, so it reads as the thing you press
+     rather than as another panel of results */
+  border: 1px solid transparent;
   border-radius: var(--r-inner);
-  background: none;
-  box-shadow: none;
-  color: var(--accent-text);
-  padding: 0.34rem 0.85rem;
+  background:
+    linear-gradient(oklch(30% 0.05 292), oklch(30% 0.05 292)) padding-box,
+    var(--rim) border-box;
+  box-shadow: var(--lift);
+  color: var(--text-1);
+  font-weight: 600;
+  padding: 0.36rem 0.85rem;
   min-width: 7.5rem;
   justify-content: center;
 }
 .st-key-lm_pager [data-testid^="stBaseButton-"]:hover:not(:disabled) {
+  background:
+    linear-gradient(oklch(35% 0.062 292), oklch(35% 0.062 292)) padding-box,
+    var(--rim) border-box;
+}
+.st-key-lm_pager [data-testid^="stBaseButton-"]:disabled {
+  /* there is nowhere to go: keep the shape and position so the strip does not shift, take away the accent,
+     the rim and the light, and let the grey carry it. Streamlit's own fade is overridden because it washes
+     the whole control out instead of dimming it */
   background: var(--surface-2);
+  box-shadow: none;
+  color: var(--text-3);
+  opacity: 1;
+  cursor: default;
 }
 /* the element Streamlit keys per widget is the button's own wrapper, and it sits in a column-direction flex
    box, so the horizontal axis here is align-self: that puts Next on the far edge of the table */
@@ -885,6 +903,25 @@ h3 {
 /* Below a laptop the fixed-width line is wider than the viewport. Clipping the tail would hide the query
    name, which is the point of the row, so at phone widths the header and each row scroll on their own. */
 @media (max-width: 47.99em) {
+  /* three columns at phone width would wrap into a staircase, so the strip stays one row: the position between
+     two buttons that give up their minimum width before they give up the line */
+  .st-key-lm_pager [data-testid="stHorizontalBlock"] {
+    flex-wrap: nowrap;
+  }
+  /* nowrap alone is not enough: a column whose basis is a percentage still expands to its content, and the row
+     then ran off the screen. min-width lets the columns shrink below their text, and only the middle one grows */
+  .st-key-lm_pager [data-testid="stColumn"] {
+    flex: 0 0 auto;
+    min-width: 0;
+  }
+  .st-key-lm_pager [data-testid="stColumn"]:nth-child(2) {
+    flex: 1 1 auto;
+  }
+  .st-key-lm_pager [data-testid^="stBaseButton-"] {
+    min-width: 0;
+    padding: 0.34rem 0.6rem;
+  }
+
   .st-key-lm_feed_stack [data-testid^="stBaseButton-"] {
     overflow-x: auto;
     scrollbar-width: thin;
