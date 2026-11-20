@@ -43,8 +43,6 @@ def render() -> None:
         _picks(results["selection"])
         _latency_overview(results["latency"])
 
-    _go()
-
 
 # --------------------------------------------------------------------------- live side
 
@@ -263,20 +261,6 @@ def _latency_overview(latency: pd.DataFrame) -> None:
     )
     st.altair_chart(alt.layer(chart, rule).properties(**shell.chart(132)), width="stretch")
     st.caption(f"Red is under the {data.LIMIT_MS:.0f} ms rule (dashed). Median of three timings on one CPU box.")
-
-
-# --------------------------------------------------------------------------- navigation
-
-
-def _go() -> None:
-    cols = st.columns(3)
-    cols[0].button("Live detail: feed, explanations, latency ->", on_click=_open, args=("Live",))
-    cols[1].button("Results detail: curves, per tool, split order ->", on_click=_open, args=("Results",))
-    cols[2].markdown("&nbsp;")
-
-
-def _open(page: str) -> None:
-    st.session_state["page"] = page
 
 
 def _bucket_width(span_s: float) -> float:
