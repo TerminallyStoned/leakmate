@@ -2,8 +2,8 @@
 
     frame source (live/capture.py)
       -> QueryAssembler   parser.pcap.dns_packet per frame; pairs each query with its reply
-      -> HostWindows      models.m1_features.build on each host's last `window_s` seconds
-      -> scorer           live/scorers.py (dummy, or a model behind the contract interface)
+      -> HostWindows      the M1 feature set (models.m1_features), host part on each host's last `window_s` s
+      -> scorer           live/scorers.py (a model behind the contract interface, M1 by default; or dummy)
       -> AlertStore       live/store.py (alerts.db)
 
 Nothing here re-implements parsing or features: the frame decoder is the file parser's, and the features
@@ -25,7 +25,7 @@ from collections.abc import Iterable
 import pandas as pd
 
 from live.store import BUCKET_S, AlertStore
-from models import m1_features
+from models import host_features, m1_features
 from parser.pcap import MALFORMED, dns_packet
 
 QUERY_COLS = ["ts", "src_host", "qname", "qtype", "resp_size", "rcode", "qname_truncated", "qlen_wire"]
@@ -86,7 +86,13 @@ class HostWindows:
         hosts = dict.fromkeys(r["src_host"] for r in rows)
         history = [r for h in hosts for r in self._recent.get(h, ())]
         table = pd.DataFrame(history + rows, columns=QUERY_COLS)
-        feats = m1_features.build(table, {"window_s": self.window_s}).iloc[len(history) :].reset_index(drop=True)
+        new = table.iloc[len(history) :]
+        # The two halves of m1_features.build, each on the rows it needs: the per-query features read one row
+        # at a time, so only the new rows; the host features read the window, so the history as well. Building
+        # everything on the whole table gave the same values at about ten times the cost on a busy host.
+        per_query = m1_features.build(new, {"host": False})
+        per_host = host_features.compute(table, self.window_s, key=m1_features.host_key(table)).iloc[len(history) :]
+        feats = per_query.join(per_host).reset_index(drop=True)
         for r in rows:
             self._recent.setdefault(r["src_host"], deque()).append(r)
         for h in hosts:  # keep only what a later query of this host can still see
@@ -114,11 +120,13 @@ class Detector:
         """Score one batch; returns the number of alerts written."""
         if not rows:
             return 0
+        t0 = time.perf_counter()
         df = pd.DataFrame(rows, columns=QUERY_COLS).join(self.windows.features(rows).add_prefix(m1_features.PREFIX))
         scores = self.scorer.score(df)
         hit = scores >= self.scorer.threshold
         flagged = df[hit]
         tops = self.scorer.explain(flagged) if len(flagged) else []
+        process_ms = (time.perf_counter() - t0) * 1000  # features + score + explanations for this batch
         alerts = [
             {
                 "ts": r.ts,
@@ -137,7 +145,7 @@ class Detector:
             key = (r.ts // BUCKET_S * BUCKET_S, r.src_host)
             n, a, mx, sm = stats.get(key, (0, 0, 0.0, 0.0))
             stats[key] = (n + 1, a + int(h), max(mx, float(s)), sm + float(s))
-        self.store.write(alerts, stats)
+        self.store.write(alerts, stats, (rows[0]["ts"], rows[-1]["ts"], len(rows), process_ms))
         self.queries += len(rows)
         self.alerts += len(alerts)
         if alerts:
