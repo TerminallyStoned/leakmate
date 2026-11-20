@@ -190,12 +190,17 @@ def need(title: str, body_md: str) -> None:
 
 
 def table(
-    frame: pd.DataFrame, columns: list[tuple[str, str, str]], picked: str | None = None, max_rows: int = 250
+    frame: pd.DataFrame,
+    columns: list[tuple[str, str, str]],
+    picked: str | None = None,
+    max_rows: int = 250,
+    link: tuple[str, str] | None = None,
 ) -> None:
     """An HTML table: ours, so it themes with the page and never reflows into a scrollbar.
 
     `columns` is a list of (key, label, kind) where kind is text, num, wire or mark. `picked` is a value of
-    the first column that gets the highlight row.
+    the first column that gets the highlight row. `link` is (column, query key): that column becomes an
+    anchor carrying the row's `id`, which is how a row click survives a page that cannot run scripts.
     """
     if frame.empty:
         return
@@ -203,9 +208,18 @@ def table(
     head = "".join(f'<th class="{"num" if kind == "num" else ""}">{label}</th>' for _, label, kind in columns)
     body = []
     for _, row in rows.iterrows():
-        cls = ' class="is-picked"' if picked is not None and str(row[columns[0][0]]) == str(picked) else ""
-        cells = "".join(f'<td class="{kind}">{_cell(row.get(key), kind)}</td>' for key, _, kind in columns)
-        body.append(f"<tr{cls}>{cells}</tr>")
+        classes = []
+        if picked is not None and str(row[columns[0][0]]) == str(picked):
+            classes.append("is-picked")
+        cells = []
+        for key, _, kind in columns:
+            text = _cell(row.get(key), kind)
+            if link and key == link[0]:
+                text = f'<a class="lm-open" href="/?{link[1]}={html.escape(str(row.get("id")))}">{text}</a>'
+                classes.append("is-link")
+            cells.append(f'<td class="{kind}">{text}</td>')
+        attr = f' class="{" ".join(classes)}"' if classes else ""
+        body.append(f"<tr{attr}>{''.join(cells)}</tr>")
     st.markdown(
         f'<div class="lm-table-wrap"><table class="lm-table"><thead><tr>{head}</tr></thead>'
         f"<tbody>{''.join(body)}</tbody></table></div>",
@@ -237,6 +251,7 @@ def icon(name: str, tone: str = "") -> str:
         "alert": '<circle cx="12" cy="12" r="9"/><path d="M12 8v4m0 4h.01"/>',
         "clock": '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
         "trend": '<path d="M3 17l6-6 4 4 7-7"/><path d="M14 8h6v6"/>',
+        "pointer": '<path d="M5 3.5 18.8 11a.9.9 0 0 1-.1 1.66l-5.2 1.9-2.5 5.3a.9.9 0 0 1-1.66-.2L4.3 5.2a.9.9 0 0 1 .7-1.7Z"/>',
     }
     cls = f' class="{tone}"' if tone else ""
     return (

@@ -205,6 +205,18 @@ def alert_page(
     return frame, total
 
 
+def alert_by_id(conn: sqlite3.Connection, alert_id: int) -> pd.Series | None:
+    """One alert by primary key, explanation decoded, whatever the loaded slices happen to hold."""
+    if not has_table(conn, "alerts"):
+        return None
+    row = conn.execute("SELECT * FROM alerts WHERE id = ?", (int(alert_id),)).fetchone()
+    if row is None:
+        return None
+    series = pd.Series(dict(row))
+    series["features"] = _loads(series.get("top_features") or "[]")
+    return series
+
+
 def read_host_stats(conn: sqlite3.Connection) -> pd.DataFrame:
     return read_frame(conn, "host_stats", order="bucket_ts ASC")
 

@@ -33,5 +33,18 @@ if DEFAULT not in PAGES:
 if st.session_state.get("page") not in PAGES:
     st.session_state["page"] = DEFAULT
 
+# A feed row is an anchor to `?lm_alert=<id>`, and an anchor is a page load: read the alert and route back to
+# the page that shows it, otherwise the click lands on Overview and is lost. The parameter stays in the URL,
+# which makes an explained alert linkable; Clear is what takes it out.
+# Mutating query params from the script body asks for a rerun, so nothing is popped here.
+_alert = st.query_params.get("lm_alert")
+if _alert:
+    try:
+        st.session_state["lm_alert"] = int(_alert)
+    except ValueError:  # anything can be in a URL, including garbage
+        st.session_state.pop("lm_alert", None)
+    else:
+        st.session_state["page"] = "Live"
+
 page = shell.nav(list(PAGES), key="page")
 PAGES[page].render()

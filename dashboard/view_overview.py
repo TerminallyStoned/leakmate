@@ -128,7 +128,7 @@ def _alerts_over_time(buckets: pd.DataFrame, bucket_s: float) -> None:
         .mark_bar(color=p["fade"])
         .encode(x=x, y=alt.Y("queries:Q", title=None), tooltip=["time (UTC)", "queries"])
     )
-    st.altair_chart(alt.layer(quiet, bars).properties(**shell.chart(132)), use_container_width=True)
+    st.altair_chart(alt.layer(quiet, bars).properties(**shell.chart(132)), width="stretch")
     per = f"{bucket_s / 60:g} min" if bucket_s < 3_600 else f"{bucket_s / 3_600:g} h"
     st.caption(f"Grey: queries scored per {per}. Purple: of those, the alerts.")
 
@@ -147,7 +147,7 @@ def _top_hosts(hosts: pd.DataFrame) -> None:
         )
         .properties(height=min(132, 26 * len(hosts) + 24))
     )
-    st.altair_chart(chart, use_container_width=True)
+    st.altair_chart(chart, width="stretch")
 
 
 def _latest(latest: dict | None) -> None:
@@ -261,7 +261,7 @@ def _latency_overview(latency: pd.DataFrame) -> None:
         .mark_rule(color=p["ink2"], strokeDash=[4, 3])
         .encode(y="limit:Q")
     )
-    st.altair_chart(alt.layer(chart, rule).properties(**shell.chart(132)), use_container_width=True)
+    st.altair_chart(alt.layer(chart, rule).properties(**shell.chart(132)), width="stretch")
     st.caption(f"Red is under the {data.LIMIT_MS:.0f} ms rule (dashed). Median of three timings on one CPU box.")
 
 
@@ -270,12 +270,8 @@ def _latency_overview(latency: pd.DataFrame) -> None:
 
 def _go() -> None:
     cols = st.columns(3)
-    cols[0].button(
-        "Live detail: feed, explanations, latency ->", on_click=_open, args=("Live",), use_container_width=True
-    )
-    cols[1].button(
-        "Results detail: curves, per tool, split order ->", on_click=_open, args=("Results",), use_container_width=True
-    )
+    cols[0].button("Live detail: feed, explanations, latency ->", on_click=_open, args=("Live",))
+    cols[1].button("Results detail: curves, per tool, split order ->", on_click=_open, args=("Results",))
     cols[2].markdown("&nbsp;")
 
 

@@ -48,7 +48,7 @@ def render() -> None:
         with feed:
             _feed(conn, view)
         with why:
-            _detail(alerts)
+            _why(conn, "tab")
         with latency:
             _latency(batches, meta)
     finally:
@@ -213,7 +213,7 @@ def _score_over_time(stats: pd.DataFrame, alerts: pd.DataFrame) -> None:
             )
         )
     chart = alt.layer(*layers).resolve_scale(y="independent").properties(**shell.chart(210)).interactive()
-    st.altair_chart(chart, use_container_width=True)
+    st.altair_chart(chart, width="stretch")
     st.caption(
         "Lines: mean model score per host per 10 s bucket. Bars along the foot: how many queries of that "
         "bucket crossed the threshold. Both share the x axis; the y axes are independent."
@@ -257,8 +257,9 @@ def _feed(conn: sqlite3.Connection, view: dict) -> None:
     show["time"] = pd.to_datetime(show["ts"], unit="s", utc=True).dt.strftime("%H:%M:%S")
     show["why"] = show["features"].map(explain.headline)
     show["score"] = show["score"].map("{:.3f}".format)
+    # `id` stays in the frame: the link needs it, and only the columns listed below are drawn
     shell.table(
-        show[["time", "src_host", "qname", "qtype", "score", "why"]].rename(
+        show[["id", "time", "src_host", "qname", "qtype", "score", "why"]].rename(
             columns={"src_host": "host", "qname": "query name"}
         ),
         [
@@ -270,64 +271,97 @@ def _feed(conn: sqlite3.Connection, view: dict) -> None:
             ("why", "why", "text"),
         ],
         max_rows=size,
+        # the query name is the link: a row has to be openable, and this page cannot run scripts, so the
+        # click is a plain navigation that the app reads back from the URL
+        link=("query name", "lm_alert"),
     )
 
+    # the explanation belongs under the row that raised it: the tabs cannot be switched from code
+    _why(conn, "feed")
 
-def _detail(alerts: pd.DataFrame) -> None:
+
+def _clear_alert() -> None:
+    """Forget the chosen alert, in session state and in the URL that carried it."""
+    st.session_state.pop("lm_alert", None)
+    st.query_params.pop("lm_alert", None)
+
+
+def _why(conn: sqlite3.Connection, scope: str) -> None:
+    """One alert in full. Selected from the feed, so the default state is an invitation, not a guess.
+
+    The alert is read by primary key rather than taken from a loaded slice: the row you clicked might be
+    the 40,000th in the file.
+    """
     p = shell.pal()
     st.markdown('<div class="lm-sec">Why this alert fired</div>', unsafe_allow_html=True)
-    if alerts.empty:
-        st.caption("Select an alert once the feed has rows.")
+    alert_id = st.session_state.get("lm_alert")
+    if alert_id is None:
+        st.markdown(
+            '<p class="lm-hint">'
+            f"{shell.icon('pointer')}<span>Click a row in the feed above to see the features that put it over "
+            "the threshold. Use the filters and sort to find the one you want.</span></p>",
+            unsafe_allow_html=True,
+        )
         return
-    frame = alerts.sort_values("id", ascending=False)
-    picked = st.selectbox(
-        "Alert",
-        options=list(frame["id"]),
-        format_func=lambda i: _alert_caption(frame, i),
-        label_visibility="collapsed",
-    )
-    row = frame[frame["id"] == picked].iloc[0]
+    row = data.alert_by_id(conn, alert_id)
+    if row is None:
+        st.markdown(
+            f'<p class="lm-hint">{shell.icon("alert")}<span>Alert {int(alert_id)} is not in this database - '
+            "it was probably rewritten or truncated. Click another row.</span></p>",
+            unsafe_allow_html=True,
+        )
+        return
     when = pd.to_datetime(row["ts"], unit="s", utc=True).strftime("%d %b %H:%M:%S UTC")
     # a query name is whatever the client sent, so it is escaped before it goes into the page's HTML
-    qtype, model, host, qname = (html.escape(str(row[k])) for k in ("qtype", "model", "src_host", "qname"))
-    st.markdown(
-        f'<p class="lm-note">{when} - <span class="lm-badge">{qtype}</span> '
-        f'<span class="lm-badge is-alert">score {row["score"]:.3f} over threshold {row["threshold"]:.4f}</span> '
-        f'<span class="lm-badge">{model}</span></p>'
+    qtype, model, host, qname = (
+        html.escape(str(row.get(k) or "&ndash;")) for k in ("qtype", "model", "src_host", "qname")
+    )
+    caught = (
+        f'<span class="lm-badge">caught {(row["detected_ts"] - row["ts"]) * 1000:,.0f} ms after the query</span>'
+        if row.get("detected_ts")
+        else ""
+    )
+    cols = st.columns([6, 1])
+    cols[0].markdown(
+        f'<p class="lm-note">alert {int(alert_id):,} - {when} - <span class="lm-badge">{qtype}</span> '
+        f'<span class="lm-badge is-alert">score {float(row["score"]):.3f} over threshold '
+        f'{float(row["threshold"]):.4f}</span> <span class="lm-badge">{model}</span> {caught}</p>'
         f'<p class="lm-wire">{host} &rarr; {qname}</p>',
         unsafe_allow_html=True,
     )
-    features = [f for f in row["features"] if f.get("feature")]
+    # one panel under the feed and one in its own tab, so the key has to say which copy this is
+    cols[1].button(
+        "Clear", key=f"lm_alert_clear_{scope}", on_click=_clear_alert, help="Hide this alert and go back to the prompt."
+    )
+
+    features = [f for f in row["features"] if isinstance(f, dict) and f.get("feature")]
     if not features:
         st.caption("This scorer stored no explanation, so the alert has only its score.")
         return
-    with st.container():
-        left, right = st.columns([1, 1.15])
-        bars = (
-            alt.Chart(pd.DataFrame(features))
-            .mark_bar(size=16)
-            .encode(
-                y=alt.Y("feature:N", sort="-x", axis=None, title=None),
-                x=alt.X("shap:Q", title="SHAP contribution (log-odds)"),
-                color=alt.Color("shap:Q", scale=alt.Scale(domain=[-1, 1], range=["#6E7781", p["signal"]]), legend=None),
-                tooltip=["feature", "value", "shap"],
-            )
-            .properties(height=min(240, 34 * len(features) + 20), **shell.chart_config())
+    left, right = st.columns([1, 1.15])
+    bars = (
+        alt.Chart(pd.DataFrame(features))
+        .mark_bar(size=16)
+        .encode(
+            y=alt.Y("feature:N", sort="-x", axis=None, title=None),
+            x=alt.X("shap:Q", title="SHAP contribution (log-odds)"),
+            color=alt.Color("shap:Q", scale=alt.Scale(domain=[-1, 1], range=[p["fade"], p["signal"]]), legend=None),
+            tooltip=["feature", "value", "shap"],
         )
-        left.altair_chart(bars, use_container_width=True)
-        lines = "".join(
-            f'<div><p class="lm-why"><strong>{html.escape(explain.label(f["feature"]))}</strong> '
-            f"{html.escape(explain.value_text(f['feature'], f.get('value')))}</p>"
-            f'<p class="lm-kv">{html.escape(explain.meaning(f["feature"], f.get("shap")))}</p></div>'
-            for f in features
+        .properties(height=min(240, 34 * len(features) + 20), **shell.chart_config())
+    )
+    left.altair_chart(bars, width="stretch")
+    parts = []
+    for feat in features:
+        name = str(feat["feature"])
+        label = html.escape(explain.label(name))
+        reading = html.escape(explain.value_text(name, feat.get("value")))
+        meaning = html.escape(explain.meaning(name, feat.get("shap")))
+        parts.append(
+            f'<div><p class="lm-why"><strong>{label}</strong> {reading}</p><p class="lm-kv">{meaning}</p></div>'
         )
-        right.markdown(f'<div class="lm-dl">{lines}</div>', unsafe_allow_html=True)
-
-
-def _alert_caption(frame: pd.DataFrame, alert_id) -> str:
-    row = frame[frame["id"] == alert_id].iloc[0]
-    qname = row["qname"] if len(row["qname"]) <= 46 else row["qname"][:43] + "..."
-    return f"{pd.to_datetime(row['ts'], unit='s', utc=True).strftime('%H:%M:%S')}  {row['src_host']}  {qname}"
+    lines = "".join(parts)
+    right.markdown(f'<div class="lm-dl">{lines}</div>', unsafe_allow_html=True)
 
 
 def _latency(batches: pd.DataFrame, meta: dict) -> None:
@@ -373,7 +407,7 @@ def _latency(batches: pd.DataFrame, meta: dict) -> None:
         )
     )
     rule = alt.Chart(pd.DataFrame({"limit": [data.LIMIT_MS]})).mark_rule(color=p["signal"]).encode(x="limit:Q")
-    st.altair_chart(alt.layer(hist, rule).properties(**shell.chart(210)), use_container_width=True)
+    st.altair_chart(alt.layer(hist, rule).properties(**shell.chart(210)), width="stretch")
     mode = str(meta.get("mode", ""))
     if mode == "replay":
         st.caption(

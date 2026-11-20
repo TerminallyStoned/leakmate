@@ -220,7 +220,7 @@ def _trade_off(summary: pd.DataFrame, experiment: str) -> None:
         .mark_rule(color=p["ink2"], strokeDash=[4, 3])
         .encode(x="limit:Q")
     )
-    st.altair_chart(alt.layer(pts, rule).properties(**shell.chart(240)), use_container_width=True)
+    st.altair_chart(alt.layer(pts, rule).properties(**shell.chart(240)), width="stretch")
     st.caption(
         f"Colour is the model family; a square sits where measured cost passes the {data.LIMIT_MS:.0f} ms rule "
         "(dashed) and a circle where it clears it. A flat top edge means the experiment is saturated: several "
@@ -287,7 +287,7 @@ def _latency(summary: pd.DataFrame) -> None:
         .mark_rule(color=p["ink"], strokeDash=[4, 3])
         .encode(y="limit:Q")
     )
-    st.altair_chart((bars + rule).properties(**shell.chart(240)), use_container_width=True)
+    st.altair_chart((bars + rule).properties(**shell.chart(240)), width="stretch")
     st.caption(
         f"Red is under the rule; grey is over. Median over each model's runs, from "
         f"`{data.results_dir().name}/latency.csv`. The selection uses `latency_cpu.csv`, every model timed on "
@@ -331,7 +331,7 @@ def _per_tool(summary: pd.DataFrame, variants: bool) -> None:
         )
         .properties(height=140)
     )
-    st.altair_chart(chart.resolve_scale(color="independent").configure_view(strokeWidth=0), use_container_width=True)
+    st.altair_chart(chart.resolve_scale(color="independent").configure_view(strokeWidth=0), width="stretch")
     st.caption(
         "Each panel hides one tool from training (Experiment 3); the row that collapses is the tool the "
         "model never met."
@@ -398,7 +398,7 @@ def _split_gap(summary: pd.DataFrame) -> None:
         )
         .properties(height=200)
     )
-    st.altair_chart(chart, use_container_width=True)
+    st.altair_chart(chart, width="stretch")
     for dataset in gap.index:
         delta = float(gap.loc[dataset, "shuffled"] - gap.loc[dataset, "time"])
         st.caption(

@@ -66,7 +66,9 @@ def test_live_page_renders_from_a_database(demo_db: Path) -> None:
     assert len(at.get("tabs")) == 4  # feed, score over time, why it fired, latency
     assert "queries scored" in text and "median latency" in text  # the batches table reached the strip
     assert _has_table(at), "the alert feed is empty"
-    assert len(at.get("vega_lite_chart")) == 3  # score over time, SHAP bars, latency histogram
+    # score over time and the latency histogram. The SHAP bars are not among them: nothing is explained
+    # until a feed row is clicked.
+    assert len(at.get("vega_lite_chart")) == 2
 
 
 def test_results_page_renders_from_the_committed_results() -> None:
@@ -200,7 +202,10 @@ def test_query_names_are_escaped_before_they_reach_the_page(tmp_path: Path) -> N
         # the navbar wordmark is the only <img> the page owns, and it is a local data URI; what must never
         # appear unescaped is markup that came off the wire
         assert not re.search(r"<img[^>]*onerror", body, re.I), page
-        assert escaped in body, page
+        if page == "Overview":
+            assert escaped in body, page  # the overview writes the newest alerts into HTML itself
+        else:
+            assert escaped in body, page  # the feed is the dashboard's own HTML, so the name must arrive escaped
 
 
 def test_overview_shows_the_false_positive_rate_of_each_pick(demo_db: Path) -> None:
@@ -290,10 +295,16 @@ def test_results_directory_can_be_pointed_elsewhere(tmp_path: Path, monkeypatch)
     assert data.figure("roc", experiment="E1") is None
 
 
-def _feed_rows(at) -> list[str]:
-    """The alert feed table body, as rendered rows."""
-    table = next(str(m.value) for m in at.markdown if "query name" in str(m.value) and "lm-table" in str(m.value))
-    return re.findall(r"<tr[^>]*>(.*?)</tr>", table.split("<tbody>")[1], re.S)
+def _feed_html(at) -> str:
+    return next(str(m.value) for m in at.markdown if "lm-table" in str(m.value) and "query name" in str(m.value))
+
+
+def _feed_rows(at) -> int:
+    return len(re.findall(r"<tr[^>]*>\s*<td", _feed_html(at).split("<tbody>")[1]))
+
+
+def _feed_names(at) -> list[str]:
+    return re.findall(r'href="/\?lm_alert=\d+">(.*?)</a>', _feed_html(at))
 
 
 def test_feed_pages_through_every_alert_it_matches(demo_db: Path) -> None:
@@ -301,17 +312,17 @@ def test_feed_pages_through_every_alert_it_matches(demo_db: Path) -> None:
     caption = next(str(m.value) for m in at.caption if "alerts" in str(m.value))
     total = int(re.search(r"of ([\d,]+) alerts", caption)[1].replace(",", ""))
     assert total > 250, "the demo database should be big enough to need pages"
-    assert len(_feed_rows(at)) == 50, "default page size"
+    assert _feed_rows(at) == 50, "default page size"
 
     at.sidebar.radio[0].set_value("Live")  # stay on the page: the widgets below belong to the feed tab
     at.session_state["lm_feed_rows"] = 25
     at.run()
-    assert len(_feed_rows(at)) == 25
-    page1 = _feed_rows(at)
+    assert _feed_rows(at) == 25
+    page1 = _feed_names(at)
 
     at.session_state["lm_feed_page"] = 2
     at.run()
-    page2 = _feed_rows(at)
+    page2 = _feed_names(at)
     assert page2 and not set(page2) & set(page1), "page 2 repeated page 1"
     assert "Rows 26-50" in next(str(m.value) for m in at.caption if "alerts" in str(m.value))
 
@@ -327,9 +338,10 @@ def test_feed_pages_through_every_alert_it_matches(demo_db: Path) -> None:
 
 def test_feed_sort_changes_what_the_first_page_holds(demo_db: Path) -> None:
     at = _page(_app(LEAKMATE_ALERTS_DB=str(demo_db)), "Live")
-    scores = lambda at: [
-        float(re.search(r">(0\.\d+)<", r).group(1)) for r in _feed_rows(at) if re.search(r">(0\.\d+)<", r)
-    ]
+
+    def scores(at) -> list[float]:
+        return [float(x) for x in re.findall(r'">\s*(0\.\d+)\s*</td>', _feed_html(at))]
+
     at.session_state["lm_feed_sort"] = "Highest score"
     at.run()
     top = scores(at)
@@ -338,3 +350,40 @@ def test_feed_sort_changes_what_the_first_page_holds(demo_db: Path) -> None:
     at.run()
     low = scores(at)
     assert low and low == sorted(low) and low[0] <= top[-1], low[:4]
+
+
+def _page_text(at) -> str:
+    return " ".join(str(m.value) for m in at.markdown)
+
+
+def test_no_alert_is_explained_until_one_is_clicked(demo_db: Path) -> None:
+    at = _page(_app(LEAKMATE_ALERTS_DB=str(demo_db)), "Live")
+    assert "Click a row in the feed" in _page_text(at)
+    assert not st_shap_chart(at), "an alert was explained with nothing selected"
+
+
+def test_clicking_a_feed_row_opens_that_alert(demo_db: Path) -> None:
+    at = _page(_app(LEAKMATE_ALERTS_DB=str(demo_db)), "Live")
+    href = re.search(r'href="(/\?lm_alert=(\d+))"', _feed_html(at))
+    assert href, "no feed row is a link"
+    alert_id = int(href[2])
+    at.query_params["lm_alert"] = str(alert_id)
+    at.run()
+    assert at.session_state["lm_alert"] == alert_id
+    assert f"alert {alert_id:,}" in _page_text(at)
+    assert st_shap_chart(at), "the SHAP contributions were not drawn"
+
+
+def test_clearing_the_alert_returns_to_the_prompt(demo_db: Path) -> None:
+    at = _page(_app(LEAKMATE_ALERTS_DB=str(demo_db)), "Live")
+    at.query_params["lm_alert"] = re.search(r"lm_alert=(\d+)", _feed_html(at))[1]
+    at.run()
+    assert "Click a row in the feed" not in _page_text(at)
+    next(b for b in at.button if b.label == "Clear").set_value(True).run()
+    assert "lm_alert" not in at.session_state
+    assert "Click a row in the feed" in _page_text(at)
+
+
+def st_shap_chart(at) -> bool:
+    """Any altair chart whose encoding is the SHAP contribution axis."""
+    return any("SHAP contribution" in str(c.spec) for c in at.get("vega_lite_chart"))
