@@ -67,7 +67,9 @@ def test_overview_summarises_both_halves(demo_db: Path) -> None:
     assert "queries scored" in text and "median latency" in text  # live side reached the strip
     assert _has_table(at), "the per-experiment selection table is missing"
     assert len(at.get("vega_lite_chart")) == 3  # alerts over time, top hosts, latency bars
-    assert at.button, "no way through to the detail pages"
+    # no in-page jump buttons: the navbar is the only route to the other pages, so the summary cannot disagree
+    # with it about where the reader is
+    assert not at.button, "the overview grew its own navigation again"
 
 
 def test_live_page_renders_from_a_database(demo_db: Path) -> None:
