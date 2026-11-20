@@ -73,7 +73,10 @@
   --grid: oklch(100% 0 0 / 0.06);
 
   --pad: 0.9rem;
-  --mono: ui-monospace, "SFMono-Regular", "JetBrains Mono", Menlo, Consolas, monospace;
+  /* ui-monospace is not first any more: in Chromium on Linux its U+00A0 is narrower than a digit cell, and a
+     monospace whose space is not exactly one cell cannot hold columns that are padded with spaces. The feed
+     header and its rows are padded by character count, so this token decides whether they line up. */
+  --mono: "DejaVu Sans Mono", "Liberation Mono", "Noto Sans Mono", Menlo, Consolas, monospace;
   --r-outer: 16px;
   --r-inner: max(5px, calc(var(--r-outer) - var(--pad)));
   --ease: cubic-bezier(0.2, 0, 0.38, 0.9);
@@ -201,7 +204,6 @@ body,
 /* text sits above the plates: a glow that reaches a paragraph should illuminate the gap, not the words */
 .lm-note,
 .lm-sec,
-.lm-rows-head,
 .stCaptionContainer,
 [data-testid="stCaptionContainer"],
 p.lm-kv {
@@ -313,17 +315,46 @@ p.lm-kv {
    repeats the same widths, so the columns line up even though a row is a single control. 1.67 puts the label
    in a plain div inside the button, so both the font and the space-preserving `pre` have to be set on the
    button and inherited - styling a `p` that is never rendered is how this broke once. */
-.lm-rows-head {
-  /* identical font, size and spacing to the row labels: the columns line up by character count, so any
-     difference here shifts every column against the rows */
+/* the column header is a label rendered exactly like a row, so it needs the button chrome removed rather
+   than table styles: same font, same padding, therefore the same columns */
+/* Streamlit paints its own font-family on the paragraph inside a button label, and an inherited font on the
+   wrapper does not win against that. The feed is padded by character count, so every node that holds label
+   text has to be told to use the monospace: with a proportional face two different strings drift apart. */
+.st-key-lm_feed_stack [data-testid^="stBaseButton-"] *,
+.st-key-lm_feed_head [data-testid^="stBaseButton-"] * {
   font-family: var(--mono);
-  font-size: 0.78rem;
+  font-size: inherit;
   letter-spacing: 0;
-  text-transform: uppercase;
+}
+.st-key-lm_feed_head [data-testid^="stBaseButton-"] {
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  opacity: 1;
+  cursor: default;
   color: var(--text-3);
+  /* same weight as the rows, deliberately: 600 resolves to a face with a slightly wider advance, and a wider
+     advance in the header moves every column against the rows it labels. Emphasis comes from colour. */
+  font-weight: inherit;
+  text-transform: uppercase;
+  padding: 0.42rem 0.85rem;
+  justify-content: flex-start;
+}
+/* no letter-spacing here: it would widen every character before a column, and the columns would stop
+   matching the rows they label */
+.st-key-lm_feed_head [data-testid^="stBaseButton-"] > div {
+  font: inherit;
+  text-align: left;
   white-space: pre;
-  padding: 0 0.85rem 0.3rem;
   overflow: hidden;
+}
+.st-key-lm_feed_head [data-testid="stMarkdownContainer"] {
+  margin: 0;
+}
+/* the head closes with a brighter hairline than a row seam */
+.st-key-lm_feed_head {
+  background: var(--rule-bright) bottom / 100% 1px no-repeat;
 }
 .st-key-lm_feed_stack {
   border-radius: var(--r-outer);
@@ -826,7 +857,6 @@ h3 {
 /* Below a laptop the fixed-width line is wider than the viewport. Clipping the tail would hide the query
    name, which is the point of the row, so at phone widths the header and each row scroll on their own. */
 @media (max-width: 47.99em) {
-  .lm-rows-head,
   .st-key-lm_feed_stack [data-testid^="stBaseButton-"] {
     overflow-x: auto;
     scrollbar-width: thin;

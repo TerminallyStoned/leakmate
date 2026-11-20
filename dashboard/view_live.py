@@ -268,9 +268,13 @@ def _feed(conn: sqlite3.Connection, view: dict) -> None:
         why=frame["features"].map(explain.headline),
         score=frame["score"].map("{:.3f}".format),
     )
-    st.markdown(_rows_head(), unsafe_allow_html=True)
     chosen = st.session_state.get("lm_alert")
+    # the header is rendered inside the plate, not above it: as a sibling it sat outside the box and its
+    # columns could not be trusted to line up with the rows
     with st.container(key="lm_feed_stack"):
+        # the header is a label too, and it has to go through the same renderer the rows do: through HTML the
+        # padding spaces come out wider, so every column drifted right (host +25px, query name +181px)
+        st.button(_rows_head(), key="lm_feed_head", width="stretch", disabled=True)
         for row in frame.itertuples(index=False):
             st.button(
                 _row_label(row),
@@ -300,9 +304,10 @@ def _columns(**values: str) -> str:
             value = value[: width - 1] + "\u2026"
         pad = "\u00a0" * (width - len(value))  # only the padding needs to survive; text spaces are fine
         cells.append((value + pad) if align == "<" else (pad + value))
-    # a separator between fields, not just trailing padding: without it a right-aligned score runs into the
-    # next column ("0.922name length 53 chars")
-    return "\u00a0".join(cells) + "\u00a0"
+    # a two-space gutter between fields, not one: with a single space "score" and "why" read as one phrase in
+    # the header, and the right-aligned score runs into the next column in the rows. The same join is used for
+    # the header, so every column shifts identically and stays aligned.
+    return "\u00a0\u00a0".join(cells) + "\u00a0\u00a0"
 
 
 def _row_label(row) -> str:
@@ -311,8 +316,8 @@ def _row_label(row) -> str:
 
 
 def _rows_head() -> str:
-    head = _columns(time="time", host="host", score="score", why="why") + "query name"
-    return f'<div class="lm-rows-head">{html.escape(head)}</div>'
+    """The column labels, padded exactly like a row so they land in the same columns."""
+    return _columns(time="time", host="host", score="score", why="why") + "query name"
 
 
 def _open_alert(alert_id: int) -> None:
