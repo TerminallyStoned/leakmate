@@ -76,13 +76,15 @@ models/       model code, one file per model: train / score / save / load
   m3_cnn.py, m3_bilstm.py, m3_common.py   M3 char-CNN + BiLSTM
 contracts.py  validator + session/qtype helpers for the shared contracts (docs/contracts.md)
 scripts/      time_models.py (one-CPU latency), make_synthetic_sample.py, parse_capture.py (quick capture check used by run_tool.sh),
-              check_setup.py (setup check), m2_phase2.py, m2_ablation2.py, m2_e5.py, m2_error_analysis.py (M2 runs, docs/m2.md)
+              check_setup.py (setup check), m2_phase2.py, m2_ablation2.py, m2_e5.py, m2_error_analysis.py (M2 runs, docs/m2.md),
+              external_baselines.py + external/ (Splunk's pretrained model and RITA, docs/external-baselines.md)
 notebooks/    m2_dnsbert_colab.ipynb and m2_phase2_colab.ipynb (Colab GPU runs), m1_xgb_colab.ipynb (Colab CPU run)
 results/      <model>/<experiment>.json in the shared results format; summary.csv, selection.csv, latency.csv,
               per_tool.csv and figures/ from python -m eval.summarise
 results_nozone/  every model's result files on the masked testbed table (Experiments 1, 3, 5) and their
               selection.csv (docs/suffix-ablation.md)
-docs/         per-component notes: contracts.md, m1.md, m2.md, m3.md, suffix-ablation.md, experiment-s.md
+results_external/  Splunk's pretrained model and RITA on the Experiment 1 test rows (docs/external-baselines.md)
+docs/         per-component notes: contracts.md, m1.md, m2.md, m3.md, suffix-ablation.md, experiment-s.md, external-baselines.md
 tests/        smoke tests
 testbed/      lab network (docker compose), run_tool.sh, capture_matrix.sh
   benign/            benign traffic generator (Tranco, CDN names, curl, apt, browser)
