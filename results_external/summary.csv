@@ -1,0 +1,3 @@
+model,experiment,experiment_name,ablation,n,n_tunnel,threshold,threshold_source,accuracy,precision,recall,f1,fpr,roc_auc,recall_at_1pct_fpr,train_time_s,latency_ms_per_query,tp,fp,tn,fn
+rita,E1,Experiment 1 (within-testbed),False,67699,34180,0.5,validation,1.0,1.0,1.0,1.0,0.0,1.0,1.0,0.0,0.03249678724944238,34180,0,33519,0
+splunk_dsdl,E1,Experiment 1 (within-testbed),False,67699,34180,0.5,validation,0.8757145600378144,0.9991089415775608,0.7545055588063195,0.8597479663955194,0.0006861779886034786,0.9340538276405452,0.7625219426565243,0.0,0.055799206856824116,25789,23,33496,8391

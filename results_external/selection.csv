@@ -1,0 +1,2 @@
+experiment,experiment_name,selected_model,f1,fpr,latency_ms_per_query
+E1,Experiment 1 (within-testbed),rita,1.0,0.0,0.03249678724944238
