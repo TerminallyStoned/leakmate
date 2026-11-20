@@ -44,12 +44,20 @@ Other switches:
 wall-clock and **time to alert is not meaningful**; with `mode = sniff` it is (`detected_ts - ts`). The page
 says which is which instead of showing a number that would be wrong.
 
-The `batches` table and `meta.mode` arrive with PR #47. On an older database the latency panel says so and
+The `batches` table and `meta.mode` were added on 19 Nov. On an older database the latency panel says so and
 points at `results/latency_cpu.csv`; every other panel is unaffected.
+
+Query names, host addresses and anything else read from `alerts.db` are escaped before they go into the page:
+a DNS name is whatever the client sent, and the tables and alert panels are the dashboard's own HTML.
 
 ## Results page
 
-Experiment selector, then: model comparison table (the model `results/selection.csv` picked is marked),
+**Which selection to quote.** `results/` holds the original testbed names, where every tunnel name ends in
+`tunnel.test`; a model that reads names scores perfectly there from the suffix. The Overview and Results pages say
+so, and `LEAKMATE_RESULTS=results_nozone` shows the runs with the domain hidden, the ones to quote for
+Experiments 1, 3 and 5 (`docs/suffix-ablation.md`).
+
+Experiment selector, then: model comparison table (the model `selection.csv` picked is marked),
 recall against false-positive rate with the 10 ms rule as the colour split, ROC and confusion-matrix figures,
 the latency chart, the per-tool recall grid for Experiment 3, and the Experiment S shuffled-vs-time pair.
 Host-averaged and ablation runs are behind one toggle so the six headline models stay readable.
@@ -67,4 +75,5 @@ Host-averaged and ablation runs are behind one toggle so the six headline models
 | `dashboard/demo.py` | synthetic `alerts.db` for layout and screenshots, never for numbers |
 | `.streamlit/config.toml` | Streamlit's theme, fixed when the server starts |
 
-Tests: `python -m pytest tests/test_dashboard.py` (renders both pages headlessly with Streamlit's AppTest).
+Tests: `python -m pytest tests/test_dashboard.py` (renders the pages headlessly with Streamlit's AppTest; CI
+runs them in its m1 group).

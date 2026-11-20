@@ -6,6 +6,8 @@ Built against `live/alerts.db` as documented in live/README.md: `alerts`, `host_
 
 from __future__ import annotations
 
+import html
+
 import altair as alt
 import pandas as pd
 import streamlit as st
@@ -32,8 +34,7 @@ def render() -> None:
         if alerts.empty and stats.empty:
             shell.need(
                 "The database holds no rows yet.",
-                "Start the sniffer: `python -m live --pcap <capture>.pcap --model m1 "
-                "--weights artifacts/m1_xgb/E1.pt`.",
+                "Start the sniffer: `python -m live --pcap <capture>.pcap` (M1 by default).",
             )
             return
         view = _controls(alerts, stats, batches)
@@ -59,9 +60,8 @@ def _empty_db() -> None:
     shell.need(
         "No `live/alerts.db` yet.",
         "Run the sniffer over a capture (no root, no Docker needed), then reload this page:\n\n"
-        "```\npython -m live --pcap data/raw/tools/<capture>.pcap \\\n"
-        "    --model m1 --weights artifacts/m1_xgb/E1.pt\n```\n\n"
-        "In the testbed instead: `live/run_live.sh --at bridge --model m1 --weights artifacts/m1_xgb/E1.pt`. "
+        "```\npython -m live --pcap data/raw/tools/<capture>.pcap\n```\n\n"
+        "In the testbed instead: `live/run_live.sh --at bridge`. Both run M1 from `artifacts/m1_xgb/E1.pt`. "
         "To look at the layout before any capture exists, write a demo database with "
         "`python -m dashboard.demo` and point the app at it with "
         "`LEAKMATE_ALERTS_DB=/tmp/demo_alerts.db streamlit run dashboard/app.py`.",
@@ -141,7 +141,7 @@ def _strip(meta: dict, alerts: pd.DataFrame, stats: pd.DataFrame, batches: pd.Da
     hosts = max(stats["src_host"].nunique() if not stats.empty else 0, 0)
     rate = (len(alerts) / queries * 100) if queries else 0.0
     cells = [
-        ("model", str(meta.get("model", "unknown")), False),
+        ("model", html.escape(str(meta.get("model", "unknown"))), False),
         ("threshold", _num(meta.get("threshold")), False),
         ("queries scored", f"{queries:,}", False),
         ("alerts", f"{len(alerts):,}", bool(alerts.size)),
@@ -151,7 +151,7 @@ def _strip(meta: dict, alerts: pd.DataFrame, stats: pd.DataFrame, batches: pd.Da
     if not batches.empty:
         ms = _median_per_query(batches)
         cells.append(("median latency", f"{ms:.2f} <small>ms/query</small>", ms > data.LIMIT_MS))
-    cells.append(("mode", str(meta.get("mode", "unknown")), False))
+    cells.append(("mode", html.escape(str(meta.get("mode", "unknown"))), False))
     shell.strip(cells)
     st.caption(note + ".")
 
@@ -250,11 +250,13 @@ def _detail(alerts: pd.DataFrame) -> None:
     )
     row = frame[frame["id"] == picked].iloc[0]
     when = pd.to_datetime(row["ts"], unit="s", utc=True).strftime("%d %b %H:%M:%S UTC")
+    # a query name is whatever the client sent, so it is escaped before it goes into the page's HTML
+    qtype, model, host, qname = (html.escape(str(row[k])) for k in ("qtype", "model", "src_host", "qname"))
     st.markdown(
-        f'<p class="lm-note">{when} - <span class="lm-badge">{row["qtype"]}</span> '
+        f'<p class="lm-note">{when} - <span class="lm-badge">{qtype}</span> '
         f'<span class="lm-badge is-alert">score {row["score"]:.3f} over threshold {row["threshold"]:.4f}</span> '
-        f'<span class="lm-badge">{row["model"]}</span></p>'
-        f'<p class="lm-wire">{row["src_host"]} &rarr; {row["qname"]}</p>',
+        f'<span class="lm-badge">{model}</span></p>'
+        f'<p class="lm-wire">{host} &rarr; {qname}</p>',
         unsafe_allow_html=True,
     )
     features = [f for f in row["features"] if f.get("feature")]
@@ -276,9 +278,9 @@ def _detail(alerts: pd.DataFrame) -> None:
         )
         left.altair_chart(bars, use_container_width=True)
         lines = "".join(
-            f'<div><p class="lm-why"><strong>{explain.label(f["feature"])}</strong> '
-            f"{explain.value_text(f['feature'], f.get('value'))}</p>"
-            f'<p class="lm-kv">{explain.meaning(f["feature"], f.get("shap"))}</p></div>'
+            f'<div><p class="lm-why"><strong>{html.escape(explain.label(f["feature"]))}</strong> '
+            f"{html.escape(explain.value_text(f['feature'], f.get('value')))}</p>"
+            f'<p class="lm-kv">{html.escape(explain.meaning(f["feature"], f.get("shap")))}</p></div>'
             for f in features
         )
         right.markdown(f'<div class="lm-dl">{lines}</div>', unsafe_allow_html=True)
@@ -300,8 +302,8 @@ def _latency(batches: pd.DataFrame, meta: dict) -> None:
     )
     if batches.empty:
         st.caption(
-            "No `batches` table in this database. It lands with PR #47; until then re-time the models with "
-            "`python scripts/time_models.py` and see `results/latency_cpu.csv`."
+            "No `batches` table in this database: it was written before 19 Nov. Run the sniffer again, or see "
+            "`results/latency_cpu.csv` for each model timed on one CPU (`python scripts/time_models.py`)."
         )
         return
     frame = batches[batches["queries"] > 0].copy()
@@ -315,7 +317,7 @@ def _latency(batches: pd.DataFrame, meta: dict) -> None:
         "10 ms rule",
         "pass" if ms < data.LIMIT_MS else "over",
         delta_color="off",
-        help=f"13,000 queries/s is 7.7 ms per query; the rule is under {data.LIMIT_MS:.0f} ms",
+        help=f"the selection rule: at most {data.LIMIT_MS:.0f} ms per query (README, Models)",
     )
     hist = (
         alt.Chart(frame)

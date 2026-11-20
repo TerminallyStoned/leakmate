@@ -6,14 +6,14 @@ any capture run exists (Trello card 31: "Build against fake data from 18 Nov; do
 
 Everything in the file is invented: names, scores, timings. It proves the layout, the SQL and the
 plain-words explanations. It is never a source of reported numbers - those come from `results/`, which
-this script does not touch. Schema follows live/README.md, including the `batches` table and `meta.mode`
-that PR #47 adds; on a pre-#47 checkout this script adds the table itself so the latency panel works.
+this script does not touch. Schema follows live/README.md. Every timestamp is on the demo's own fixed clock:
+`live.store` stamps `alerts.detected_ts` and `batches.scored_ts` with the wall clock, which would put them years
+after the demo's packet times, so this script writes those two columns itself after the store has closed.
 """
 
 from __future__ import annotations
 
 import argparse
-import inspect
 import math
 import random
 import sqlite3
@@ -38,7 +38,7 @@ BENIGN_NAMES = (
 BUCKET_S = 10.0
 MINUTES = 30
 
-#: live/README.md, "batches", as of PR #47. Used only when live.store predates it.
+#: live/README.md, "batches". Created here if the store that wrote the file did not.
 _BATCH_DDL = """
 CREATE TABLE IF NOT EXISTS batches (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -92,10 +92,10 @@ def build(out: Path, minutes: int = MINUTES, seed: int = 32) -> dict[str, int]:
     out.parent.mkdir(parents=True, exist_ok=True)
     out.unlink(missing_ok=True)
     store = AlertStore(out, model=MODEL, threshold=THRESHOLD, source="br-ict3214-testbed-lab", mode="sniff")
-    takes_batch = "batch" in inspect.signature(store.write).parameters
     t0 = 1_700_000_000.0  # fixed base, so two runs are comparable
     counts = {"queries": 0, "alerts": 0, "batches": 0}
-    deferred: list[tuple[float, float, float, int, int, float]] = []  # batches, when live.store has no table
+    batches: list[tuple[float, float, float, int, int, float]] = []  # one row per bucket, on the demo clock
+    detected: list[float] = []  # one per alert, in the order the store inserts them
     try:
         for step in range(int(minutes * 60 // BUCKET_S)):
             bucket = t0 + step * BUCKET_S
@@ -111,19 +111,16 @@ def build(out: Path, minutes: int = MINUTES, seed: int = 32) -> dict[str, int]:
                         alerts.append(_alert(bucket, host, name, qtype, score, qpm, rng))
             queries = sum(q for q, *_ in stats.values())
             process_ms = queries * rng.uniform(1.6, 5.4)
-            batch = (bucket, bucket + BUCKET_S, queries, process_ms)
-            if takes_batch:
-                store.write(alerts, stats, batch=batch)
-            else:  # pre-#47 live.store: write without the batch, and collect it for later
-                store.write(alerts, stats)
-                deferred.append((bucket, batch[0], batch[1], queries, len(alerts), process_ms))
+            store.write(alerts, stats)
+            last = bucket + BUCKET_S
+            batches.append((last + process_ms / 1000, bucket, last, queries, len(alerts), process_ms))
+            detected += [a["detected_ts"] for a in alerts]
             counts["queries"] += queries
             counts["alerts"] += len(alerts)
             counts["batches"] += 1
     finally:
         store.close()
-    if not takes_batch:
-        _write_batches(out, deferred)
+    _restamp(out, batches, detected)
     return counts
 
 
@@ -153,14 +150,17 @@ def _alert(bucket: float, host: str, name: str, qtype: str, score: float, qpm: f
     }
 
 
-def _write_batches(path: Path, rows: list[tuple[float, float, float, int, int, float]]) -> None:
-    """Add PR #47's `batches` table to a database written by a pre-#47 live.store."""
+def _restamp(path: Path, batches: list[tuple[float, float, float, int, int, float]], detected: list[float]) -> None:
+    """Put `batches` and `alerts.detected_ts` on the demo clock (the store stamped them with the wall clock)."""
     with sqlite3.connect(path) as db:
         db.executescript(_BATCH_DDL)
+        db.execute("DELETE FROM batches")
         db.executemany(
             "INSERT INTO batches (scored_ts, first_ts, last_ts, queries, alerts, process_ms) VALUES (?, ?, ?, ?, ?, ?)",
-            rows,
+            batches,
         )
+        ids = [row[0] for row in db.execute("SELECT id FROM alerts ORDER BY id")]
+        db.executemany("UPDATE alerts SET detected_ts = ? WHERE id = ?", zip(detected, ids, strict=True))
         db.commit()
 
 

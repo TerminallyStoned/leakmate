@@ -12,8 +12,8 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-# CI runs the m1 and m2 test groups, which install requirements-dev plus requirements-m1 or -m2: neither has
-# streamlit, so this file is skipped there rather than failing the run. Locally: pip install -r requirements.txt
+# CI's m1 test group installs streamlit on top of requirements-m1, so these tests run there; the m2 group and
+# any machine without streamlit skip the file. Locally: pip install -r requirements.txt
 streamlit = pytest.importorskip("streamlit", reason="the dashboard needs streamlit (requirements.txt)")
 from streamlit.testing.v1 import AppTest  # noqa: E402
 
@@ -79,6 +79,17 @@ def test_results_page_renders_from_the_committed_results() -> None:
     assert any("Experiment 1" in label for label in labels)
 
 
+def test_results_page_renders_from_the_runs_with_the_domain_hidden(monkeypatch) -> None:
+    """results_nozone/ has no shuffled runs and no figures; the page says so and does not crash."""
+    if not (ROOT / "results_nozone" / "summary.csv").exists():
+        pytest.skip("results_nozone/summary.csv is not in this checkout")
+    monkeypatch.setenv("LEAKMATE_RESULTS", str(ROOT / "results_nozone"))
+    at = _page(_app(LEAKMATE_ALERTS_DB=""), "Results")
+    assert not at.exception, at.exception
+    assert _has_table(at), "the comparison table is empty"
+    assert any("no shuffled runs" in str(c.value) for c in at.caption)
+
+
 def test_missing_database_names_the_command_that_fills_it(tmp_path: Path) -> None:
     at = _page(_app(LEAKMATE_ALERTS_DB=str(tmp_path / "nothing.db")), "Live")
     assert not at.exception, at.exception
@@ -117,8 +128,10 @@ def test_every_m1_feature_has_plain_words() -> None:
         line = explain.sentence(feature, 12.5, 0.4)
         assert line and "pushes" in line
         assert explain.value_text(feature, 12.5).startswith(("12", "yes", "no", "13")), feature
-        if unit and unit != "flag":
+        if unit and unit not in ("flag", "ratio"):  # a ratio is printed as a bare number
             assert unit in line, feature
+    assert explain.value_text("h_uniq_ratio", 1.0) == "1.00"
+    assert explain.headline([{"feature": "h_uniq_ratio", "value": 1.0, "shap": 4.9}]) == "unique-name ratio 1.00"
     assert explain.headline([]) == "no explanation"
     assert "pushes toward tunnel" in explain.sentence("q_len", 118.0, 2.31)
     assert "away" in explain.sentence("h_qpm", 12.0, -0.2)
@@ -142,6 +155,54 @@ def test_latency_panel_survives_a_pre_batches_database(tmp_path: Path) -> None:
     at = _page(_app(LEAKMATE_ALERTS_DB=str(path)), "Live")
     assert not at.exception, at.exception
     assert any("batches" in str(c.value) for c in at.caption)
+
+
+def test_demo_database_is_on_one_clock(demo_db: Path) -> None:
+    """live.store stamps detected_ts and scored_ts with the wall clock; the demo must put both on its own
+    clock, or the page sees a file spanning years and its window holds nothing."""
+    from dashboard import data
+
+    conn = data.connect(demo_db)
+    alerts, batches, stats = data.read_alerts(conn), data.read_batches(conn), data.read_host_stats(conn)
+    conn.close()
+    first, last = stats["bucket_ts"].min(), stats["bucket_ts"].max()
+    assert last - first < 5 * 60  # the five minutes the fixture asked for
+    assert batches["scored_ts"].between(first, last + 30).all() and len(batches) == stats["bucket_ts"].nunique()
+    assert (batches["first_ts"] < batches["last_ts"]).all() and (batches["last_ts"] <= batches["scored_ts"]).all()
+    wait = alerts["detected_ts"] - alerts["ts"]
+    assert wait.between(0.2, 1.6).all()  # the time to alert the generator drew, not today minus 2023
+
+
+def test_query_names_are_escaped_before_they_reach_the_page(tmp_path: Path) -> None:
+    """A DNS name is whatever the client sent. It is shown as text, never read as markup."""
+    import sqlite3
+
+    from dashboard import demo
+
+    path = tmp_path / "alerts.db"
+    demo.build(path, minutes=1, seed=3)
+    evil = "<img src=x onerror=alert(1)>.evil.tunnel.test"
+    with sqlite3.connect(path) as db:
+        db.execute("UPDATE alerts SET qname = ? WHERE id = (SELECT MAX(id) FROM alerts)", (evil,))
+        db.commit()
+    escaped = "&lt;img src=x onerror=alert(1)&gt;.evil.tunnel.test"
+    for page in ("Overview", "Live"):
+        at = (
+            _app(LEAKMATE_ALERTS_DB=str(path))
+            if page == "Overview"
+            else _page(_app(LEAKMATE_ALERTS_DB=str(path)), page)
+        )
+        assert not at.exception, at.exception
+        body = " ".join(str(m.value) for m in at.markdown)
+        assert "<img" not in body, page
+        assert escaped in body, page
+
+
+def test_overview_shows_the_false_positive_rate_of_each_pick(demo_db: Path) -> None:
+    at = _app(LEAKMATE_ALERTS_DB=str(demo_db))
+    picks = next(str(m.value) for m in at.markdown if 'class="lm-table"' in str(m.value))
+    assert "false-positive rate" in picks and "&ndash;" not in picks  # every pick has a rate
+    assert any("results_nozone" in str(c.value) for c in at.caption)  # and says which selection to quote
 
 
 def test_data_loaders_read_the_documented_shape(demo_db: Path) -> None:

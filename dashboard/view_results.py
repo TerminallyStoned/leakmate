@@ -85,24 +85,31 @@ def _strip(summary: pd.DataFrame, selection: pd.DataFrame) -> None:
         ("runs", f"{len(summary):,}", False),
         ("models", f"{summary['model'].nunique()}", False),
         ("experiments", f"{summary['experiment'].nunique()}", False),
-        ("test queries", f"{int(summary['n'].sum()):,}", False),
         ("results set", data.results_dir().name, False),
         ("frozen at", "tag results-freeze", False),
     ]
     shell.strip(cells)
     if picked != "n/a":
+        name = data.results_dir().name
         st.caption(
-            "The rule is applied per experiment in `results/selection.csv`; the model it picked for the "
-            "experiment below is marked in the table. `LEAKMATE_RESULTS=results_nozone` shows the run with the "
-            "lab domain hidden, where M1 is the pick."
+            f"The rule is applied per experiment in `{name}/selection.csv`; the model it picked for the "
+            "experiment below is marked in the table."
         )
+        if name == "results":
+            st.caption(
+                "Experiments 1, 3 and 5 here use the original testbed names, where every tunnel name ends in "
+                "`tunnel.test`, so a model that reads names scores perfectly from the suffix. For those "
+                "experiments quote the runs with the domain hidden: `LEAKMATE_RESULTS=results_nozone` "
+                "(docs/suffix-ablation.md)."
+            )
 
 
 def _comparison(summary: pd.DataFrame, selection: pd.DataFrame, experiment: str) -> None:
     st.markdown(
         f'<div class="lm-sec">Model comparison - {data.experiment_label(experiment)}</div>'
-        '<p class="lm-note">Sorted by F1. "picked" marks the model <code>results/selection.csv</code> chose for this '
-        "experiment under the rule: best F1 subject to the false-positive ceiling and the 10 ms rule.</p>",
+        '<p class="lm-note">Sorted by F1. "picked" marks the model <code>selection.csv</code> chose for this '
+        "experiment under the rule: best F1 with a false-positive rate of at most 1% and at most 10 ms per "
+        "query; an F1 tie goes to the faster model.</p>",
         unsafe_allow_html=True,
     )
     frame = summary[summary["experiment"] == experiment].copy()
@@ -165,9 +172,9 @@ def _trade_off(summary: pd.DataFrame, experiment: str) -> None:
     p = shell.pal()
     st.markdown(
         '<div class="lm-sec">Detection against processing cost</div>'
-        '<p class="lm-note">The project question is not "which model has the best F1" but "which catches the '
-        'most tunnels while a campus resolver stays quiet and under 10 ms per query". Recall at 1% false '
-        "positives is the threshold-free view, so it survives saturation.</p>",
+        '<p class="lm-note">Research question 1 asks which model gives the best trade-off between detection, '
+        "false positives and speed. Recall at 1% false positives does not depend on a model's threshold, so "
+        "it still separates models when F1 is saturated.</p>",
         unsafe_allow_html=True,
     )
     frame = summary[summary["experiment"] == experiment].copy()
@@ -222,22 +229,24 @@ def _curves(summary: pd.DataFrame, experiment: str) -> None:
     if roc:
         cols[0].image(str(roc), caption=f"ROC curves, {data.experiment_label(experiment).lower()}")
     else:
-        cols[0].caption(f"No `results/figures/roc_{experiment}.png` - run `python -m eval.summarise`.")
+        cols[0].caption(
+            f"No `{data.results_dir().name}/figures/roc_{experiment}.png` - `python -m eval.summarise --results-dir "
+            f"{data.results_dir().name}` draws it (without `--no-plots`)."
+        )
     if models:
         model = cols[1].selectbox("Confusion matrix", models, format_func=data.model_label)
         cm = data.figure("cm", model=model, experiment=experiment)
         if cm:
             cols[1].image(str(cm), caption=f"{data.model_label(model)}, {experiment}")
         else:
-            cols[1].caption(f"No `results/figures/cm_{model}_{experiment}.png`.")
+            cols[1].caption(f"No `{data.results_dir().name}/figures/cm_{model}_{experiment}.png`.")
 
 
 def _latency(summary: pd.DataFrame) -> None:
     p = shell.pal()
     st.markdown(
         '<div class="lm-sec">Latency</div>'
-        '<p class="lm-note">One query at a time on one CPU box, median of three timings. '
-        "The rule is under 10 ms per query, which is what 13,000 queries/s implies.</p>",
+        '<p class="lm-note">One query at a time. The selection rule allows at most 10 ms per query.</p>',
         unsafe_allow_html=True,
     )
     latency = data.read_table("latency")
@@ -271,8 +280,9 @@ def _latency(summary: pd.DataFrame) -> None:
     )
     st.altair_chart((bars + rule).properties(**shell.chart(240)), use_container_width=True)
     st.caption(
-        "Red is under the rule; grey is over. From `results/latency.csv`, which prefers "
-        "`results/latency_cpu.csv` (all models, one machine)."
+        f"Red is under the rule; grey is over. Median over each model's runs, from "
+        f"`{data.results_dir().name}/latency.csv`. The selection uses `latency_cpu.csv`, every model timed on "
+        "one CPU (`python scripts/time_models.py`)."
     )
 
 
@@ -351,10 +361,13 @@ def _split_gap(summary: pd.DataFrame) -> None:
                 "recall_at_1pct_fpr": r["recall_at_1pct_fpr"],
             }
         )
-    if not rows:
-        st.caption("Experiment S rows are not in this results set.")
+    frame = pd.DataFrame(rows, columns=["dataset", "split", "f1", "fpr", "roc_auc", "recall_at_1pct_fpr"])
+    # a pair needs both halves: results_nozone has the time-split Experiment 1 run but no shuffled rerun
+    paired = frame.groupby("dataset")["split"].transform("nunique") == 2
+    frame = frame[paired]
+    if frame.empty:
+        st.caption(f"`{data.results_dir().name}/` has no shuffled runs (Experiment S); they are in `results/`.")
         return
-    frame = pd.DataFrame(rows)
     gap = frame.pivot_table(index="dataset", columns="split", values="f1", aggfunc="first")
     chart = (
         alt.Chart(

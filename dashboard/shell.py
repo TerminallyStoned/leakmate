@@ -7,6 +7,8 @@ it from here rather than from module constants.
 
 from __future__ import annotations
 
+import html
+
 from pathlib import Path
 
 import pandas as pd
@@ -155,7 +157,7 @@ def _cell(value, kind: str) -> str:
         return f"{value:,}"
     if kind == "num" and isinstance(value, float):
         return f"{value:,.4f}"
-    text = str(value)
+    text = html.escape(str(value))  # cells hold query names and host addresses: data, never markup
     if kind == "mark":
         return f'<span class="mark">{text}</span>' if text else ""
-    return text.replace("<", "&lt;")
+    return text

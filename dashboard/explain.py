@@ -11,26 +11,42 @@ from __future__ import annotations
 #: feature -> (short label, what the number counts, unit)
 FEATURE_DOC: dict[str, tuple[str, str, str]] = {
     "q_len": ("name length", "characters in the whole query name", "chars"),
-    "sub_len": ("first label length", "characters before the first dot", "chars"),
+    "sub_len": ("subdomain length", "characters in the name before its last two labels", "chars"),
     "longest_label": ("longest label", "characters in the longest label", "chars"),
     "n_labels": ("label count", "labels the name is split into by dots", "labels"),
     "entropy": ("name entropy", "how unpredictable the characters of the name are", "bits/char"),
-    "sub_entropy": ("first-label entropy", "how unpredictable the characters of the first label are", "bits/char"),
+    "sub_entropy": (
+        "subdomain entropy",
+        "how unpredictable the characters before the last two labels are",
+        "bits/char",
+    ),
     "n_digits": ("digits", "digit characters in the name", "chars"),
     "n_upper": ("upper case", "upper-case characters in the name", "chars"),
-    "n_special": ("special characters", "characters that are not letters, digits or hyphens", "chars"),
-    "digit_ratio": ("digit share", "share of the name made of digits", "share"),
+    "n_special": ("special characters", "characters that are not letters, digits or dots", "chars"),
+    "digit_ratio": ("digit share", "digits divided by the length of the name (0 to 1)", "ratio"),
     "qtype_code": ("record type", "the record type as a number (A, AAAA, TXT, NULL)", ""),
     "is_txt_null": ("TXT or NULL", "the query asked for a TXT or NULL record", "flag"),
     "resp_size": ("answer size", "size of the DNS answer", "bytes"),
     "qlen_wire": ("query size", "size of the whole query on the wire", "bytes"),
     "h_qpm": ("host query rate", "queries per minute from this host", "q/min"),
-    "h_uniq_ratio": ("unique names", "share of this host's names in the window that appear once", "share"),
+    "h_uniq_ratio": (
+        "unique-name ratio",
+        "distinct names divided by queries from this host in the window (1 = every query a new name)",
+        "ratio",
+    ),
     "h_ent_mean": ("host mean entropy", "mean name entropy for this host in the window", "bits/char"),
     "h_ent_std": ("host entropy spread", "spread of that entropy", "bits/char"),
     "h_len_mean": ("host mean length", "mean name length for this host in the window", "chars"),
-    "h_parent_uniq": ("parent domains", "distinct parent domains this host asked about in the window", "domains"),
-    "h_txt_null_ratio": ("TXT or NULL share", "share of this host's queries in the window asking TXT or NULL", "share"),
+    "h_parent_uniq": (
+        "names under this domain",
+        "distinct names this host asked under this name's last two labels in the window",
+        "names",
+    ),
+    "h_txt_null_ratio": (
+        "TXT or NULL ratio",
+        "TXT or NULL queries divided by all queries from this host in the window (0 to 1)",
+        "ratio",
+    ),
 }
 
 WINDOW = "60 s"
@@ -42,14 +58,16 @@ def label(feature: str) -> str:
 
 
 def value_text(feature: str, value: float | None) -> str:
-    """`117.0` -> `117 chars`, `0.31` -> `0.31`, `1.0` on a flag -> `yes`."""
+    """`117.0` -> `117 chars`, `1.0` on a ratio -> `1.00`, `1.0` on a flag -> `yes`."""
     doc = FEATURE_DOC.get(feature)
     if value is None:
         return "-"
     if doc and doc[2] == "flag":
         return "yes" if value >= 0.5 else "no"
     number = f"{value:,.2f}".rstrip("0").rstrip(".") if abs(value) < 1 or abs(value) >= 1 else str(value)
-    if doc and doc[2] in {"chars", "bytes", "labels", "domains"}:
+    if doc and doc[2] == "ratio":  # a ratio reads as a number on its own: "unique-name ratio 1.00"
+        return f"{value:.2f}"
+    if doc and doc[2] in {"chars", "bytes", "labels", "names"}:
         number = f"{value:,.0f}"
     elif doc and doc[2] == "q/min":
         number = f"{value:,.1f}"

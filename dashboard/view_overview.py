@@ -7,6 +7,8 @@ curves. Numbers are read, never recomputed.
 
 from __future__ import annotations
 
+import html
+
 import altair as alt
 import pandas as pd
 import streamlit as st
@@ -30,7 +32,7 @@ def render() -> None:
         shell.strip(live["cells"])
         where = "live traffic" if live.get("mode") == "sniff" else "a replayed capture"
         st.caption(f"Scoring {where} from `{live.get('source', 'unknown')}`.")
-        _alerts_over_time(live["buckets"])
+        _alerts_over_time(live["buckets"], live.get("bucket_s", 0.0))
         _top_hosts(live["hosts"])
         _latest(live["latest"])
     with right:
@@ -67,7 +69,7 @@ def _live_summary() -> dict:
         else float("nan")
     )
     cells = [
-        ("model", str(meta.get("model", "unknown")), False),
+        ("model", html.escape(str(meta.get("model", "unknown"))), False),
         ("queries scored", f"{queries:,}", False),
         ("alerts", f"{len(alerts):,}", bool(len(alerts))),
         (
@@ -78,6 +80,7 @@ def _live_summary() -> dict:
     ]
     buckets = pd.DataFrame()
     hosts = pd.DataFrame()
+    bucket_s = 0.0
     if not stats.empty:
         frame = stats.copy()
         bucket_s = _bucket_width(float(frame["bucket_ts"].max()) - float(frame["bucket_ts"].min()))
@@ -97,12 +100,13 @@ def _live_summary() -> dict:
         "buckets": buckets,
         "hosts": hosts,
         "latest": latest,
+        "bucket_s": bucket_s,
         "mode": meta.get("mode"),
         "source": meta.get("source"),
     }
 
 
-def _alerts_over_time(buckets: pd.DataFrame) -> None:
+def _alerts_over_time(buckets: pd.DataFrame, bucket_s: float) -> None:
     p = shell.pal()
     if buckets.empty:
         st.caption("No scored buckets yet.")
@@ -124,7 +128,8 @@ def _alerts_over_time(buckets: pd.DataFrame) -> None:
         .encode(x=alt.X("at:T", title=None), y=alt.Y("queries:Q", title=None), tooltip=["queries"])
     )
     st.altair_chart(alt.layer(quiet, bars).properties(**shell.chart(132)), use_container_width=True)
-    st.caption("Grey: queries scored per 15 min. Red: of those, the alerts.")
+    per = f"{bucket_s / 60:g} min" if bucket_s < 3_600 else f"{bucket_s / 3_600:g} h"
+    st.caption(f"Grey: queries scored per {per}. Red: of those, the alerts.")
 
 
 def _top_hosts(hosts: pd.DataFrame) -> None:
@@ -150,11 +155,13 @@ def _latest(latest: dict | None) -> None:
         return
     when = pd.to_datetime(latest["ts"], unit="s", utc=True).strftime("%H:%M:%S UTC")
     qname = latest["qname"] if len(latest["qname"]) <= 62 else latest["qname"][:59] + "..."
+    # a query name is whatever the client sent, so it is escaped before it goes into the page's HTML
     st.markdown(
-        f'<div class="lm-why"><p><strong>{latest["src_host"]}</strong> at {when} - '
+        f'<div class="lm-why"><p><strong>{html.escape(str(latest["src_host"]))}</strong> at {when} - '
         f"score {latest['score']:.3f} over {latest['threshold']:.4f}</p>"
-        f'<p class="lm-wire">{qname}</p>'
-        f'<p class="lm-kv">strongest feature: {explain.headline(latest.get("features") or [])}</p></div>',
+        f'<p class="lm-wire">{html.escape(qname)}</p>'
+        f'<p class="lm-kv">strongest feature: '
+        f"{html.escape(explain.headline(latest.get('features') or []))}</p></div>",
         unsafe_allow_html=True,
     )
 
@@ -172,8 +179,8 @@ def _results_summary() -> dict:
     cells = [
         ("models", f"{headline['model'].nunique()}", False),
         ("experiments", f"{headline['experiment'].nunique()}", False),
+        ("runs", f"{len(headline):,}", False),
         ("best F1", f"{headline['f1'].max():.4f}", False),
-        ("test queries", f"{int(headline['n'].sum()):,}", False),
     ]
     return {"cells": cells, "selection": selection, "latency": latency}
 
@@ -182,11 +189,12 @@ def _picks(selection: pd.DataFrame) -> None:
     if selection.empty:
         st.caption("No `results/selection.csv` - run `python -m eval.summarise`.")
         return
-    frame = selection[["experiment", "selected_model", "f1", "latency_ms_per_query"]].copy()
+    frame = selection[["experiment", "selected_model", "f1", "fpr", "latency_ms_per_query"]].copy()
     frame["experiment"] = frame["experiment"].map(data.experiment_label)
     frame["selected_model"] = frame["selected_model"].map(data.model_label)
     frame = frame.rename(columns={"selected_model": "picked", "latency_ms_per_query": "ms/query"})
     frame["f1"] = frame["f1"].map("{:.4f}".format)
+    frame["fpr"] = frame["fpr"].map("{:.2%}".format)
     frame["ms/query"] = frame["ms/query"].map("{:.2f}".format)
     shell.table(
         frame,
@@ -194,11 +202,29 @@ def _picks(selection: pd.DataFrame) -> None:
             ("experiment", "experiment", "text"),
             ("picked", "picked by the rule", "text"),
             ("f1", "f1", "num"),
-            ("fpr", "fpr", "num"),
+            ("fpr", "false-positive rate", "num"),
             ("ms/query", "ms/query", "num"),
         ],
     )
-    st.caption("`results/selection.csv`: best F1 subject to the false-positive ceiling and the 10 ms rule.")
+    name = data.results_dir().name
+    st.caption(f"`{name}/selection.csv`: best F1 with a false-positive rate of at most 1% and at most 10 ms per query.")
+    _selection_note(name)
+
+
+def _selection_note(results_name: str) -> None:
+    """Which selection this is. The original testbed names all end in the lab domain, which a model can read."""
+    if results_name == "results_nozone":
+        st.caption(
+            "These are the runs with the lab domain hidden: the selection to quote for the testbed experiments "
+            "(docs/suffix-ablation.md). Experiments 2 and 4 use CIC and are only in `results/`."
+        )
+    elif results_name == "results":
+        st.caption(
+            "Experiments 1, 3 and 5 here use the original testbed names, where every tunnel name ends in "
+            "`tunnel.test`, so a model that reads names scores perfectly from the suffix. For those experiments "
+            "quote the selection with the domain hidden: `LEAKMATE_RESULTS=results_nozone` "
+            "(docs/suffix-ablation.md)."
+        )
 
 
 def _latency_overview(latency: pd.DataFrame) -> None:

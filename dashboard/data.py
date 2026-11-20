@@ -21,7 +21,7 @@ ROOT = Path(__file__).resolve().parents[1]
 RESULTS_ENV = "LEAKMATE_RESULTS"
 ALERTS_ENV = "LEAKMATE_ALERTS_DB"
 DEFAULT_DB = ROOT / "live" / "alerts.db"
-LIMIT_MS = 10.0  # the deployment rule: under 10 ms per query, see docs/latency.md
+LIMIT_MS = 10.0  # the selection rule's latency limit, eval.metrics.MAX_LATENCY_MS (README, Models)
 
 
 #: rows of their own in the summarise output: host-averaged scores and ablations, not the headline models
@@ -159,7 +159,7 @@ def model_label(name: str | None) -> str:
         ("_hostavg", "host-avg"),
         ("_ablation_cic_leaky", "ablation: CIC leaky"),
         ("_ablation_query_only", "ablation: query only"),
-        ("_ablation1_char", "ablation: char BPE"),
+        ("_ablation1_char", "ablation 1: character tokenizer"),
     ):
         if name.endswith(suffix):
             base, tail = name[: -len(suffix)], word
