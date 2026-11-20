@@ -774,10 +774,13 @@ h3 {
   border-radius: var(--r-inner);
   padding: 0.5rem 0.75rem;
   margin-bottom: 0.3rem;
-  color: var(--text-2);
-  /* bold, all of them: the active page is already carried by its raised plate, the inset accent and the
-     brighter text colour, so the labels do not need a weight step to be legible as a group */
+  color: var(--text-1);
+  /* Source Sans 700 is already a real bold face (the same string measures 63px at 400 and 67px at 700), but
+     at this size and in a muted grey it still reads medium. So: full-brightness text, a size that carries the
+     weight, and a hair of stroke to thicken the letterforms themselves on engines that support it. */
   font-weight: 700;
+  font-size: 0.9375rem;
+  -webkit-text-stroke: 0.45px currentcolor;
   border: 0;
   transition: color var(--fast), background-color var(--fast), box-shadow var(--mid), transform var(--fast);
 }
@@ -785,6 +788,16 @@ h3 {
   color: var(--text-1);
   background: var(--surface-2);
   transform: translateX(2px);
+}
+@supports not (-webkit-text-stroke: 0.1px black) {
+  [data-testid="stRadio"] [data-testid="stRadioOption"] {
+    /* no stroke support: go a shade heavier instead of leaving the letters thin */
+    font-weight: 800;
+  }
+}
+[data-testid="stRadio"] [data-testid="stRadioOption"] p {
+  font-weight: inherit;
+  -webkit-text-stroke: inherit;
 }
 [data-testid="stRadio"] [data-testid="stRadioOption"]:has(input:checked) {
   background:
