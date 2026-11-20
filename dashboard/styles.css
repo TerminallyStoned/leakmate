@@ -38,14 +38,18 @@
      accent's hue. `--rule` and `--rule-v` are the only separators, and both fade out at their ends. */
   /* diffuse, not drawn: bright enough at the top-left corner to read as light, gone before halfway down
      either axis, so no side of a panel ever looks like it has a stroke */
-  --rim: linear-gradient(152deg, oklch(100% 0 0 / 0.11), oklch(76% 0.14 300 / 0.085) 22%,
-         oklch(72% 0.13 258 / 0.03) 44%, transparent 66%);
-  --rim-alert: linear-gradient(148deg, oklch(100% 0 0 / 0.14), oklch(66% 0.19 22 / 0.3) 26%, transparent 70%);
-  /* the glow has to stay inside the gap beneath a plate: a long, strong one reads as a smudge across the
-     paragraph below, which is what the first pass did */
-  /* the light is on the top-left, so the ambient fall-off goes the other way: down and to the right */
-  --lift: inset 0 1px 0 oklch(100% 0 0 / 0.045), 16px 18px 34px -26px oklch(58% 0.2 296 / 0.38),
-          6px 4px 14px -9px oklch(60% 0.16 255 / 0.24);
+  /* One light, above-left. The axis runs corner to corner, so the ramp brightens the top-left, falls through a
+     long gradual middle - which is where the top-right and bottom-left corners land, so they fade rather than
+     stop - and then picks back up at the bottom-right, which catches the ambient light instead of ending
+     empty. A ramp that reaches `transparent` at its end is what left that corner looking unfinished. */
+  --rim: linear-gradient(145deg, oklch(100% 0 0 / 0.12), oklch(76% 0.14 300 / 0.085) 24%,
+         oklch(74% 0.13 280 / 0.035) 48%, oklch(76% 0.15 300 / 0.07) 74%, oklch(78% 0.15 300 / 0.105));
+  --rim-alert: linear-gradient(145deg, oklch(100% 0 0 / 0.13), oklch(66% 0.19 22 / 0.16) 26%,
+         oklch(66% 0.19 22 / 0.07) 52%, oklch(66% 0.19 22 / 0.2) 78%, oklch(66% 0.19 22 / 0.28));
+  /* the ambient fall-off runs to the bottom-right along the same axis, and stays inside the gap beneath a
+     plate: a long, strong one reads as a smudge across the paragraph below, which the first pass did */
+  --lift: inset 0 1px 0 oklch(100% 0 0 / 0.045), 20px 20px 38px -26px oklch(58% 0.2 296 / 0.42),
+          9px 7px 18px -11px oklch(60% 0.16 255 / 0.26);
   --rule: linear-gradient(90deg, transparent, oklch(76% 0.14 300 / 0.26) 14% 86%, transparent);
   --rule-bright: linear-gradient(90deg, transparent, oklch(76% 0.14 300 / 0.5) 12% 88%, transparent);
   --rule-v: linear-gradient(180deg, transparent, oklch(76% 0.14 300 / 0.24) 16% 84%, transparent);
@@ -108,7 +112,7 @@ body,
   /* glass, so the wash behind it is visible: the bar is a plane over the page, not a box beside it */
   background: linear-gradient(var(--glass), var(--glass));
   backdrop-filter: blur(14px) saturate(150%);
-  box-shadow: inset -1px 0 0 oklch(100% 0 0 / 0.05), 18px 0 30px -26px oklch(50% 0.2 296 / 0.4);
+  box-shadow: inset -1px 0 0 oklch(100% 0 0 / 0.05), 20px 14px 34px -26px oklch(50% 0.2 296 / 0.42);
   border-right: 0;
 }
 [data-testid="stAppViewContainer"] main {
@@ -530,7 +534,8 @@ code,
 .lm-verdict:hover {
   /* background-color, not background: the plate's layered fill must survive the hover */
   background-color: var(--surface-2);
-  box-shadow: inset 0 1px 0 oklch(100% 0 0 / 0.07), 18px 20px 36px -26px oklch(62% 0.2 296 / 0.55);
+  box-shadow: inset 0 1px 0 oklch(100% 0 0 / 0.07), 22px 22px 42px -26px oklch(62% 0.2 296 / 0.55),
+    10px 8px 18px -12px oklch(62% 0.16 255 / 0.3);
   transform: translateY(-1px);
 }
 @media (prefers-reduced-motion: no-preference) {
@@ -760,7 +765,7 @@ h3 {
     var(--surface-3);
   color: var(--text-1);
   font-weight: 650;
-  box-shadow: inset 0 1px 0 oklch(100% 0 0 / 0.1), 0 10px 22px -18px oklch(62% 0.2 296 / 0.7);
+  box-shadow: inset 0 1px 0 oklch(100% 0 0 / 0.1), 13px 13px 24px -18px oklch(62% 0.2 296 / 0.7);
 }
 
 .stButton > button {
@@ -818,7 +823,7 @@ h3 {
     var(--rim-alert) border-box !important;
   border: 1px solid transparent !important;
   border-radius: var(--r-outer) !important;
-  box-shadow: 14px 16px 28px -24px oklch(56% 0.19 22 / 0.5) !important;
+  box-shadow: 17px 18px 32px -24px oklch(56% 0.19 22 / 0.52), 8px 6px 14px -10px oklch(56% 0.16 22 / 0.3) !important;
 }
 [data-testid="stWarning"] div,
 [data-testid="stWarning"] p {
