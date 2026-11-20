@@ -243,6 +243,7 @@ def icon(name: str, tone: str = "") -> str:
         "clock": '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
         "trend": '<path d="M3 17l6-6 4 4 7-7"/><path d="M14 8h6v6"/>',
         "pointer": '<path d="M5 3.5 18.8 11a.9.9 0 0 1-.1 1.66l-5.2 1.9-2.5 5.3a.9.9 0 0 1-1.66-.2L4.3 5.2a.9.9 0 0 1 .7-1.7Z"/>',
+        "target": '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4"/><path d="M12 3.5v3M12 17.5v3M3.5 12h3M17.5 12h3"/>',
     }
     cls = f' class="{tone}"' if tone else ""
     return (

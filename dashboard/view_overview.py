@@ -38,9 +38,7 @@ def render() -> None:
         _top_hosts(live["hosts"])
         _latest(live["latest"])
     with right:
-        shell.section(
-            "Evaluation", f"from <code>{data.results_dir().name}/</code> at tag <code>results-freeze</code>"
-        )
+        shell.section("Evaluation", f"from <code>{data.results_dir().name}/</code> at tag <code>results-freeze</code>")
         shell.strip(results["cells"])
         _picks(results["selection"])
         _latency_overview(results["latency"])
@@ -376,6 +374,24 @@ def _conclusions() -> list[dict]:
                 "detail": f"The best {data.model_label(c['model'])} recall on "
                 f"{data.experiment_label('E4_cic2testbed').lower()}: the same features against a network they "
                 "were never trained on, and the only experiment where nothing is saturated.",
+            }
+        )
+
+    per_tool = data.read_table("per_tool")
+    if not per_tool.empty:
+        by_tool = per_tool.groupby("tool")["recall"].mean().sort_values()
+        tool, score = by_tool.index[0], float(by_tool.iloc[0])
+        runs = int((per_tool["tool"] == tool).sum())
+        n_tools = per_tool["tool"].nunique()
+        out.append(
+            {
+                "icon": "target",
+                "tone": "tone-warn",
+                "kicker": "Hardest tool",
+                "hero": tool,
+                "detail": f"Mean recall {score:.1%} across {runs} model-and-experiment runs that saw it, the "
+                f"lowest of the {n_tools} tools measured. A detector that misses this one is "
+                "measurably blind to a whole client, not merely slower on it.",
             }
         )
 

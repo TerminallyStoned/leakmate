@@ -43,8 +43,9 @@
   --rim-alert: linear-gradient(148deg, oklch(100% 0 0 / 0.14), oklch(66% 0.19 22 / 0.3) 26%, transparent 70%);
   /* the glow has to stay inside the gap beneath a plate: a long, strong one reads as a smudge across the
      paragraph below, which is what the first pass did */
-  --lift: inset 0 1px 0 oklch(100% 0 0 / 0.045), 0 16px 30px -24px oklch(58% 0.2 296 / 0.34),
-          0 2px 8px -7px oklch(60% 0.16 255 / 0.22);
+  /* the light is on the top-left, so the ambient fall-off goes the other way: down and to the right */
+  --lift: inset 0 1px 0 oklch(100% 0 0 / 0.045), 16px 18px 34px -26px oklch(58% 0.2 296 / 0.38),
+          6px 4px 14px -9px oklch(60% 0.16 255 / 0.24);
   --rule: linear-gradient(90deg, transparent, oklch(76% 0.14 300 / 0.26) 14% 86%, transparent);
   --rule-bright: linear-gradient(90deg, transparent, oklch(76% 0.14 300 / 0.5) 12% 88%, transparent);
   --rule-v: linear-gradient(180deg, transparent, oklch(76% 0.14 300 / 0.24) 16% 84%, transparent);
@@ -444,9 +445,21 @@ code,
    left and answering it in large figures on the right. */
 .lm-verdicts {
   display: grid;
+  /* fixed counts, not auto-fit: an auto-fit track list put four cards in row one and left the fifth alone,
+     which reads as a mistake rather than a layout */
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 21rem), 1fr));
   gap: 0.75rem;
   margin: 0 0 1.4rem;
+}
+@media (min-width: 75rem) {
+  .lm-verdicts {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (min-width: 47.5rem) and (max-width: 74.99rem) {
+  .lm-verdicts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 .lm-verdict {
   display: grid;
@@ -491,10 +504,14 @@ code,
   max-width: 44ch;
 }
 .lm-verdict svg {
-  width: 1.05rem;
-  height: 1.05rem;
-  stroke-width: 1.6;
+  /* large, with a proportionally lighter stroke so it carries the same optical weight as the small text
+     beside it rather than reading as a heavy outline */
+  width: 1.75rem;
+  height: 1.75rem;
+  stroke-width: 1.4;
   color: var(--accent);
+  filter: drop-shadow(0 0 14px currentColor);
+  opacity: 0.95;
 }
 .tone-alert svg {
   color: var(--alert);
@@ -513,7 +530,7 @@ code,
 .lm-verdict:hover {
   /* background-color, not background: the plate's layered fill must survive the hover */
   background-color: var(--surface-2);
-  box-shadow: inset 0 1px 0 oklch(100% 0 0 / 0.07), 0 18px 32px -24px oklch(62% 0.2 296 / 0.5);
+  box-shadow: inset 0 1px 0 oklch(100% 0 0 / 0.07), 18px 20px 36px -26px oklch(62% 0.2 296 / 0.55);
   transform: translateY(-1px);
 }
 @media (prefers-reduced-motion: no-preference) {
@@ -801,7 +818,7 @@ h3 {
     var(--rim-alert) border-box !important;
   border: 1px solid transparent !important;
   border-radius: var(--r-outer) !important;
-  box-shadow: 0 14px 26px -22px oklch(56% 0.19 22 / 0.5) !important;
+  box-shadow: 14px 16px 28px -24px oklch(56% 0.19 22 / 0.5) !important;
 }
 [data-testid="stWarning"] div,
 [data-testid="stWarning"] p {
