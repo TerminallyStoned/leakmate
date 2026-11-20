@@ -194,13 +194,12 @@ def table(
     columns: list[tuple[str, str, str]],
     picked: str | None = None,
     max_rows: int = 250,
-    link: tuple[str, str] | None = None,
 ) -> None:
     """An HTML table: ours, so it themes with the page and never reflows into a scrollbar.
 
     `columns` is a list of (key, label, kind) where kind is text, num, wire or mark. `picked` is a value of
-    the first column that gets the highlight row. `link` is (column, query key): that column becomes an
-    anchor carrying the row's `id`, which is how a row click survives a page that cannot run scripts.
+    the first column that gets the highlight row. `link` is (column, href template): that column becomes an
+    anchor whose `{id}` is the row's id, which is how a row click works on a page that cannot run scripts.
     """
     if frame.empty:
         return
@@ -208,17 +207,9 @@ def table(
     head = "".join(f'<th class="{"num" if kind == "num" else ""}">{label}</th>' for _, label, kind in columns)
     body = []
     for _, row in rows.iterrows():
-        classes = []
-        if picked is not None and str(row[columns[0][0]]) == str(picked):
-            classes.append("is-picked")
-        cells = []
-        for key, _, kind in columns:
-            text = _cell(row.get(key), kind)
-            if link and key == link[0]:
-                text = f'<a class="lm-open" href="/?{link[1]}={html.escape(str(row.get("id")))}">{text}</a>'
-                classes.append("is-link")
-            cells.append(f'<td class="{kind}">{text}</td>')
-        attr = f' class="{" ".join(classes)}"' if classes else ""
+        cls = ' class="is-picked"' if picked is not None and str(row[columns[0][0]]) == str(picked) else ""
+        cells = "".join(f'<td class="{kind}">{_cell(row.get(key), kind)}</td>' for key, _, kind in columns)
+        attr = cls
         body.append(f"<tr{attr}>{''.join(cells)}</tr>")
     st.markdown(
         f'<div class="lm-table-wrap"><table class="lm-table"><thead><tr>{head}</tr></thead>'

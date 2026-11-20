@@ -48,13 +48,16 @@ letters inside the orange chip opaque.
 
 ## Opening an alert
 
-A row in the feed is an anchor to `?lm_alert=<id>`. `dashboard/app.py` reads it, stores the id, and routes to
-the Live page, so the click survives being a full page load; the explained alert is therefore a URL you can
-paste to someone. The panel is rendered twice on purpose - under the feed, where the click happened, and in its
-own tab. `Clear` forgets it in session state and in the URL.
+A row in the feed is selected like a table row: no page load, no link. `st.dataframe(on_select="rerun",
+selection_mode="single-row")` reports the click, and `view_live._open_clicked_alert` reads it at the top of the
+page - before the tab strip is built - to set the alert and move to **Alert trigger**. The order matters: the
+strip is bound to the URL (`st.tabs(..., bind="query-params")`), and a widget's bound key cannot be written
+after the widget exists, so setting it from inside the tab body raises and blanks the page.
 
-It is an anchor rather than a grid selection because this page renders HTML it owns and cannot run scripts, and
-row selection on a canvas-rendered grid does not report a click that either test layer can drive.
+Nothing is explained until a row is chosen; the trigger section then opens with an invitation. The alert is read
+by primary key, so any alert in the file can be explained, not only the ones a panel happens to hold. `Clear`
+forgets the alert, empties the grid's selection (a callback may write a widget's state, and leaving it would
+put the alert straight back), and returns to the feed.
 
 ## Live page
 
@@ -62,8 +65,8 @@ row selection on a canvas-rendered grid does not report a click that either test
 |---|---|---|
 | Status strip | `meta` + `host_stats` + `batches` | model, threshold, queries scored, alerts, alert rate, median ms/query, mode. The alert counters are `COUNT(*)` over the window, not a count of the loaded rows |
 | Score over time | `host_stats` | mean score per host per 10 s bucket; red dots mark buckets containing an alert |
-| Alert feed | `alerts` | filter (name contains, minimum score), sort, page. SQLite does all three, so the page is a slice and the count is the whole set. The query name is a link that opens that alert |
-| Why this alert fired | `alerts` by id | nothing until a row is clicked, then the score, the threshold, time to alert, the SHAP bars and one sentence per feature |
+| Alert feed | `alerts` | filter (name contains, minimum score), sort, page. SQLite does all three, so the page is a slice and the count is the whole set. A row is selected to open that alert |
+| Alert trigger | `alerts` by id | nothing until a row is clicked, then the score, the threshold, time to alert, the SHAP bars and one sentence per feature |
 | Processing latency | `batches` | ms per query, median and 95th percentile, against the 10 ms rule |
 
 `meta.mode` decides one reading: with `mode = replay` the source was a capture file, so packet times are not

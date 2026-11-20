@@ -21,6 +21,17 @@ from streamlit.testing.v1 import AppTest  # noqa: E402
 ROOT = Path(__file__).resolve().parents[1]
 
 
+@pytest.fixture(autouse=True)
+def _own_the_environment():
+    """`_app` writes process environment, and AppTest reads it at import time: without this, whichever test
+    ran last decides which `alerts.db` the next one sees.
+    """
+    saved = dict(os.environ)
+    yield
+    os.environ.clear()
+    os.environ.update(saved)
+
+
 def _app(**env) -> AppTest:
     for key, value in env.items():
         os.environ[key] = value
@@ -65,7 +76,7 @@ def test_live_page_renders_from_a_database(demo_db: Path) -> None:
     text = " ".join(str(w.value) for w in at.markdown)
     assert len(at.get("tabs")) == 4  # feed, score over time, why it fired, latency
     assert "queries scored" in text and "median latency" in text  # the batches table reached the strip
-    assert _has_table(at), "the alert feed is empty"
+    assert at.get("dataframe"), "the alert feed is empty"
     # score over time and the latency histogram. The SHAP bars are not among them: nothing is explained
     # until a feed row is clicked.
     assert len(at.get("vega_lite_chart")) == 2
@@ -205,7 +216,11 @@ def test_query_names_are_escaped_before_they_reach_the_page(tmp_path: Path) -> N
         if page == "Overview":
             assert escaped in body, page  # the overview writes the newest alerts into HTML itself
         else:
-            assert escaped in body, page  # the feed is the dashboard's own HTML, so the name must arrive escaped
+            assert evil in _feed_names(at), page  # the grid receives the name as data, not as markup
+            _click_row(at, _feed_names(at).index(evil))
+            detail = " ".join(str(m.value) for m in at.markdown)
+            assert escaped in detail, page  # the detail panel writes HTML, so there it must be escaped
+            assert not re.search(r"<img[^>]*onerror", detail, re.I), page
 
 
 def test_overview_shows_the_false_positive_rate_of_each_pick(demo_db: Path) -> None:
@@ -295,16 +310,27 @@ def test_results_directory_can_be_pointed_elsewhere(tmp_path: Path, monkeypatch)
     assert data.figure("roc", experiment="E1") is None
 
 
-def _feed_html(at) -> str:
-    return next(str(m.value) for m in at.markdown if "lm-table" in str(m.value) and "query name" in str(m.value))
+def _feed_frame(at):
+    """The rows the feed is showing. It is a real grid, because a row has to be clickable."""
+    return at.get("dataframe")[0].value
 
 
 def _feed_rows(at) -> int:
-    return len(re.findall(r"<tr[^>]*>\s*<td", _feed_html(at).split("<tbody>")[1]))
+    return len(_feed_frame(at))
 
 
 def _feed_names(at) -> list[str]:
-    return re.findall(r'href="/\?lm_alert=\d+">(.*?)</a>', _feed_html(at))
+    return list(_feed_frame(at)["query name"])
+
+
+def _feed_scores(at) -> list[float]:
+    return [float(x) for x in _feed_frame(at)["score"]]
+
+
+def _click_row(at, index: int) -> None:
+    """Select a feed row the way the grid reports it, and run."""
+    at.session_state["lm_feed_grid_1_50"] = {"selection": {"rows": [index], "columns": [], "cells": []}}
+    at.run()
 
 
 def test_feed_pages_through_every_alert_it_matches(demo_db: Path) -> None:
@@ -340,7 +366,7 @@ def test_feed_sort_changes_what_the_first_page_holds(demo_db: Path) -> None:
     at = _page(_app(LEAKMATE_ALERTS_DB=str(demo_db)), "Live")
 
     def scores(at) -> list[float]:
-        return [float(x) for x in re.findall(r'">\s*(0\.\d+)\s*</td>', _feed_html(at))]
+        return _feed_scores(at)
 
     at.session_state["lm_feed_sort"] = "Highest score"
     at.run()
@@ -364,26 +390,47 @@ def test_no_alert_is_explained_until_one_is_clicked(demo_db: Path) -> None:
 
 def test_clicking_a_feed_row_opens_that_alert(demo_db: Path) -> None:
     at = _page(_app(LEAKMATE_ALERTS_DB=str(demo_db)), "Live")
-    href = re.search(r'href="(/\?lm_alert=(\d+))"', _feed_html(at))
-    assert href, "no feed row is a link"
-    alert_id = int(href[2])
-    at.query_params["lm_alert"] = str(alert_id)
-    at.run()
+    import sqlite3
+
+    from dashboard import data
+
+    with sqlite3.connect(demo_db) as conn:
+        conn.row_factory = sqlite3.Row
+        alert_id = int(data.alert_page(conn, limit=50)[0]["id"].iloc[2])  # the third row of the first page
+    _click_row(at, 2)
     assert at.session_state["lm_alert"] == alert_id
     assert f"alert {alert_id:,}" in _page_text(at)
+    # the point of the click: the section changed too, and nothing reloaded
+    assert at.session_state["live_section"] == "Alert trigger"
     assert st_shap_chart(at), "the SHAP contributions were not drawn"
 
 
 def test_clearing_the_alert_returns_to_the_prompt(demo_db: Path) -> None:
     at = _page(_app(LEAKMATE_ALERTS_DB=str(demo_db)), "Live")
-    at.query_params["lm_alert"] = re.search(r"lm_alert=(\d+)", _feed_html(at))[1]
-    at.run()
+    _click_row(at, 0)
     assert "Click a row in the feed" not in _page_text(at)
     next(b for b in at.button if b.label == "Clear").set_value(True).run()
     assert "lm_alert" not in at.session_state
+    assert at.session_state["live_section"] == "Alert feed"
     assert "Click a row in the feed" in _page_text(at)
 
 
 def st_shap_chart(at) -> bool:
     """Any altair chart whose encoding is the SHAP contribution axis."""
     return any("SHAP contribution" in str(c.spec) for c in at.get("vega_lite_chart"))
+
+
+def test_the_navbar_still_works_after_opening_an_alert(demo_db: Path) -> None:
+    """The click routes to Live once. On every run it would pin the page and the section."""
+    at = _page(_app(LEAKMATE_ALERTS_DB=str(demo_db)), "Live")
+    _click_row(at, 1)
+    assert at.sidebar.radio[0].value == "Live"
+    at.sidebar.radio[0].set_value("Overview").run()
+    assert at.sidebar.radio[0].value == "Overview", "the navbar is pinned to Live"
+    assert not at.exception, at.exception
+
+
+def test_the_sections_are_nouns(demo_db: Path) -> None:
+    at = _page(_app(LEAKMATE_ALERTS_DB=str(demo_db)), "Live")
+    labels = [str(t.label) for t in at.get("tabs")]
+    assert labels == ["Alert feed", "Score over time", "Alert trigger", "Latency"], labels

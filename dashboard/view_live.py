@@ -15,6 +15,9 @@ import streamlit as st
 
 from dashboard import data, explain, shell
 
+#: the section a clicked alert opens in
+TRIGGER_TAB = "Alert trigger"
+
 
 def render() -> None:
     conn = data.connect()
@@ -28,6 +31,7 @@ def render() -> None:
         _empty_db()
         return
     try:
+        _open_clicked_alert()  # before the tab strip is built
         meta = data.read_meta(conn)
         alerts = data.read_alerts(conn)
         stats = data.read_host_stats(conn)
@@ -42,13 +46,17 @@ def render() -> None:
         alerts, stats, batches = _clip(view["since"], view["hosts"], alerts, stats, batches)
         counts = data.alert_counts(conn, hosts=view["hosts"], since=view["since"])
         _strip(meta, stats, batches, view["note"], counts)
-        feed, trend, why, latency = st.tabs(["Alert feed", "Score over time", "Why it fired", "Latency"])
+        # bound to the URL so a feed row can land on the trigger panel directly; a callback-assigned
+        # session_state value does not move a tab, this does
+        feed, trend, why, latency = st.tabs(
+            ["Alert feed", "Score over time", "Alert trigger", "Latency"], key="live_section", bind="query-params"
+        )
         with trend:
             _score_over_time(stats, alerts)
         with feed:
             _feed(conn, view)
         with why:
-            _why(conn, "tab")
+            _why(conn)
         with latency:
             _latency(batches, meta)
     finally:
@@ -257,43 +265,72 @@ def _feed(conn: sqlite3.Connection, view: dict) -> None:
     show["time"] = pd.to_datetime(show["ts"], unit="s", utc=True).dt.strftime("%H:%M:%S")
     show["why"] = show["features"].map(explain.headline)
     show["score"] = show["score"].map("{:.3f}".format)
-    # `id` stays in the frame: the link needs it, and only the columns listed below are drawn
-    shell.table(
-        show[["id", "time", "src_host", "qname", "qtype", "score", "why"]].rename(
-            columns={"src_host": "host", "qname": "query name"}
-        ),
-        [
-            ("time", "time", "text"),
-            ("host", "host", "text"),
-            ("query name", "query name", "wire"),
-            ("type", "type", "text"),
-            ("score", "score", "num"),
-            ("why", "why", "text"),
-        ],
-        max_rows=size,
-        # the query name is the link: a row has to be openable, and this page cannot run scripts, so the
-        # click is a plain navigation that the app reads back from the URL
-        link=("query name", "lm_alert"),
+    show = show[["id", "time", "src_host", "qname", "qtype", "score", "why"]].rename(
+        columns={"src_host": "host", "qname": "query name", "qtype": "type"}
+    )
+    grid_key = f"lm_feed_grid_{page}_{size}"
+    st.session_state["lm_feed_grid_key"] = grid_key
+    st.session_state["lm_feed_ids"] = [int(i) for i in show["id"]]
+    st.dataframe(
+        show[["time", "host", "query name", "type", "score", "why"]],
+        key=grid_key,
+        hide_index=True,
+        width="stretch",
+        height=min(640, 96 + 36 * len(frame)),
+        on_select="rerun",
+        selection_mode="single-row",
+        column_config={
+            "time": st.column_config.TextColumn("time", width=88),
+            "host": st.column_config.TextColumn("host", width=130),
+            "query name": st.column_config.TextColumn("query name", width="large"),
+            "type": st.column_config.TextColumn("type", width=70),
+            "score": st.column_config.TextColumn("score", width=78, alignment="right"),
+            "why": st.column_config.TextColumn("why", width="medium"),
+        },
     )
 
-    # the explanation belongs under the row that raised it: the tabs cannot be switched from code
-    _why(conn, "feed")
+
+def _open_clicked_alert() -> None:
+    """Turn the feed's row selection into "this alert, in its own section".
+
+    Called at the top of the page, before the tab strip exists: `live_section` is bound to the tabs widget, so
+    the value has to be in place when the widget is created - setting it later raises, and a row click would
+    otherwise show the alert but leave the user on the feed tab. The grid reports the click by rerunning the
+    app, so this is one step from the user's side, with no page load.
+    """
+    key = st.session_state.get("lm_feed_grid_key")
+    state = st.session_state.get(key) if key else None
+    rows = (state or {}).get("selection", {}).get("rows") if isinstance(state, dict) else None
+    if not rows:
+        return
+    ids = st.session_state.get("lm_feed_ids") or []
+    index = int(rows[0])
+    if 0 <= index < len(ids):
+        st.session_state["lm_alert"] = ids[index]
+        st.session_state["live_section"] = TRIGGER_TAB
 
 
 def _clear_alert() -> None:
-    """Forget the chosen alert, in session state and in the URL that carried it."""
+    """Forget the chosen alert and go back to the feed, in one step and without a page load.
+
+    The grid's own selection goes too - a callback is allowed to write a widget's state, and if it stayed the
+    next run would read the same click and put the alert straight back.
+    """
     st.session_state.pop("lm_alert", None)
-    st.query_params.pop("lm_alert", None)
+    st.session_state["live_section"] = "Alert feed"
+    key = st.session_state.get("lm_feed_grid_key")
+    if key:
+        st.session_state[key] = {"selection": {"rows": [], "columns": [], "cells": []}}
 
 
-def _why(conn: sqlite3.Connection, scope: str) -> None:
+def _why(conn: sqlite3.Connection) -> None:
     """One alert in full. Selected from the feed, so the default state is an invitation, not a guess.
 
     The alert is read by primary key rather than taken from a loaded slice: the row you clicked might be
     the 40,000th in the file.
     """
     p = shell.pal()
-    st.markdown('<div class="lm-sec">Why this alert fired</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="lm-sec">{TRIGGER_TAB}</div>', unsafe_allow_html=True)
     alert_id = st.session_state.get("lm_alert")
     if alert_id is None:
         st.markdown(
@@ -329,10 +366,7 @@ def _why(conn: sqlite3.Connection, scope: str) -> None:
         f'<p class="lm-wire">{host} &rarr; {qname}</p>',
         unsafe_allow_html=True,
     )
-    # one panel under the feed and one in its own tab, so the key has to say which copy this is
-    cols[1].button(
-        "Clear", key=f"lm_alert_clear_{scope}", on_click=_clear_alert, help="Hide this alert and go back to the prompt."
-    )
+    cols[1].button("Clear", key="lm_alert_clear", on_click=_clear_alert, help="Back to the empty prompt.")
 
     features = [f for f in row["features"] if isinstance(f, dict) and f.get("feature")]
     if not features:

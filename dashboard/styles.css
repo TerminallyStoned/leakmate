@@ -229,31 +229,6 @@ code,
   color: var(--accent);
 }
 
-/* A feed row opens its alert. The name is the target, but it must not look like a link farm: Streamlit styles
-   every anchor in markdown as an underlined accent, so the reset needs the container in the selector, and the
-   row carries the affordance instead - it lifts on hover, and only then does the name underline. */
-[data-testid="stMarkdownContainer"] a.lm-open,
-[data-testid="stMarkdown"] a.lm-open,
-a.lm-open {
-  color: inherit;
-  text-decoration: none;
-  border-bottom: 0;
-  transition: color var(--fast);
-}
-tr.is-link {
-  cursor: pointer;
-}
-tr.is-link:hover {
-  background: var(--surface-2);
-}
-tr.is-link:hover a.lm-open,
-a.lm-open:focus-visible {
-  color: var(--accent);
-  text-decoration: underline;
-  text-underline-offset: 0.18em;
-  text-decoration-thickness: 1px;
-}
-
 /* long tables keep their header: 250 alerts without a column label is a wall of text */
 .lm-table thead th {
   position: sticky;
