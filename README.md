@@ -90,7 +90,7 @@ testbed/      lab network (docker compose), run_tool.sh, capture_matrix.sh
 parser/       python -m parser {cic,features,pcap,testbed}; `from parser import load; train, test = load("cic")`
 eval/         shared evaluation module: splits, metrics, plots, run.py, summarise.py
 data/         raw/, external/, processed/ (not committed; see data/README.md)
-live/         live sniffer: python -m live -> live/alerts.db (live/README.md)
+live/         live detector: python -m live -> live/alerts.db; live_test.sh and python -m live.report (live/README.md)
 dashboard/    Streamlit app (planned; app.py is a placeholder)
 ```
 
@@ -141,7 +141,8 @@ The user manual is built from these commands.
 | Train + score M1 with SHAP | `python -m models.m1_run --model m1 --exp E2 --data data/processed/cic/queries.parquet` | ✅ |
 | Train + score M2 | `python -m models.m2_run --model m2 --exp E2 --data ... --tranco data/external/tranco.csv` | ✅ |
 | Metrics, plots, selection | `python -m eval.summarise` | ✅ |
-| Live sniffer | `python -m live --pcap <capture>.pcap`, or `live/run_live.sh` in the testbed | ✅ sniffer + `live/alerts.db` with a placeholder scorer ([`live/README.md`](live/README.md)); selected model + SHAP alerts 19 Nov |
+| Live detector | `live/run_live.sh --at bridge` in the testbed, or `python -m live --pcap <capture>.pcap` | ✅ M1 by default (needs `artifacts/m1_xgb/E1.pt`): scores live traffic and writes alerts with their top SHAP features to `live/alerts.db` ([`live/README.md`](live/README.md)) |
+| Live test + report | `live/live_test.sh`, then `python -m live.report` | ✅ 19 Nov run: all 1,720 tunnel queries flagged, 0 of 5,405 benign, median 0.43 s to alert ([`live/live_test.md`](live/live_test.md)) |
 | Dashboard | `streamlit run dashboard/app.py` | placeholder (20 Nov) |
 
 ## Quick start (M2 on CIC)
