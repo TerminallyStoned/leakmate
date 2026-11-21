@@ -493,6 +493,15 @@ def test_overview_quotes_the_masked_picks_for_the_testbed_experiments(monkeypatc
     assert picks["E2"] == "rf" and "E4_cic2testbed" in picks  # CIC experiments still from results/
 
 
+def test_cross_dataset_card_respects_the_false_positive_ceiling(demo_db: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The top F1 on CIC -> testbed is M2 at 13% FPR, which the selection rule rejects."""
+    monkeypatch.delenv("LEAKMATE_RESULTS", raising=False)
+    at = _app(LEAKMATE_ALERTS_DB=str(demo_db))
+    grid = next(str(m.value) for m in at.markdown if "Cross-dataset" in str(m.value))
+    card = grid[grid.index("Cross-dataset") :].split('class="lm-verdict ')[0]  # up to the next card
+    assert "M2 DNS-BERT" not in card and "% FPR" in card
+
+
 def st_shap_chart(at) -> bool:
     """Any altair chart whose encoding is the SHAP contribution axis."""
     return any("SHAP contribution" in str(c.spec) for c in at.get("vega_lite_chart"))

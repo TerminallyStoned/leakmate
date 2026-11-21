@@ -23,6 +23,7 @@ RESULTS_ENV = "LEAKMATE_RESULTS"
 ALERTS_ENV = "LEAKMATE_ALERTS_DB"
 DEFAULT_DB = ROOT / "live" / "alerts.db"
 LIMIT_MS = 10.0  # the selection rule's latency limit, eval.metrics.MAX_LATENCY_MS (README, Models)
+MAX_FPR = 0.01  # the selection rule's false-positive ceiling, eval.metrics.MAX_FPR
 
 
 #: rows of their own in the summarise output: host-averaged scores and ablations, not the headline models

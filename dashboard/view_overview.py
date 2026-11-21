@@ -348,7 +348,9 @@ def _conclusions() -> list[dict]:
             }
         )
 
-    cross = headline[headline["experiment"] == "E4_cic2testbed"].sort_values("f1")
+    cross = headline[headline["experiment"] == "E4_cic2testbed"]
+    # the rule's ceiling first: the top F1 here (M2) flags 13% of benign traffic, which the rule rejects
+    cross = cross[cross["fpr"] <= data.MAX_FPR].sort_values("f1")
     if not cross.empty:
         c = cross.iloc[-1]
         out.append(
@@ -357,9 +359,9 @@ def _conclusions() -> list[dict]:
                 "tone": "tone-warn",
                 "kicker": "Cross-dataset",
                 "hero": f"{c['recall']:.1%}",
-                "detail": f"The best {data.model_label(c['model'])} recall on "
-                f"{data.experiment_label('E4_cic2testbed').lower()}: the same features against a network they "
-                "were never trained on, and the only experiment where nothing is saturated.",
+                "detail": f"{data.model_label(c['model'])} recall at {c['fpr']:.2%} FPR on "
+                f"{data.experiment_label('E4_cic2testbed').lower()}, the best F1 within the {data.MAX_FPR:.0%} "
+                "false-positive ceiling: a network it was never trained on, the only experiment not saturated.",
             }
         )
 
