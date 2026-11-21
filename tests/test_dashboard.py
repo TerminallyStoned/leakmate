@@ -487,6 +487,22 @@ def test_shap_bars_are_named_and_coloured_by_direction(demo_db: Path) -> None:
     assert "Why it was flagged" in text and ">what it counts<" in text  # said what the chart is, and one table
 
 
+def test_an_alert_without_shap_values_opens(demo_db: Path) -> None:
+    """The q_len scorer stores its features with `shap` null (live/README.md); opening one must not crash."""
+    import json
+    import sqlite3
+
+    with sqlite3.connect(demo_db) as conn:
+        nulls = json.dumps([{"feature": "q_len", "value": 117.0, "shap": None}])
+        conn.execute("UPDATE alerts SET top_features = ?", (nulls,))
+    conn.close()
+    at = _page(_app(LEAKMATE_ALERTS_DB=str(demo_db)), "Live")
+    _click_row(at, 1)
+    assert not at.exception, at.exception
+    assert any("no SHAP values" in str(c.value) for c in at.caption)
+    assert ">what it counts<" in _page_text(at)  # the features are still listed
+
+
 def test_overview_quotes_the_masked_picks_for_the_testbed_experiments(monkeypatch: pytest.MonkeyPatch) -> None:
     """On the original names M3 wins Experiments 1, 3 and 5 from the tunnel.test suffix; the report quotes M1."""
     from dashboard import data

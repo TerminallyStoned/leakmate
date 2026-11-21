@@ -453,35 +453,43 @@ def _why(conn: sqlite3.Connection) -> None:
     if not features:
         st.caption("This scorer stored no explanation, so the alert has only its score.")
         return
-    st.markdown(
-        '<p class="lm-note"><strong>Why it was flagged.</strong> The features that moved this score most, from '
-        "SHAP: each bar is one feature's share of the score (in log-odds), so a longer bar mattered more. Above "
-        "0 pushes toward tunnel, below 0 away from it.</p>",
-        unsafe_allow_html=True,
+    shap = pd.DataFrame(
+        {
+            "name": [explain.label(f["feature"]) for f in features],  # the same plain words as the table below
+            "value": [f.get("value") for f in features],
+            "shap": [f.get("shap") for f in features],  # null from a scorer with no explanation (live/README.md)
+        }
     )
-    shap = pd.DataFrame(features)
-    shap["name"] = shap["feature"].map(explain.label)  # the same plain words as the table below
-    bars = (
-        alt.Chart(shap)
-        .mark_bar(size=16)
-        .encode(
-            y=alt.Y("name:N", sort="-x", title=None, axis=alt.Axis(labelLimit=180, labelOverlap=False)),
-            x=alt.X("shap:Q", title="SHAP contribution (log-odds)"),
-            # colour is the direction only: a continuous scale washed contributions above 1 out to white
-            color=alt.condition(alt.datum.shap > 0, alt.value(p["signal"]), alt.value(p["fade"])),
-            tooltip=["name", "value", "shap"],
+    if shap["shap"].notna().any():
+        st.markdown(
+            '<p class="lm-note"><strong>Why it was flagged.</strong> The features that moved this score most, '
+            "from SHAP: each bar is one feature's share of the score (in log-odds), so a longer bar mattered "
+            "more. Above 0 pushes toward tunnel, below 0 away from it.</p>",
+            unsafe_allow_html=True,
         )
-        .properties(height=min(240, 34 * len(features) + 20), **shell.chart_config())
-    )
-    st.altair_chart(bars, width="stretch")
+        bars = (
+            alt.Chart(shap)
+            .mark_bar(size=16)
+            .encode(
+                y=alt.Y("name:N", sort="-x", title=None, axis=alt.Axis(labelLimit=180, labelOverlap=False)),
+                x=alt.X("shap:Q", title="SHAP contribution (log-odds)"),
+                # colour is the direction only: a continuous scale washed contributions above 1 out to white
+                color=alt.condition(alt.datum.shap > 0, alt.value(p["signal"]), alt.value(p["fade"])),
+                tooltip=["name", "value", "shap"],
+            )
+            .properties(height=min(240, 34 * len(features) + 20), **shell.chart_config())
+        )
+        st.altair_chart(bars, width="stretch")
+    else:
+        st.caption("This scorer stored its top features but no SHAP values, so they carry no direction.")
     # one table instead of a loose list beside the chart: the same features, their values and what they count
     shell.table(
         pd.DataFrame(
             {
                 "feature": shap["name"],
                 "value": [explain.value_text(f["feature"], f.get("value")) for f in features],
-                "shap": shap["shap"].map("{:+.2f}".format),
-                "effect": shap["shap"].map(explain.direction),
+                "shap": [None if f.get("shap") is None else f"{f['shap']:+.2f}" for f in features],
+                "effect": [explain.direction(f.get("shap")) for f in features],
                 "what": [explain.what(f["feature"]) for f in features],
             }
         ),
