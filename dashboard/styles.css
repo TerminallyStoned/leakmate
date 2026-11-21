@@ -1,0 +1,1013 @@
+/* leakmate dashboard - chrome for the dark purple theme.
+
+   House rules this file follows, kept here so the next edit does not undo them:
+   - colour is authored in OKLCH, so equal lightness actually looks equal across the purple family ramp;
+   - NOTHING is demarcated by a stroke. A panel separates by luminance, is lit along its top-left edge with a
+     gradient rim (`--rim`), and throws a coloured ambient glow to the lower-right (`--lift`) - the inverse of a
+     drop shadow, which does nothing on a dark ground. A hairline between two rows is a gradient that fades at
+     both ends (`--rule`), never a solid line that runs edge to edge;
+   - because the ground is a wash rather than flat black, the ladder of surfaces actually reads;
+   - depth comes from lighter surfaces rather than shadows;
+   - nested radii are derived: an inner corner is the outer radius minus the padding around it;
+   - motion is 90-180ms on transform/opacity/border only, and `prefers-reduced-motion` turns it off;
+   - the horizontal tab strip fades its edges with a mask instead of a hard crop;
+   - one saturated colour (the accent) plus three categorical hues reserved for model families.
+*/
+
+:root {
+  /* elevation: the page is the darkest plane, everything raised off it is lighter */
+  --surface-0: oklch(15% 0.016 285);
+  --surface-1: oklch(19% 0.018 285);
+  --surface-2: oklch(23% 0.02 285);
+  --surface-3: oklch(28% 0.022 285);
+
+  --text-1: oklch(96% 0.008 285);
+  --text-2: oklch(80% 0.014 285);
+  --text-3: oklch(65% 0.016 285);
+
+  /* accent ramp: purple is the voice, blue and cyan are the punctuation */
+  --accent: oklch(76% 0.14 300);
+  --accent-2: oklch(72% 0.13 258);
+  --accent-3: oklch(84% 0.11 200);
+  --accent-text: oklch(86% 0.1 300);
+  --accent-soft: oklch(76% 0.14 300 / 0.14);
+  --accent-line: oklch(76% 0.14 300 / 0.45);
+
+  /* demarcation, in one place. A raised surface is: a flat fill, a rim that is bright at the top-left and
+     gone by the bottom-right (light falling on it, not a border drawn around it), and an ambient glow in the
+     accent's hue. `--rule` and `--rule-v` are the only separators, and both fade out at their ends. */
+  /* diffuse, not drawn: bright enough at the top-left corner to read as light, gone before halfway down
+     either axis, so no side of a panel ever looks like it has a stroke */
+  /* One light, above-left. The axis runs corner to corner, so the ramp brightens the top-left, falls through a
+     long gradual middle - which is where the top-right and bottom-left corners land, so they fade rather than
+     stop - and then picks back up at the bottom-right, which catches the ambient light instead of ending
+     empty. A ramp that reaches `transparent` at its end is what left that corner looking unfinished. */
+  --rim: linear-gradient(145deg, oklch(100% 0 0 / 0.12), oklch(76% 0.14 300 / 0.085) 24%,
+         oklch(74% 0.13 280 / 0.035) 48%, oklch(76% 0.15 300 / 0.07) 74%, oklch(78% 0.15 300 / 0.105));
+  --rim-alert: linear-gradient(145deg, oklch(100% 0 0 / 0.13), oklch(66% 0.19 22 / 0.16) 26%,
+         oklch(66% 0.19 22 / 0.07) 52%, oklch(66% 0.19 22 / 0.2) 78%, oklch(66% 0.19 22 / 0.28));
+  /* the ambient fall-off runs to the bottom-right along the same axis, and stays inside the gap beneath a
+     plate: a long, strong one reads as a smudge across the paragraph below, which the first pass did */
+  --lift: inset 0 1px 0 oklch(100% 0 0 / 0.045), 20px 20px 38px -26px oklch(58% 0.2 296 / 0.42),
+          9px 7px 18px -11px oklch(60% 0.16 255 / 0.26);
+  --rule: linear-gradient(90deg, transparent, oklch(76% 0.14 300 / 0.26) 14% 86%, transparent);
+  --rule-bright: linear-gradient(90deg, transparent, oklch(76% 0.14 300 / 0.5) 12% 88%, transparent);
+  --rule-v: linear-gradient(180deg, transparent, oklch(76% 0.14 300 / 0.24) 16% 84%, transparent);
+  --glass: oklch(22% 0.024 288 / 0.62);
+  --wash: linear-gradient(112deg, oklch(76% 0.14 300 / 0.06), oklch(72% 0.13 258 / 0.035) 40%,
+          oklch(84% 0.11 200 / 0.03) 68%, transparent 90%);
+
+  /* model families: three hues, matched lightness, readable side by side */
+  --fam-supervised: oklch(74% 0.16 305);
+  --fam-unsupervised: oklch(76% 0.13 190);
+  --fam-leakage: oklch(80% 0.14 78);
+  --fam-baseline: oklch(70% 0.02 285);
+
+  /* semantics */
+  --alert: oklch(66% 0.19 22);
+  --alert-soft: oklch(66% 0.19 22 / 0.16);
+  --over: oklch(80% 0.12 80);
+
+  --border: oklch(100% 0 0 / 0.1);
+  --border-strong: oklch(100% 0 0 / 0.2);
+  --grid: oklch(100% 0 0 / 0.06);
+
+  --pad: 0.9rem;
+  /* ui-monospace is not first any more: in Chromium on Linux its U+00A0 is narrower than a digit cell, and a
+     monospace whose space is not exactly one cell cannot hold columns that are padded with spaces. The feed
+     header and its rows are padded by character count, so this token decides whether they line up. */
+  --mono: "DejaVu Sans Mono", "Liberation Mono", "Noto Sans Mono", Menlo, Consolas, monospace;
+  --r-outer: 16px;
+  --r-inner: max(5px, calc(var(--r-outer) - var(--pad)));
+  --ease: cubic-bezier(0.2, 0, 0.38, 0.9);
+  --fast: 90ms var(--ease);
+  --mid: 160ms var(--ease);
+}
+
+html,
+body,
+.stApp,
+[data-testid="stAppViewContainer"] {
+  background: var(--surface-0);
+  color: var(--text-1);
+}
+
+/* The header is taken out of the layout rather than dressed up. It is an absolutely positioned 60px band at
+   z-index 999990 with a 96px allowance padded above the content block, which is where the gap at the top of
+   the page came from; painting it, or fading under it, only made the empty band visible in a different way
+   (the earlier "shadow" was that fade). Zeroing the band and its allowance means content simply starts at the
+   top and nothing floats over it. The node itself stays in the DOM because the sidebar's expand control is
+   rendered inside it. */
+[data-testid="stHeader"] {
+  height: 0;
+  min-height: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-1);
+  overflow: visible;
+}
+[data-testid="stMainBlockContainer"] {
+  padding-top: 1.1rem;
+}
+[data-testid="stApp"] {
+  background:
+    radial-gradient(115% 70% at 8% -6%, oklch(34% 0.075 298 / 0.5), transparent 58%),
+    radial-gradient(90% 55% at 100% 0%, oklch(32% 0.055 232 / 0.4), transparent 55%),
+    var(--surface-0);
+  background-attachment: fixed;
+}
+/* one recipe for every raised panel, so demarcation is never reinvented per component */
+.lm-strip,
+.lm-table-wrap,
+.st-key-lm_feed_stack,
+.lm-verdict,
+.lm-hint {
+  border: 1px solid transparent;
+  background:
+    linear-gradient(var(--surface-1), var(--surface-1)) padding-box,
+    var(--rim) border-box;
+  box-shadow: var(--lift);
+}
+[data-testid="stSidebar"] {
+  /* glass, so the wash behind it is visible: the bar is a plane over the page, not a box beside it */
+  background: linear-gradient(var(--glass), var(--glass));
+  backdrop-filter: blur(14px) saturate(150%);
+  box-shadow: inset -1px 0 0 oklch(100% 0 0 / 0.05), 20px 14px 34px -26px oklch(50% 0.2 296 / 0.42);
+  border-right: 0;
+}
+
+
+/* ------------------------------- masthead ------------------------------- */
+.lm-head {
+  border-bottom: 0;
+  background: var(--rule-bright) bottom / 100% 1px no-repeat;
+  padding-bottom: 0.9rem;
+  margin-bottom: 1.4rem;
+}
+.lm-eyebrow {
+  font-size: 0.6875rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  font-weight: 600;
+}
+.lm-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.05rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  margin: 0 0 1rem;
+  color: var(--text-1);
+}
+/* the mark's stroke matches the weight of the wordmark beside it */
+/* the wordmark: page furniture, so it is inert - no text selection, no drag, no click target */
+.lm-logo {
+  display: block;
+  height: 2rem;
+  width: auto;
+  margin: 0;
+  user-select: none;
+  pointer-events: none;
+}
+/* Room between the wordmark and the switch. Streamlit puts margin-bottom: -1rem on the markdown container,
+   which pulls the first option up over the logo; the spacing therefore goes on the flex item above it, where
+   margins are honoured instead of collapsed away. */
+[data-testid="stSidebarUserContent"] [data-testid="stMarkdownContainer"] {
+  margin-bottom: 0;
+}
+[data-testid="stSidebarUserContent"] [data-testid="stMarkdown"] {
+  margin-bottom: 2rem;
+}
+.stMarkdown code,
+[data-testid="stMarkdownContainer"] code,
+[data-testid="stCaptionContainer"] code {
+  background: var(--surface-2);
+  box-shadow: inset 0 1px 0 oklch(100% 0 0 / 0.06);
+  color: var(--text-1);
+}
+.lm-title {
+  font-size: 1.75rem;
+  font-weight: 680;
+  letter-spacing: -0.02em;
+  margin: 0.1rem 0 0.25rem;
+  color: var(--text-1);
+}
+.lm-sub {
+  font-size: 0.875rem;
+  color: var(--text-2);
+  margin: 0;
+}
+
+/* text sits above the plates: a glow that reaches a paragraph should illuminate the gap, not the words */
+.lm-note,
+.lm-sec,
+.stCaptionContainer,
+[data-testid="stCaptionContainer"],
+p.lm-kv {
+  position: relative;
+  z-index: 1;
+}
+
+/* a block's title inside a section: one size down from .lm-sec, and the same gap above every block */
+.lm-sub {
+  position: relative;
+  z-index: 1;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-1);
+  margin: 1.25rem 0 0.4rem;
+}
+
+/* ------------------------------ status strip ---------------------------- */
+.lm-strip {
+  display: flex;
+  flex-wrap: wrap;
+  border-radius: var(--r-outer);
+  overflow: hidden;
+  margin-bottom: 1.1rem;
+}
+.lm-cell {
+  flex: 1 1 7.5rem;
+  /* no margin: the UA gives <dl> a 16px bottom margin, and a flex item's outer size includes it, so the cell's
+     border box - the hairline and the hover fill - would stop 16px short of the strip's bottom curve */
+  margin: 0;
+  align-self: stretch;
+  padding: 0.65rem var(--pad);
+  border-right: 0;
+  min-width: 0;
+  /* the separator is a vertical gradient that stops short of both corners, so it reads as a light seam */
+  background: var(--rule-v) right / 1px 100% no-repeat;
+  transition: background-color var(--fast), color var(--fast);
+}
+.lm-cell:last-child {
+  background: none;
+}
+.lm-cell:hover {
+  background-color: var(--surface-2);
+}
+.lm-cell dt {
+  font-size: 0.6875rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin: 0 0 0.2rem;
+  font-weight: 600;
+}
+.lm-cell dd {
+  margin: 0;
+  font-size: 1.0625rem;
+  font-weight: 620;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lm-cell dd small {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--text-2);
+}
+.lm-hot dd {
+  color: var(--alert);
+}
+.lm-accent dd {
+  color: var(--accent-text);
+}
+
+/* -------------------------------- sections ------------------------------ */
+.lm-sec {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  font-weight: 650;
+  color: var(--text-2);
+  margin: 1.5rem 0 0.6rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 0;
+  background: var(--rule) bottom / 100% 1px no-repeat;
+}
+.lm-note {
+  font-size: 0.78125rem;
+  color: var(--text-3);
+  margin: 0.1rem 0 0.8rem;
+}
+
+/* the feed's invitation: an alert has to be clicked, so the empty state says so without decoration */
+.lm-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0.85rem 1rem;
+  border-radius: var(--r-outer);
+  color: var(--text-2);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+.lm-hint svg {
+  flex: none;
+  width: 1.05rem;
+  height: 1.05rem;
+  margin-top: 0.08rem;
+  color: var(--accent);
+}
+
+/* The alert feed is a stack of row buttons inside one bordered surface: rows are separated by hairlines, not
+   gaps, so it reads as a table. Each label is a fixed-width monospace line (see `_row_label`), and the header
+   repeats the same widths, so the columns line up even though a row is a single control. 1.67 puts the label
+   in a plain div inside the button, so both the font and the space-preserving `pre` have to be set on the
+   button and inherited - styling a `p` that is never rendered is how this broke once. */
+/* the column header is a label rendered exactly like a row, so it needs the button chrome removed rather
+   than table styles: same font, same padding, therefore the same columns */
+/* Streamlit paints its own font-family on the paragraph inside a button label, and an inherited font on the
+   wrapper does not win against that. The feed is padded by character count, so every node that holds label
+   text has to be told to use the monospace: with a proportional face two different strings drift apart. */
+.st-key-lm_feed_stack [data-testid^="stBaseButton-"] *,
+.st-key-lm_feed_head [data-testid^="stBaseButton-"] * {
+  font-family: var(--mono);
+  font-size: inherit;
+  letter-spacing: 0;
+}
+.st-key-lm_feed_head [data-testid^="stBaseButton-"] {
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  opacity: 1;
+  cursor: default;
+  color: var(--text-3);
+  /* same weight as the rows, deliberately: 600 resolves to a face with a slightly wider advance, and a wider
+     advance in the header moves every column against the rows it labels. Emphasis comes from colour. */
+  font-weight: inherit;
+  text-transform: uppercase;
+  padding: 0.42rem 0.85rem;
+  justify-content: flex-start;
+}
+/* no letter-spacing here: it would widen every character before a column, and the columns would stop
+   matching the rows they label */
+.st-key-lm_feed_head [data-testid^="stBaseButton-"] > div {
+  font: inherit;
+  text-align: left;
+  white-space: pre;
+  overflow: hidden;
+}
+.st-key-lm_feed_head [data-testid="stMarkdownContainer"] {
+  margin: 0;
+}
+/* the head closes with a brighter hairline than a row seam */
+.st-key-lm_feed_head {
+  background: var(--rule-bright) bottom / 100% 1px no-repeat;
+}
+/* Paging below the plate. It is a control strip, not another card: no plate, no rim, and the two buttons sit
+   on the table's own edges so the strip reads as belonging to the rows it moves. */
+.st-key-lm_pager {
+  margin-top: 0.7rem;
+}
+.st-key-lm_pager [data-testid^="stBaseButton-"] {
+  /* a filled control, built from the same recipe as every raised surface here: a flat fill, the rim that is
+     bright at the top-left, the glow toward the bottom-right. Accent hue, so it reads as the thing you press
+     rather than as another panel of results */
+  border: 1px solid transparent;
+  border-radius: var(--r-inner);
+  background:
+    linear-gradient(oklch(30% 0.05 292), oklch(30% 0.05 292)) padding-box,
+    var(--rim) border-box;
+  box-shadow: var(--lift);
+  color: var(--text-1);
+  font-weight: 600;
+  padding: 0.36rem 0.85rem;
+  min-width: 7.5rem;
+  justify-content: center;
+}
+.st-key-lm_pager [data-testid^="stBaseButton-"]:hover:not(:disabled) {
+  background:
+    linear-gradient(oklch(35% 0.062 292), oklch(35% 0.062 292)) padding-box,
+    var(--rim) border-box;
+}
+.st-key-lm_pager [data-testid^="stBaseButton-"]:disabled {
+  /* there is nowhere to go: keep the shape and position so the strip does not shift, take away the accent,
+     the rim and the light, and let the grey carry it. Streamlit's own fade is overridden because it washes
+     the whole control out instead of dimming it */
+  background: var(--surface-2);
+  box-shadow: none;
+  color: var(--text-3);
+  opacity: 1;
+  cursor: default;
+}
+/* the element Streamlit keys per widget is the button's own wrapper, and it sits in a column-direction flex
+   box, so the horizontal axis here is align-self: that puts Next on the far edge of the table */
+.st-key-lm_feed_next {
+  align-self: flex-end;
+}
+.lm-pager-num {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.82rem;
+  color: var(--text-2);
+  text-align: center;
+  white-space: nowrap;
+}
+.st-key-lm_feed_stack {
+  border-radius: var(--r-outer);
+  overflow: hidden;
+  padding: 0.2rem 0;
+}
+.st-key-lm_feed_stack [data-testid^="stButton"] {
+  margin: 0;
+}
+.st-key-lm_feed_stack [data-testid^="stBaseButton-"] {
+  display: flex;
+  justify-content: flex-start;
+  width: 100%;
+  min-height: 0;
+  height: auto;
+  padding: 0.36rem 0.85rem;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--text-2);
+  font-weight: 450;
+  text-align: left;
+  box-shadow: none;
+  overflow: hidden;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  letter-spacing: 0;
+  white-space: pre;
+  transition: background var(--fast), color var(--fast);
+}
+.st-key-lm_feed_stack [data-testid^="stBaseButton-"] > div,
+.st-key-lm_feed_stack [data-testid^="stBaseButton-"] > div > * {
+  /* Streamlit centers button content and nests the label, so the alignment is forced all the way down */
+  display: block;
+  width: 100%;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  white-space: pre;
+}
+/* rows are separated, not spaced: that is what makes a stack of buttons read as a table */
+.st-key-lm_feed_stack [data-testid^="stButton"]:not(:last-child) {
+  background: var(--rule) bottom / 100% 1px no-repeat;
+}
+.st-key-lm_feed_stack [data-testid^="stBaseButton-"]:hover {
+  background: var(--surface-2);
+  color: var(--text-1);
+}
+/* the open row: lifted and lit rather than stroked - a vertical accent that fades at both ends, over a
+   surface one step above the plate, and the ambient glow the plate itself carries */
+.st-key-lm_feed_stack [data-testid="stBaseButton-primary"] {
+  color: var(--text-1);
+  font-weight: 650;
+  background-color: oklch(26% 0.032 292 / 0.9);
+  background-image:
+    linear-gradient(90deg, oklch(76% 0.14 300 / 0.9), oklch(72% 0.13 258 / 0.25) 30%, transparent 62%),
+    linear-gradient(var(--rule), var(--rule));
+  background-position: left center, bottom;
+  background-size: 2px 68%, 100% 1px;
+  background-repeat: no-repeat;
+  box-shadow: inset 0 1px 0 oklch(100% 0 0 / 0.07), inset 0 -1px 0 oklch(100% 0 0 / 0.03);
+  text-shadow: 0 0 18px oklch(76% 0.14 300 / 0.35);
+}
+.st-key-lm_feed_stack [data-testid="stBaseButton-primary"]:hover {
+  background-color: oklch(28% 0.036 292 / 0.95);
+}
+
+/* long tables keep their header: 250 alerts without a column label is a wall of text */
+.lm-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--surface-1);
+  z-index: 1;
+}
+
+/* ------------------------------- the wire ------------------------------- */
+code,
+.lm-wire {
+  font-family: var(--mono);
+  font-size: 0.8125rem;
+  color: var(--text-1);
+  background: var(--surface-2);
+  box-shadow: inset 0 1px 0 oklch(100% 0 0 / 0.06);
+  border-radius: var(--r-inner);
+  padding: 0.05rem 0.3rem;
+}
+/* the feed's invitation: an alert has to be clicked, so the empty state says so without decoration */
+.lm-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0.85rem 1rem;
+  border-radius: var(--r-outer);
+  color: var(--text-2);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+.lm-hint svg {
+  flex: none;
+  width: 1.05rem;
+  height: 1.05rem;
+  margin-top: 0.08rem;
+  color: var(--accent);
+}
+
+.lm-wire {
+  word-break: break-all;
+  background: none;
+  border: 0;
+  padding: 0;
+}
+
+/* --------------------------------- badges ------------------------------- */
+.lm-badge {
+  display: inline-block;
+  font-family: ui-monospace, "SFMono-Regular", "JetBrains Mono", Menlo, monospace;
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+  padding: 0.08rem 0.42rem;
+  border-radius: 999px;
+  color: var(--text-2);
+  background: var(--surface-2);
+  box-shadow: inset 0 1px 0 oklch(100% 0 0 / 0.07);
+}
+.lm-badge.is-alert {
+  color: oklch(80% 0.14 22);
+  background: var(--alert-soft);
+  box-shadow: inset 0 1px 0 oklch(100% 0 0 / 0.08), 0 0 18px -6px oklch(66% 0.19 22 / 0.8);
+}
+
+/* --------------------------- what the numbers say ----------------------- */
+/* A grid of findings, not a stack of notices: two columns of cards, each card asking its question on the
+   left and answering it in large figures on the right. */
+.lm-verdicts {
+  display: grid;
+  /* fixed counts, not auto-fit: an auto-fit track list put four cards in row one and left the fifth alone,
+     which reads as a mistake rather than a layout */
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 21rem), 1fr));
+  gap: 0.75rem;
+  margin: 0 0 1.4rem;
+}
+@media (min-width: 75rem) {
+  .lm-verdicts {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (min-width: 47.5rem) and (max-width: 74.99rem) {
+  .lm-verdicts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.lm-verdict {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.9rem;
+  align-items: start;
+  min-height: 7.5rem;
+  border-radius: var(--r-outer);
+  padding: 0.95rem 1.05rem;
+  /* the plate recipe owns fill, rim and glow; this only lays the card out and animates it */
+  transition: transform var(--mid), box-shadow var(--mid), background-color var(--fast);
+}
+.lm-v-left {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  min-width: 0;
+}
+.lm-v-left span {
+  font-size: 0.625rem;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  font-weight: 650;
+  color: var(--text-3);
+  writing-mode: initial;
+}
+.lm-v-hero {
+  font-size: 1.5rem;
+  line-height: 1.12;
+  font-weight: 680;
+  letter-spacing: -0.02em;
+  color: var(--text-1);
+  font-variant-numeric: tabular-nums;
+  /* the hero carries the tone: the accent tint on the text, not a coloured box around it */
+  text-shadow: 0 0 26px oklch(76% 0.14 300 / 0.22);
+}
+.lm-v-detail {
+  margin: 0.45rem 0 0;
+  font-size: 0.78125rem;
+  line-height: 1.5;
+  color: var(--text-3);
+}
+.lm-verdict svg {
+  /* large, with a proportionally lighter stroke so it carries the same optical weight as the small text
+     beside it rather than reading as a heavy outline */
+  width: 1.75rem;
+  height: 1.75rem;
+  stroke-width: 1.4;
+  color: var(--accent);
+  filter: drop-shadow(0 0 14px currentColor);
+  opacity: 0.95;
+}
+.tone-alert svg {
+  color: var(--alert);
+}
+.tone-warn svg {
+  color: var(--over);
+}
+.tone-alert .lm-v-hero {
+  color: oklch(84% 0.11 22);
+  text-shadow: 0 0 26px oklch(66% 0.19 22 / 0.3);
+}
+.tone-warn .lm-v-hero {
+  color: oklch(88% 0.09 80);
+  text-shadow: 0 0 26px oklch(80% 0.12 80 / 0.22);
+}
+.lm-verdict:hover {
+  /* background-color, not background: the plate's layered fill must survive the hover */
+  background-color: var(--surface-2);
+  box-shadow: inset 0 1px 0 oklch(100% 0 0 / 0.07), 22px 22px 42px -26px oklch(62% 0.2 296 / 0.55),
+    10px 8px 18px -12px oklch(62% 0.16 255 / 0.3);
+  transform: translateY(-1px);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .lm-verdict:hover {
+    transform: translateY(-2px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lm-verdict:hover {
+    transform: none;
+  }
+}
+
+/* --------------------------- one alert explained ------------------------ */
+.lm-why {
+  border-left: 0;
+  background: linear-gradient(180deg, oklch(76% 0.14 300 / 0.8), oklch(84% 0.11 200 / 0.18)) left / 2px 100%
+    no-repeat;
+  padding: 0.15rem 0 0.15rem 0.85rem;
+  margin: 0.5rem 0 0.9rem;
+  font-size: 0.875rem;
+  color: var(--text-1);
+}
+.lm-why p {
+  margin: 0 0 0.2rem;
+}
+.lm-kv {
+  font-size: 0.78125rem;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --------------------------- family legend dots ------------------------- */
+.lm-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1rem;
+  margin: 0 0 0.7rem;
+  font-size: 0.75rem;
+  color: var(--text-2);
+}
+.lm-key span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.lm-dot {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 3px;
+  flex: none;
+}
+
+/* --------------------------------- tables ------------------------------- */
+.lm-table-wrap {
+  overflow-x: auto;
+  border-radius: var(--r-outer);
+}
+table.lm-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+}
+table.lm-table th,
+table.lm-table td {
+  text-align: left;
+  padding: 0.45rem 0.7rem;
+  border-bottom: 0;
+  /* the row separator is a gradient that fades before either edge, painted as a background layer so a hover
+     fill can still sit underneath it */
+  background: var(--rule) bottom / 100% 1px no-repeat;
+  color: var(--text-1);
+  white-space: nowrap;
+}
+table.lm-table th {
+  font-size: 0.6875rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  font-weight: 600;
+  background: var(--surface-2) padding-box, var(--rule-bright) bottom / 100% 1px no-repeat;
+  position: sticky;
+  top: 0;
+  background: var(--surface-2);
+  z-index: 1;
+}
+table.lm-table td.num,
+table.lm-table th.num {
+  text-align: right;
+}
+table.lm-table td.wire {
+  font-family: ui-monospace, "SFMono-Regular", "JetBrains Mono", Menlo, monospace;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+table.lm-table tbody tr {
+  transition: background var(--fast);
+}
+table.lm-table tbody tr:hover {
+  background: var(--surface-2);
+}
+table.lm-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+table.lm-table tr.is-picked td {
+  background: var(--accent-soft);
+  font-weight: 620;
+}
+table.lm-table .mark {
+  color: var(--accent-text);
+  font-size: 0.6875rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* ---------------------------- streamlit chrome -------------------------- */
+#MainMenu,
+footer,
+[data-testid="stToolbar"] {
+  visibility: hidden;
+}
+
+/* the toolbar carries the Deploy menu, but when the bar is closed it also carries the only way back: keep
+   that control visible, and keep the header out of the way of everything else in it */
+[data-testid="stToolbar"] {
+  pointer-events: none;
+}
+[data-testid="stToolbar"] [data-testid="stExpandSidebarButton"],
+[data-testid="stSidebarCollapsedControl"] {
+  visibility: visible;
+  pointer-events: auto;
+}
+/* The band that used to hold this control is zero-height now, and the button was centred inside it, so it
+   floated half above the viewport. Fixed positioning puts it back where the reader expects the only way back
+   into a closed navbar - top-left, over the space the bar just vacated. */
+[data-testid="stToolbar"] [data-testid="stExpandSidebarButton"] {
+  position: fixed;
+  top: 0.6rem;
+  left: 0.75rem;
+  z-index: 1000000;
+}
+[data-testid="stCaptionContainer"],
+[data-testid="stCaptionContainer"] p {
+  color: var(--text-3);
+  font-size: 0.78125rem;
+}
+.stMarkdown p,
+.stMarkdown li,
+.stMarkdown strong,
+h1,
+h2,
+h3 {
+  color: var(--text-1);
+}
+.stMarkdown a {
+  color: var(--accent-text);
+}
+[data-testid="stMetricValue"] {
+  color: var(--text-1);
+  font-variant-numeric: tabular-nums;
+}
+[data-testid="stMetricLabel"] p {
+  color: var(--text-3);
+}
+
+/* the tab strip scrolls sideways on narrow screens: fade the edges, do not crop them */
+[data-baseweb="tab-list"] {
+  background: transparent !important;
+  mask: linear-gradient(90deg, transparent, black 6% 94%, transparent);
+}
+[data-baseweb="tab"] {
+  color: var(--text-3);
+  font-weight: 600;
+  transition: color var(--fast);
+}
+[data-baseweb="tab"]:hover {
+  color: var(--text-1);
+}
+[data-baseweb="tab-highlight"],
+[data-baseweb="tab-border"] {
+  background-color: var(--accent);
+}
+
+[data-testid="stSidebarUserContent"] [data-testid="stElementContainer"],
+[data-testid="stSidebarUserContent"] [data-testid="stVerticalBlock"] > div,
+[data-testid="stSidebarUserContent"],
+[data-testid="stSidebarUserContent"] [data-testid="stVerticalBlock"],
+[data-testid="stRadio"],
+[data-testid="stRadio"] [data-testid="stRadioGroup"],
+[data-testid="stRadio"] label,
+[data-testid="stRadio"] [data-testid="stRadioOption"] {
+  width: 100%;
+  padding-left: 0;
+  padding-right: 0;
+}
+[data-testid="stRadio"] [data-testid="stRadioGroup"] {
+  align-items: stretch;
+}
+[data-testid="stRadio"] [data-testid="stRadioOption"] > div > div:first-child {
+  display: none !important;
+}
+[data-testid="stRadio"] [data-testid="stRadioOption"] > div {
+  gap: 0;
+}
+
+/* the view switch: the selected page is a raised, accent-edged box */
+[data-testid="stRadio"] [data-testid="stRadioOption"] {
+  border-radius: var(--r-inner);
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.3rem;
+  color: var(--text-1);
+  /* Source Sans 700 is already a real bold face (the same string measures 63px at 400 and 67px at 700), but
+     at this size and in a muted grey it still reads medium. So: full-brightness text, a size that carries the
+     weight, and a hair of stroke to thicken the letterforms themselves on engines that support it. */
+  font-weight: 700;
+  font-size: 0.9375rem;
+  -webkit-text-stroke: 0.45px currentcolor;
+  border: 0;
+  transition: color var(--fast), background-color var(--fast), box-shadow var(--mid), transform var(--fast);
+}
+[data-testid="stRadio"] [data-testid="stRadioOption"]:hover {
+  color: var(--text-1);
+  background: var(--surface-2);
+  transform: translateX(2px);
+}
+@supports not (-webkit-text-stroke: 0.1px black) {
+  [data-testid="stRadio"] [data-testid="stRadioOption"] {
+    /* no stroke support: go a shade heavier instead of leaving the letters thin */
+    font-weight: 800;
+  }
+}
+[data-testid="stRadio"] [data-testid="stRadioOption"] p {
+  font-weight: inherit;
+  -webkit-text-stroke: inherit;
+}
+[data-testid="stRadio"] [data-testid="stRadioOption"]:has(input:checked) {
+  background:
+    linear-gradient(90deg, oklch(76% 0.14 300 / 0.22), oklch(72% 0.13 258 / 0.06) 46%, transparent 78%),
+    var(--surface-3);
+  color: var(--text-1);
+  box-shadow: inset 0 1px 0 oklch(100% 0 0 / 0.1), 13px 13px 24px -18px oklch(62% 0.2 296 / 0.7);
+}
+
+.stButton > button {
+  border: 1px solid transparent;
+  background: linear-gradient(var(--surface-2), var(--surface-2)) padding-box, var(--rim) border-box;
+  box-shadow: inset 0 1px 0 oklch(100% 0 0 / 0.06);
+  border-radius: var(--r-inner);
+  color: var(--text-1);
+  font-weight: 600;
+  transition: border-color var(--fast), background var(--fast), transform var(--fast);
+}
+.stButton > button:hover {
+  border-color: var(--accent-line);
+  background: var(--surface-3);
+  color: var(--text-1);
+  transform: translateY(-1px);
+}
+
+/* Below a laptop the fixed-width line is wider than the viewport. Clipping the tail would hide the query
+   name, which is the point of the row, so at phone widths the header and each row scroll on their own. */
+@media (max-width: 47.99em) {
+  /* three columns at phone width would wrap into a staircase, so the strip stays one row: the position between
+     two buttons that give up their minimum width before they give up the line */
+  .st-key-lm_pager [data-testid="stHorizontalBlock"] {
+    flex-wrap: nowrap;
+  }
+  /* nowrap alone is not enough: a column whose basis is a percentage still expands to its content, and the row
+     then ran off the screen. min-width lets the columns shrink below their text, and only the middle one grows */
+  .st-key-lm_pager [data-testid="stColumn"] {
+    flex: 0 0 auto;
+    min-width: 0;
+  }
+  .st-key-lm_pager [data-testid="stColumn"]:nth-child(2) {
+    flex: 1 1 auto;
+  }
+  .st-key-lm_pager [data-testid^="stBaseButton-"] {
+    min-width: 0;
+    padding: 0.34rem 0.6rem;
+  }
+
+  .st-key-lm_feed_stack [data-testid^="stBaseButton-"] {
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+  .st-key-lm_feed_stack [data-testid^="stBaseButton-"] > div {
+    width: max-content;
+    min-width: 100%;
+    text-overflow: clip;
+  }
+}
+
+/* keyboard focus is always visible, and never a bare outline on a dark ground */
+:focus-visible,
+[data-baseweb="tab"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--r-inner);
+}
+
+/* Streamlit leaves a focus outline on the clicked label, which reads as a second box around the selected
+   one and stays until focus moves. The raised box already says "selected", so the ring is for keyboard
+   focus only, and drawn as an inset-free shadow so it cannot stack with the border. */
+[data-testid="stRadio"] [data-testid="stRadioOption"] {
+  outline: none !important;
+}
+[data-testid="stRadioOption"]:has(input:focus-visible):not(:has(input:checked)) {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+[data-testid="stWarning"] {
+  background:
+    linear-gradient(oklch(28% 0.05 24 / 0.55), oklch(28% 0.05 24 / 0.55)) padding-box,
+    var(--rim-alert) border-box !important;
+  border: 1px solid transparent !important;
+  border-radius: var(--r-outer) !important;
+  box-shadow: 17px 18px 32px -24px oklch(56% 0.19 22 / 0.52), 8px 6px 14px -10px oklch(56% 0.16 22 / 0.3) !important;
+}
+[data-testid="stWarning"] div,
+[data-testid="stWarning"] p {
+  color: var(--text-1) !important;
+}
+[data-testid="stCode"] {
+  background: var(--surface-1);
+  border: 0;
+  box-shadow: inset 0 1px 0 oklch(100% 0 0 / 0.05);
+  border-radius: var(--r-inner);
+}
+hr {
+  border: 0;
+  height: 1px;
+  background: var(--rule);
+}
+
+/* sidebar width hugs its content: the wordmark is the widest thing in it. Streamlit sizes the bar from an
+   inline `width` on the panel itself, so the override has to be !important - and it is scoped to
+   :not([data-collapsed="true"]), which is what keeps the collapse animation working: the moment the bar
+   closes the rule stops matching and Streamlit's own width takes over again. */
+[data-testid="stSidebar"]:not([data-collapsed="true"]) {
+  width: 12rem !important;
+  min-width: 12rem !important;
+  max-width: 12rem !important;
+}
+/* a bar that hugs its content is not a draggable pane: the handle would snap back */
+[data-testid="stSidebarResizeHandle"] {
+  display: none;
+}
+[data-testid="stSidebarContent"] {
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+[data-testid="stSidebarContent"],
+[data-testid="stSidebarUserContent"],
+[data-testid="stSidebarUserContent"] [data-testid="stVerticalBlock"] {
+  display: block;
+  height: auto;
+  min-height: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+  [data-testid="stRadio"] [data-testid="stRadioOption"]:hover,
+  .lm-verdict:hover,
+  .stButton > button:hover {
+    transform: none;
+  }
+}

@@ -5,4 +5,4 @@
 -r requirements-m2.txt
 -r requirements-live.txt
 # dashboard/app.py
-streamlit>=1.35
+streamlit>=1.67  # oldest tested; needs st.tabs(bind=...) and st.fragment(run_every=...)

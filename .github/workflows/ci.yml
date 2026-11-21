@@ -58,6 +58,9 @@ jobs:
         if: matrix.group == 'm2'
         run: pip install torch --index-url https://download.pytorch.org/whl/cpu
       - run: pip install -r requirements-dev.txt -r requirements-${{ matrix.group }}.txt
+      - name: Install Streamlit (tests/test_dashboard.py is skipped without it)
+        if: matrix.group == 'm1'
+        run: pip install "streamlit>=1.67"  # same floor as requirements.txt
       - name: Check setup
         run: python scripts/check_setup.py dev ${{ matrix.group }}
       - run: python -m pytest
