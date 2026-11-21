@@ -1,2 +1,3 @@
 experiment,experiment_name,selected_model,f1,fpr,latency_ms_per_query
 E1,Experiment 1 (within-testbed),rita,1.0,0.0,0.03249678724944238
+E2,Experiment 2 (CIC benchmark),splunk_dsdl,0.9639037800687285,0.0014037875778042644,0.025406930525838187

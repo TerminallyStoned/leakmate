@@ -3,7 +3,9 @@ rita,E1,Experiment 1 (within-testbed),dns2tcp,1.0
 rita,E1,Experiment 1 (within-testbed),dnscat2,1.0
 rita,E1,Experiment 1 (within-testbed),dnsexfiltrator,1.0
 rita,E1,Experiment 1 (within-testbed),iodine,1.0
+rita,E2,Experiment 2 (CIC benchmark),dnsexfiltrator,0.0
 splunk_dsdl,E1,Experiment 1 (within-testbed),dns2tcp,0.008887171561051005
 splunk_dsdl,E1,Experiment 1 (within-testbed),dnscat2,0.9076350695567778
 splunk_dsdl,E1,Experiment 1 (within-testbed),dnsexfiltrator,1.0
 splunk_dsdl,E1,Experiment 1 (within-testbed),iodine,0.98846011816839
+splunk_dsdl,E2,Experiment 2 (CIC benchmark),dnsexfiltrator,0.9309772579424611
