@@ -18,6 +18,7 @@ import streamlit as st
 
 HERE = Path(__file__).resolve().parent
 LOGO = HERE / "assets" / "leakmate_logo.png"
+ICON = HERE / "assets" / "leakmate_icon.png"  # the drop alone: a wordmark is unreadable at tab size
 
 #: x scale for every time axis. Vega draws times in the browser's zone unless told otherwise, and the feed,
 #: the captions and live/README.md are all in UTC.
@@ -89,7 +90,7 @@ TOOLTIP = (
 
 def setup() -> None:
     """Page config plus the stylesheet."""
-    icon = str(LOGO) if LOGO.exists() else None
+    icon = str(ICON) if ICON.exists() else None
     st.set_page_config(page_title="leakmate", page_icon=icon, layout="wide", initial_sidebar_state="expanded")
     st.markdown(f"<style>{(HERE / 'styles.css').read_text()}</style>", unsafe_allow_html=True)
 

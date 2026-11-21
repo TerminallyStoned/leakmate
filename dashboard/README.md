@@ -43,9 +43,10 @@ on load (`initial_sidebar_state="expanded"`); a browser that was closed by hand 
 `localStorage` and reopens closed, which is the user's own last choice rather than the app's.
 
 The wordmark is an inline `<img>` with a data URI, not `st.image`, so it has no hover toolbar and no
-click-to-fullscreen: it is page furniture. `dashboard/assets/leakmate_logo.png` is derived from the provided
-artwork by keying the black background out with a flood fill from the frame, which is what keeps the black
-letters inside the orange chip opaque.
+click-to-fullscreen: it is page furniture. The logo is a purple drop holding three data bars beside the
+`leakmate` wordmark (Inter ExtraBold, outlined), in the dashboard's own purple. `leakmate_logo.svg` is the source
+for the dark surface, `leakmate_logo_light.svg` the same logo for white backgrounds (report, documents), and
+`leakmate_icon.svg` the drop alone, used as the browser-tab icon. Each SVG has a PNG beside it.
 
 ## Opening an alert
 
@@ -127,7 +128,9 @@ Host-averaged and ablation runs are behind one toggle so the six headline models
 | `dashboard/app.py` | entry point and page switch |
 | `dashboard/shell.py` | the palette, the navbar, status strips, the HTML tables |
 | `dashboard/styles.css` | chrome: OKLCH tokens, alpha hairlines, one accent, tabular figures |
-| `dashboard/assets/leakmate_logo.png` | the wordmark, background keyed out so it sits on the dark surface |
+| `dashboard/assets/leakmate_logo.png` | the logo for the dark surface (SVG source beside it) |
+| `dashboard/assets/leakmate_logo_light.png` | the same logo for white backgrounds |
+| `dashboard/assets/leakmate_icon.png` | the drop alone: the browser-tab icon |
 | `dashboard/data.py` | the only place that opens `results/` and `alerts.db` |
 | `dashboard/view_live.py`, `dashboard/view_results.py` | the two pages |
 | `dashboard/explain.py` | plain words for the M1 feature names SHAP reports |
