@@ -460,7 +460,7 @@ def _why(conn: sqlite3.Connection) -> None:
         alt.Chart(shap)
         .mark_bar(size=16)
         .encode(
-            y=alt.Y("name:N", sort="-x", title=None, axis=alt.Axis(labelLimit=180)),
+            y=alt.Y("name:N", sort="-x", title=None, axis=alt.Axis(labelLimit=180, labelOverlap=False)),
             x=alt.X("shap:Q", title="SHAP contribution (log-odds)"),
             # colour is the direction only: a continuous scale washed contributions above 1 out to white
             color=alt.condition(alt.datum.shap > 0, alt.value(p["signal"]), alt.value(p["fade"])),

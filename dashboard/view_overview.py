@@ -248,7 +248,7 @@ def _latency_overview(latency: pd.DataFrame) -> None:
                 "model:N",
                 title=None,
                 sort=sorted(frame["model"]),
-                axis=alt.Axis(labelLimit=140, labelFontSize=10),
+                axis=alt.Axis(labelLimit=140, labelFontSize=10, labelOverlap=False),
             ),
             x=alt.X("latency_ms_median:Q", title="ms per query", axis=alt.Axis(tickCount=4)),
             color=alt.Color(
@@ -262,7 +262,7 @@ def _latency_overview(latency: pd.DataFrame) -> None:
         .mark_rule(color=p["ink2"], strokeDash=[4, 3])
         .encode(x="limit:Q")
     )
-    height = 22 * len(frame) + 30
+    height = 26 * len(frame)
     st.altair_chart(alt.layer(chart, rule).properties(**shell.chart(height)), width="stretch")
     st.caption(f"Purple is under the {data.LIMIT_MS:.0f} ms rule (dashed). Median of three timings on one CPU box.")
 
