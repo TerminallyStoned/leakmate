@@ -1,7 +1,7 @@
-"""Two well-known outside detectors on the Experiment 1 test rows: Splunk's pretrained model and RITA.
+"""Two well-known outside detectors on the Experiment 1 or 2 test rows: Splunk's pretrained model and RITA.
 
-Neither is trained on our data. Each writes results_external/<tool>/E1.json in the shared results
-format, with rows in the same order as results/<model>/E1.json, so `python -m eval.summarise
+Neither is trained on our data. Each writes results_external/<tool>/<E1|E2>.json in the shared results
+format, with rows in the same order as results/<model>/<E1|E2>.json, so `python -m eval.summarise
 --results-dir results_external` scores them like our models. Steps and findings: docs/external-baselines.md.
 
     python scripts/external_baselines.py zeek-list --out work/zeek/zeek_list.tsv
@@ -32,19 +32,22 @@ from contracts import validate_results  # noqa: E402
 from eval.experiments import DATA_ROOT, get_split  # noqa: E402
 
 RITA_SEVERITY = {"Low": 0.25, "Medium": 0.5, "High": 0.75, "Critical": 1.0}
+DATASET = {"E1": "testbed", "E2": "cic"}  # the experiments that train and test on one dataset
 
 
-def test_rows(root: Path) -> pd.DataFrame:
-    return get_split("E1", root)[1].reset_index(drop=True)
+def test_rows(a) -> pd.DataFrame:
+    return get_split(a.experiment, Path(a.data_root))[1].reset_index(drop=True)
 
 
-def write(
-    out_dir: Path, model: str, te: pd.DataFrame, scores, threshold: float, meaning: str, latency_ms: float, config: dict
-):
+def queries(a, columns: list[str]) -> pd.DataFrame:
+    return pd.read_parquet(Path(a.data_root) / DATASET[a.experiment] / "queries.parquet", columns=columns)
+
+
+def write(a, model: str, te: pd.DataFrame, scores, threshold: float, meaning: str, latency_ms: float, config: dict):
     res = {
         "model": model,
-        "experiment": "E1",
-        "dataset": ["testbed"],
+        "experiment": a.experiment,
+        "dataset": [DATASET[a.experiment]],
         "split": "split_column",
         "n_train": 0,
         "n_test": len(te),
@@ -62,7 +65,7 @@ def write(
         "created_utc": datetime.now(UTC).isoformat(timespec="seconds"),
     }
     validate_results(res)
-    path = out_dir / model / "E1.json"
+    path = Path(a.out) / model / f"{a.experiment}.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(res))
     print(f"wrote {path}")
@@ -71,14 +74,20 @@ def write(
 # ---- Zeek input for RITA ---------------------------------------------------------------------
 
 
+def cic_name(rel: str) -> str:
+    parts = rel.split("/")
+    return f"{parts[-3]}/{parts[-1]}" if len(parts) >= 3 else rel
+
+
 def zeek_list(a):
-    """The pcaps behind the E1 test rows, as `<path under data/raw>\\t<source_file>` lines."""
-    d = pd.read_parquet(Path(a.data_root) / "testbed" / "queries.parquet", columns=["source_file", "split"])
+    """The pcaps behind the test rows, as `<path under data/raw>\\t<source_file>` lines."""
+    d = queries(a, ["source_file", "split"])
     raw = Path(a.raw)
     pcaps = sorted(p.relative_to(raw).as_posix() for p in raw.rglob("*.pcap*"))
     lines = []
     for src in sorted(d.loc[d["split"] == "test", "source_file"].unique()):
-        hit = next((p for p in pcaps if p == src or p.endswith("/" + src)), None)
+        # testbed names a capture <run id>/<file>, the CIC parser <grandparent folder>/<file> (parser/pcap.py)
+        hit = next((p for p in pcaps if p.endswith("/" + src) or cic_name(p) == src), None)
         if hit is None:
             raise SystemExit(f"no pcap under {raw} for {src}")
         lines.append(f"{hit}\t{src}")
@@ -89,7 +98,7 @@ def zeek_list(a):
 
 def zeek_test_only(a):
     """Copy each capture's dns.log keeping the rows from its first test-split query on (the split is per capture)."""
-    d = pd.read_parquet(Path(a.data_root) / "testbed" / "queries.parquet", columns=["source_file", "split", "ts"])
+    d = queries(a, ["source_file", "split", "ts"])
     start = d[d["split"] == "test"].groupby("source_file")["ts"].min()
     out = Path(a.out)
     kept = total = 0
@@ -110,7 +119,7 @@ def zeek_test_only(a):
 
 def rita(a):
     """Map RITA's findings (rita view --stdout) to the test rows: a query gets its domain's severity."""
-    te = test_rows(Path(a.data_root))
+    te = test_rows(a)
     found = pd.read_csv(a.csv, skiprows=1)
     found = found[found["Subdomains"] > 0]
     q = te["qname"].astype(str).str.rstrip(".").str.lower()
@@ -121,7 +130,7 @@ def rita(a):
         score[hit] = np.maximum(score[hit], RITA_SEVERITY.get(row["Severity"], 0.0))
     print(found[["Severity", "FQDN", "Subdomains", "C2 Over DNS Score"]].to_string(index=False))
     write(
-        Path(a.out),
+        a,
         "rita",
         te,
         score,
@@ -199,13 +208,13 @@ def splunk(a):
     names = {"layer_1": "0", "layer_2": "3", "layer_out": "6"}  # the notebook's layer names -> Sequential indices
     net.load_state_dict({names[k.split(".")[0]] + "." + k.split(".")[1]: v for k, v in state.items()})
     net.eval()
-    te = test_rows(Path(a.data_root))
+    te = test_rows(a)
     t0 = time.perf_counter()
     with torch.no_grad():
         p = net(torch.from_numpy(splunk_features(te))).squeeze(1).numpy()
     ms = (time.perf_counter() - t0) * 1000 / len(te)
     write(
-        Path(a.out),
+        a,
         "splunk_dsdl",
         te,
         p,
@@ -225,6 +234,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--data-root", default=str(DATA_ROOT))
     ap.add_argument("--out", default="results_external")
+    ap.add_argument("--experiment", choices=sorted(DATASET), default="E1")
     sub = ap.add_subparsers(dest="cmd", required=True)
     s = sub.add_parser("zeek-list")
     s.add_argument("--raw", default="data/raw")

@@ -83,7 +83,7 @@ results/      <model>/<experiment>.json in the shared results format; summary.cs
               per_tool.csv and figures/ from python -m eval.summarise
 results_nozone/  every model's result files on the masked testbed table (Experiments 1, 3, 5) and their
               selection.csv (docs/suffix-ablation.md)
-results_external/  Splunk's pretrained model and RITA on the Experiment 1 test rows (docs/external-baselines.md)
+results_external/  Splunk's pretrained model and RITA on the Experiment 1 and 2 test rows (docs/external-baselines.md)
 docs/         per-component notes: contracts.md, m1.md, m2.md, m3.md, suffix-ablation.md, experiment-s.md, external-baselines.md
 tests/        smoke tests
 testbed/      lab network (docker compose), run_tool.sh, capture_matrix.sh
