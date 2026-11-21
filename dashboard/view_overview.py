@@ -90,8 +90,8 @@ def _live_summary() -> dict:
         hosts = (
             frame.groupby("src_host", as_index=False)
             .agg(queries=("queries", "sum"), alerts=("alerts", "sum"))
-            .sort_values("alerts", ascending=False)
-            .head(5)
+            .sort_values(["alerts", "queries"], ascending=False)
+            .head(8)
         )
     latest = None
     if not alerts.empty:
@@ -132,20 +132,23 @@ def _alerts_over_time(buckets: pd.DataFrame, bucket_s: float) -> None:
 
 
 def _top_hosts(hosts: pd.DataFrame) -> None:
-    p = shell.pal()
+    """Every host the sniffer saw, as a table: a bar chart this short dropped every other host label, and
+    a host with no alerts had no bar at all, so benign hosts vanished."""
     if hosts.empty:
         return
-    chart = (
-        alt.Chart(hosts)
-        .mark_bar(color=p["signal"])
-        .encode(
-            y=alt.Y("src_host:N", title=None, sort="-x", axis=alt.Axis(labelFontSize=10)),
-            x=alt.X("alerts:Q", title="alerts", axis=alt.Axis(labelFontSize=10, tickCount=4)),
-            tooltip=["src_host", "queries", "alerts"],
-        )
-        .properties(height=min(132, 26 * len(hosts) + 24))
+    frame = hosts.copy()
+    frame["flagged"] = (frame["alerts"] / frame["queries"].clip(lower=1)).map("{:.1%}".format)
+    frame["queries"] = frame["queries"].map("{:,}".format)
+    frame["alerts"] = frame["alerts"].map("{:,}".format)
+    shell.table(
+        frame,
+        [
+            ("src_host", "host", "wire"),
+            ("queries", "queries", "num"),
+            ("alerts", "alerts", "num"),
+            ("flagged", "flagged", "num"),
+        ],
     )
-    st.altair_chart(chart, width="stretch")
 
 
 def _latest(latest: dict | None) -> None:

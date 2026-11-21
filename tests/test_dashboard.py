@@ -66,7 +66,7 @@ def test_overview_summarises_both_halves(demo_db: Path) -> None:
     assert "Overview" in text and "Detector" in text and "Evaluation" in text
     assert "queries scored" in text and "median latency" in text  # live side reached the strip
     assert _has_table(at), "the per-experiment selection table is missing"
-    assert len(at.get("vega_lite_chart")) == 3  # alerts over time, top hosts, latency bars
+    assert len(at.get("vega_lite_chart")) == 2  # alerts over time, latency bars (top hosts is a table now)
     # no in-page jump buttons: the navbar is the only route to the other pages, so the summary cannot disagree
     # with it about where the reader is
     assert not at.button, "the overview grew its own navigation again"
@@ -225,9 +225,15 @@ def test_query_names_are_escaped_before_they_reach_the_page(tmp_path: Path) -> N
             assert not re.search(r"<img[^>]*onerror", detail, re.I), page
 
 
+def test_overview_lists_every_host_with_its_alert_share(demo_db: Path) -> None:
+    at = _app(LEAKMATE_ALERTS_DB=str(demo_db))
+    hosts = next(str(m.value) for m in at.markdown if 'class="lm-table"' in str(m.value) and ">host<" in str(m.value))
+    assert ">flagged<" in hosts and "0.0%" in hosts  # benign hosts are listed too, not only the alerting ones
+
+
 def test_overview_shows_the_false_positive_rate_of_each_pick(demo_db: Path) -> None:
     at = _app(LEAKMATE_ALERTS_DB=str(demo_db))
-    picks = next(str(m.value) for m in at.markdown if 'class="lm-table"' in str(m.value))
+    picks = next(str(m.value) for m in at.markdown if 'class="lm-table"' in str(m.value) and ">picked<" in str(m.value))
     assert ">FPR<" in picks and "&ndash;" not in picks  # every pick has a rate
     assert any("results_nozone" in str(c.value) for c in at.caption)  # and says which selection to quote
 
