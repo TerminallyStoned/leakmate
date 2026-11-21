@@ -48,7 +48,7 @@ FAMILIES = {
 FAMILY_LABEL = {
     "supervised": "Supervised (M1)",
     "unsupervised": "Unsupervised (M2)",
-    "leakage": "Leakage (M3)",
+    "leakage": "Character-level (M3)",
     "baseline": "Baseline",
 }
 FAMILY_OF = {
