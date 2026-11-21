@@ -30,6 +30,7 @@ Other switches:
 | `LEAKMATE_RESULTS=results_nozone` | the runs with the lab domain hidden, instead of `results/` |
 | `LEAKMATE_ALERTS_DB=/tmp/demo_alerts.db` | read another SQLite file |
 | `LEAKMATE_PAGE=Results` | open on that page; used to take the report screenshots one at a time |
+| `LEAKMATE_REFRESH_S=10` | how often Overview and Live re-read `alerts.db` (default 5 s; `0` turns it off) |
 
 ## Chrome
 
@@ -75,6 +76,10 @@ Nothing is explained until a row is pressed. The alert is then read by primary k
 be explained, not only the ones a panel happens to hold. `Clear` forgets it and returns to the feed.
 
 ## Live page
+
+Overview and Live re-run every `LEAKMATE_REFRESH_S` seconds as a fragment (`dashboard/app.py`), so alerts
+appear while the sniffer writes without a reload; the navbar, filters, window and open alert keep their state.
+Results is frozen and is drawn once.
 
 | Panel | Source | Notes |
 |---|---|---|

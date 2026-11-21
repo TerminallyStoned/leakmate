@@ -45,7 +45,11 @@ st.session_state["lm_last_page"] = page
 # Overview and Live read live/alerts.db, which the sniffer keeps writing: re-run just the page body on a timer
 # (a fragment), so new alerts appear without a reload and the navbar, filters and open alert stay as they are.
 # Results is frozen and is drawn once. LEAKMATE_REFRESH_S=0 turns the timer off.
-REFRESH_S = float(os.environ.get("LEAKMATE_REFRESH_S", "5"))
+try:
+    REFRESH_S = float(os.environ.get("LEAKMATE_REFRESH_S", "5"))
+except ValueError:
+    shell.need("LEAKMATE_REFRESH_S is not a number", "Give seconds, for example 5, or 0 to turn the refresh off.")
+    st.stop()
 if page in ("Overview", "Live") and REFRESH_S > 0:
     st.fragment(run_every=REFRESH_S)(PAGES[page].render)()
 else:

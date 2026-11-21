@@ -132,8 +132,8 @@ def _alerts_over_time(buckets: pd.DataFrame, bucket_s: float) -> None:
 
 
 def _top_hosts(hosts: pd.DataFrame) -> None:
-    """Every host the sniffer saw, as a table: a bar chart this short dropped every other host label, and
-    a host with no alerts had no bar at all, so benign hosts vanished."""
+    """Up to eight hosts, alerting first, as a table: a bar chart this short dropped every other host label,
+    and a host with no alerts had no bar at all, so benign hosts vanished."""
     if hosts.empty:
         return
     frame = hosts.copy()
