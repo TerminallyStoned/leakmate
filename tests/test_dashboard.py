@@ -473,6 +473,16 @@ def test_latency_histogram_counts_batches_per_bin(demo_db: Path) -> None:
     assert [t.get("aggregate") for t in hist["tooltip"]] == ["count"]
 
 
+def test_shap_bars_are_named_and_coloured_by_direction(demo_db: Path) -> None:
+    import json
+
+    at = _page(_app(LEAKMATE_ALERTS_DB=str(demo_db)), "Live")
+    _click_row(at, 1)
+    enc = json.loads(_spec(at, "SHAP contribution"))["encoding"]
+    assert enc["y"]["field"] == "name" and enc["y"].get("axis") is not None  # each bar says which feature
+    assert "condition" in enc["color"]  # direction, not a scale that values above 1 fall off
+
+
 def st_shap_chart(at) -> bool:
     """Any altair chart whose encoding is the SHAP contribution axis."""
     return any("SHAP contribution" in str(c.spec) for c in at.get("vega_lite_chart"))

@@ -446,14 +446,17 @@ def _why(conn: sqlite3.Connection) -> None:
         st.caption("This scorer stored no explanation, so the alert has only its score.")
         return
     left, right = st.columns([1, 1.15])
+    shap = pd.DataFrame(features)
+    shap["name"] = shap["feature"].map(explain.label)  # the same plain words as the list beside the chart
     bars = (
-        alt.Chart(pd.DataFrame(features))
+        alt.Chart(shap)
         .mark_bar(size=16)
         .encode(
-            y=alt.Y("feature:N", sort="-x", axis=None, title=None),
+            y=alt.Y("name:N", sort="-x", title=None, axis=alt.Axis(labelLimit=180)),
             x=alt.X("shap:Q", title="SHAP contribution (log-odds)"),
-            color=alt.Color("shap:Q", scale=alt.Scale(domain=[-1, 1], range=[p["fade"], p["signal"]]), legend=None),
-            tooltip=["feature", "value", "shap"],
+            # colour is the direction only: a continuous scale washed contributions above 1 out to white
+            color=alt.condition(alt.datum.shap > 0, alt.value(p["signal"]), alt.value(p["fade"])),
+            tooltip=["name", "value", "shap"],
         )
         .properties(height=min(240, 34 * len(features) + 20), **shell.chart_config())
     )
