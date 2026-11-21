@@ -262,7 +262,7 @@ def _latency_overview(latency: pd.DataFrame) -> None:
         .encode(y="limit:Q")
     )
     st.altair_chart(alt.layer(chart, rule).properties(**shell.chart(132)), width="stretch")
-    st.caption(f"Red is under the {data.LIMIT_MS:.0f} ms rule (dashed). Median of three timings on one CPU box.")
+    st.caption(f"Purple is under the {data.LIMIT_MS:.0f} ms rule (dashed). Median of three timings on one CPU box.")
 
 
 def _bucket_width(span_s: float) -> float:

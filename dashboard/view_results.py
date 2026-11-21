@@ -266,7 +266,6 @@ def _latency(summary: pd.DataFrame) -> None:
     frame = data.drop_variants(latency).copy()
     frame["family"] = frame["model"].map(shell.family)
     frame["model"] = frame["model"].map(data.model_label)
-    frame["over"] = frame["latency_ms_median"] > data.LIMIT_MS
     scale = alt.Scale(domain=list(shell.FAMILIES), range=list(shell.FAMILIES.values()))
     bars = (
         alt.Chart(frame)
@@ -289,7 +288,8 @@ def _latency(summary: pd.DataFrame) -> None:
     )
     st.altair_chart((bars + rule).properties(**shell.chart(240)), width="stretch")
     st.caption(
-        f"Red is under the rule; grey is over. Median over each model's runs, from "
+        f"Colour is the model family; the dashed line is the {data.LIMIT_MS:.0f} ms rule. "
+        "Median over each model's runs, from "
         f"`{data.results_dir().name}/latency.csv`. The selection uses `latency_cpu.csv`, every model timed on "
         "one CPU (`python scripts/time_models.py`)."
     )
