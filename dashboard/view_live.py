@@ -232,7 +232,9 @@ def _score_over_time(stats: pd.DataFrame, alerts: pd.DataFrame) -> None:
                 tooltip=["time (UTC)", "src_host", "queries", "alerts", "max_score"],
             )
         )
-    chart = alt.layer(*layers).resolve_scale(y="independent").properties(**shell.chart(210)).interactive()
+    # no .interactive(): the page re-runs every few seconds, which threw away any zoom, and the wheel zoomed
+    # the chart instead of scrolling the page
+    chart = alt.layer(*layers).resolve_scale(y="independent").properties(**shell.chart(210))
     st.altair_chart(chart, width="stretch")
     st.caption(
         "Lines: mean model score per host per 10 s bucket. Bars along the foot: how many queries of that "
