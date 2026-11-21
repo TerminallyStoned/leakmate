@@ -87,14 +87,19 @@ def _controls(alerts: pd.DataFrame, stats: pd.DataFrame, batches: pd.DataFrame) 
     minutes = max(1, int((last - first) // 60) + 1) if last > first else 1
     hosts = sorted(set(stats.get("src_host", pd.Series(dtype=str))) | set(alerts.get("src_host", pd.Series(dtype=str))))
     cols = st.columns([2, 1])
+    top = max(minutes, 5)
+    # The bounds grow while the sniffer writes, and a slider with new bounds is a new widget to Streamlit, so
+    # it would drop the window the reader picked every minute. Keep the pick apart and hand it back.
+    picked = st.session_state.get("lm_window_pick")
     window = cols[0].slider(
         "Last",
         min_value=1,
-        max_value=max(minutes, 5),
-        value=min(minutes, 60),
+        max_value=top,
+        value=min(picked, top) if picked else min(minutes, 60),
         step=1,
         format="%d min",
         key="lm_window",
+        on_change=_keep_window,
         help="Most recent window of the recorded traffic. Applies to the strip, the feed, the charts and "
         "the latency tab. `live/alerts.db` holds every run the sniffer appended, newest at the end.",
     )
@@ -110,6 +115,10 @@ def _controls(alerts: pd.DataFrame, stats: pd.DataFrame, batches: pd.DataFrame) 
     if only_alerts:
         note += ", alerting hosts only"
     return {"hosts": hosts, "since": last - window * 60, "note": note}
+
+
+def _keep_window() -> None:
+    st.session_state["lm_window_pick"] = st.session_state["lm_window"]
 
 
 def _span(alerts: pd.DataFrame, stats: pd.DataFrame, batches: pd.DataFrame) -> tuple[float, float]:

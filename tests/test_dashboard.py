@@ -298,6 +298,24 @@ def test_window_slider_filters_every_panel(demo_db: Path) -> None:
     assert any("Last 1 min" in str(c.value) for c in at.caption)
 
 
+def test_a_picked_window_survives_the_file_growing(demo_db: Path) -> None:
+    """The page re-runs every few seconds while the sniffer appends; growing bounds must not reset the window."""
+    import sqlite3
+
+    at = _page(_app(LEAKMATE_ALERTS_DB=str(demo_db)), "Live")
+    at.slider[0].set_value(2).run()
+    with sqlite3.connect(demo_db) as conn:  # ten more minutes of traffic arrive
+        last = conn.execute("SELECT MAX(bucket_ts) FROM host_stats").fetchone()[0]
+        conn.execute(
+            "INSERT INTO host_stats (bucket_ts, src_host, queries, alerts, max_score, sum_score) "
+            "VALUES (?, '10.0.0.9', 1, 0, 0.1, 0.1)",
+            (last + 600,),
+        )
+    at.run()
+    assert not at.exception, at.exception
+    assert at.slider[0].value == 2
+
+
 def _strip_value(at: AppTest, label: str) -> str | None:
     import re
 
