@@ -87,14 +87,20 @@ def _controls(alerts: pd.DataFrame, stats: pd.DataFrame, batches: pd.DataFrame) 
     minutes = max(1, int((last - first) // 60) + 1) if last > first else 1
     hosts = sorted(set(stats.get("src_host", pd.Series(dtype=str))) | set(alerts.get("src_host", pd.Series(dtype=str))))
     cols = st.columns([2, 1])
+    top = max(minutes, 5)
+    # The bounds and the default grow while the sniffer writes, and Streamlit then treats the slider as a new
+    # widget, so it would drop the window the reader picked every minute. Keep the pick apart and hand it back.
+    picked = st.session_state.get("lm_window_pick")
+    st.session_state["lm_window_top"] = top
     window = cols[0].slider(
         "Last",
         min_value=1,
-        max_value=max(minutes, 5),
-        value=min(minutes, 60),
+        max_value=top,
+        value=top if picked == "all" else min(picked, top) if picked else min(minutes, 60),
         step=1,
         format="%d min",
         key="lm_window",
+        on_change=_keep_window,
         help="Most recent window of the recorded traffic. Applies to the strip, the feed, the charts and "
         "the latency tab. `live/alerts.db` holds every run the sniffer appended, newest at the end.",
     )
@@ -110,6 +116,12 @@ def _controls(alerts: pd.DataFrame, stats: pd.DataFrame, batches: pd.DataFrame) 
     if only_alerts:
         note += ", alerting hosts only"
     return {"hosts": hosts, "since": last - window * 60, "note": note}
+
+
+def _keep_window() -> None:
+    """Remember a narrower window; slid back to the end means the whole file again, so it follows growth."""
+    value = st.session_state["lm_window"]
+    st.session_state["lm_window_pick"] = "all" if value >= st.session_state.get("lm_window_top", 0) else value
 
 
 def _span(alerts: pd.DataFrame, stats: pd.DataFrame, batches: pd.DataFrame) -> tuple[float, float]:
@@ -216,11 +228,19 @@ def _score_over_time(stats: pd.DataFrame, alerts: pd.DataFrame) -> None:
             .mark_bar(size=6, color=p["signal"], opacity=0.35)
             .encode(
                 x=x,
-                y=alt.Y("alerts:Q", title=None, axis=alt.Axis(labelExpr="datum.value + ' alert(s)'")),
+                # three times the tallest bar, so the bars keep to the bottom third and leave the lines visible
+                y=alt.Y(
+                    "alerts:Q",
+                    title=None,
+                    scale=alt.Scale(domain=[0, 3 * int(hit["alerts"].max())]),
+                    axis=alt.Axis(labelExpr="datum.value + ' alert(s)'"),
+                ),
                 tooltip=["time (UTC)", "src_host", "queries", "alerts", "max_score"],
             )
         )
-    chart = alt.layer(*layers).resolve_scale(y="independent").properties(**shell.chart(210)).interactive()
+    # no .interactive(): the page re-runs every few seconds, which threw away any zoom, and the wheel zoomed
+    # the chart instead of scrolling the page
+    chart = alt.layer(*layers).resolve_scale(y="independent").properties(**shell.chart(210))
     st.altair_chart(chart, width="stretch")
     st.caption(
         "Lines: mean model score per host per 10 s bucket. Bars along the foot: how many queries of that "
@@ -433,38 +453,65 @@ def _why(conn: sqlite3.Connection) -> None:
     if not features:
         st.caption("This scorer stored no explanation, so the alert has only its score.")
         return
-    left, right = st.columns([1, 1.15])
-    bars = (
-        alt.Chart(pd.DataFrame(features))
-        .mark_bar(size=16)
-        .encode(
-            y=alt.Y("feature:N", sort="-x", axis=None, title=None),
-            x=alt.X("shap:Q", title="SHAP contribution (log-odds)"),
-            color=alt.Color("shap:Q", scale=alt.Scale(domain=[-1, 1], range=[p["fade"], p["signal"]]), legend=None),
-            tooltip=["feature", "value", "shap"],
-        )
-        .properties(height=min(240, 34 * len(features) + 20), **shell.chart_config())
+    shap = pd.DataFrame(
+        {
+            "name": [explain.label(f["feature"]) for f in features],  # the same plain words as the table below
+            "value": [f.get("value") for f in features],
+            "shap": [f.get("shap") for f in features],  # null from a scorer with no explanation (live/README.md)
+        }
     )
-    left.altair_chart(bars, width="stretch")
-    parts = []
-    for feat in features:
-        name = str(feat["feature"])
-        label = html.escape(explain.label(name))
-        reading = html.escape(explain.value_text(name, feat.get("value")))
-        meaning = html.escape(explain.meaning(name, feat.get("shap")))
-        parts.append(
-            f'<div><p class="lm-why"><strong>{label}</strong> {reading}</p><p class="lm-kv">{meaning}</p></div>'
+    if shap["shap"].notna().any():
+        st.markdown(
+            '<p class="lm-note"><strong>Why it was flagged.</strong> The features that moved this score most, '
+            "from SHAP: each bar is one feature's share of the score (in log-odds), so a longer bar mattered "
+            "more. Above 0 pushes toward tunnel, below 0 away from it.</p>",
+            unsafe_allow_html=True,
         )
-    lines = "".join(parts)
-    right.markdown(f'<div class="lm-dl">{lines}</div>', unsafe_allow_html=True)
+        bars = (
+            alt.Chart(shap)
+            .mark_bar(size=16)
+            .encode(
+                y=alt.Y("name:N", sort="-x", title=None, axis=alt.Axis(labelLimit=180, labelOverlap=False)),
+                x=alt.X("shap:Q", title="SHAP contribution (log-odds)"),
+                # colour is the direction only: a continuous scale washed contributions above 1 out to white
+                color=alt.condition(alt.datum.shap > 0, alt.value(p["signal"]), alt.value(p["fade"])),
+                tooltip=["name", "value", "shap"],
+            )
+            .properties(height=min(240, 34 * len(features) + 20), **shell.chart_config())
+        )
+        st.altair_chart(bars, width="stretch")
+    else:
+        st.caption("This scorer stored its top features but no SHAP values, so they carry no direction.")
+    # one table instead of a loose list beside the chart: the same features, their values and what they count
+    shell.table(
+        pd.DataFrame(
+            {
+                "feature": shap["name"],
+                "value": [explain.value_text(f["feature"], f.get("value")) for f in features],
+                "shap": [None if f.get("shap") is None else f"{f['shap']:+.2f}" for f in features],
+                "effect": [explain.direction(f.get("shap")) for f in features],
+                "what": [explain.what(f["feature"]) for f in features],
+            }
+        ),
+        [
+            ("feature", "feature", "text"),
+            ("value", "value here", "num"),
+            ("shap", "SHAP", "num"),
+            ("effect", "effect", "text"),
+            ("what", "what it counts", "text"),
+        ],
+    )
 
 
 def _latency(batches: pd.DataFrame, meta: dict) -> None:
     p = shell.pal()
     st.markdown(
         '<div class="lm-sec">Processing latency</div>'
-        '<p class="lm-note">From the <code>batches</code> table: features, scoring and explanations '
-        "for each scored batch.</p>",
+        '<p class="lm-note">A batch is one scoring step of the sniffer. Every 0.5 s by default '
+        "(<code>python -m live --batch</code>) it takes the queries whose reply has arrived, or that waited 1 s "
+        "for one (<code>--reply-wait</code>), and scores them together, so a batch holds whatever traffic came in "
+        "that half second. Each bar counts batches by their time per query: features, score and SHAP "
+        "explanations for the batch, divided by its queries (the <code>batches</code> table).</p>",
         unsafe_allow_html=True,
     )
     if batches.empty:
@@ -498,7 +545,8 @@ def _latency(batches: pd.DataFrame, meta: dict) -> None:
                 scale=alt.Scale(zero=True),
             ),
             y=alt.Y("count()", title="batches"),
-            tooltip=["queries", "process_ms", "ms_per_query"],
+            # per-row fields here would group by batch, one bar of height 1 each: aggregates only
+            tooltip=[alt.Tooltip("count()", title="batches")],
         )
     )
     rule = alt.Chart(pd.DataFrame({"limit": [data.LIMIT_MS]})).mark_rule(color=p["signal"]).encode(x="limit:Q")

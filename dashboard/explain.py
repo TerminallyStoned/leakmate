@@ -75,6 +75,12 @@ def value_text(feature: str, value: float | None) -> str:
     return f"{number} {unit}".strip()
 
 
+def what(feature: str) -> str:
+    """What the number counts, for a table that shows the direction in a column of its own."""
+    doc = FEATURE_DOC.get(feature)
+    return doc[1] if doc else feature.replace("_", " ")
+
+
 def direction(shap: float | None) -> str:
     if shap is None:
         return "no explanation stored"
@@ -94,13 +100,6 @@ def sentence(feature: str, value: float | None, shap: float | None) -> str:
             f"{'asked for TXT or NULL' if (value or 0) >= 0.5 else 'did not ask for TXT or NULL'} - {direction(shap)}"
         )
     return f"{what}: {value_text(feature, value)} - {direction(shap)}"
-
-
-def meaning(feature: str, shap: float | None) -> str:
-    """What the feature counts and which way it pulled, without repeating the value the line above shows."""
-    doc = FEATURE_DOC.get(feature)
-    what = doc[1] if doc else feature.replace("_", " ")
-    return f"{what} - {direction(shap)}"
 
 
 def headline(features: list[dict]) -> str:

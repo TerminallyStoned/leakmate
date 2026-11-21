@@ -66,7 +66,7 @@ def test_overview_summarises_both_halves(demo_db: Path) -> None:
     assert "Overview" in text and "Detector" in text and "Evaluation" in text
     assert "queries scored" in text and "median latency" in text  # live side reached the strip
     assert _has_table(at), "the per-experiment selection table is missing"
-    assert len(at.get("vega_lite_chart")) == 3  # alerts over time, top hosts, latency bars
+    assert len(at.get("vega_lite_chart")) == 2  # alerts over time, latency bars (top hosts is a table now)
     # no in-page jump buttons: the navbar is the only route to the other pages, so the summary cannot disagree
     # with it about where the reader is
     assert not at.button, "the overview grew its own navigation again"
@@ -225,9 +225,15 @@ def test_query_names_are_escaped_before_they_reach_the_page(tmp_path: Path) -> N
             assert not re.search(r"<img[^>]*onerror", detail, re.I), page
 
 
+def test_overview_lists_every_host_with_its_alert_share(demo_db: Path) -> None:
+    at = _app(LEAKMATE_ALERTS_DB=str(demo_db))
+    hosts = next(str(m.value) for m in at.markdown if 'class="lm-table"' in str(m.value) and ">host<" in str(m.value))
+    assert ">flagged<" in hosts and "0.0%" in hosts  # benign hosts are listed too, not only the alerting ones
+
+
 def test_overview_shows_the_false_positive_rate_of_each_pick(demo_db: Path) -> None:
     at = _app(LEAKMATE_ALERTS_DB=str(demo_db))
-    picks = next(str(m.value) for m in at.markdown if 'class="lm-table"' in str(m.value))
+    picks = next(str(m.value) for m in at.markdown if 'class="lm-table"' in str(m.value) and ">picked<" in str(m.value))
     assert ">FPR<" in picks and "&ndash;" not in picks  # every pick has a rate
     assert any("results_nozone" in str(c.value) for c in at.caption)  # and says which selection to quote
 
@@ -290,6 +296,34 @@ def test_window_slider_filters_every_panel(demo_db: Path) -> None:
     assert wide is not None and narrow is not None
     assert int(narrow.replace(",", "")) < int(wide.replace(",", ""))
     assert any("Last 1 min" in str(c.value) for c in at.caption)
+
+
+def test_a_picked_window_survives_the_file_growing(demo_db: Path) -> None:
+    """The page re-runs every few seconds while the sniffer appends; growing bounds must not reset the window."""
+    import sqlite3
+
+    def grow(minutes: int) -> None:
+        with sqlite3.connect(demo_db) as conn:
+            last = conn.execute("SELECT MAX(bucket_ts) FROM host_stats").fetchone()[0]
+            conn.execute(
+                "INSERT INTO host_stats (bucket_ts, src_host, queries, alerts, max_score, sum_score) "
+                "VALUES (?, '10.0.0.9', 1, 0, 0.1, 0.1)",
+                (last + minutes * 60,),
+            )
+        conn.close()
+
+    at = _page(_app(LEAKMATE_ALERTS_DB=str(demo_db)), "Live")
+    at.slider[0].set_value(2).run()
+    grow(10)
+    at.run()
+    assert not at.exception, at.exception
+    assert at.slider[0].value == 2  # a narrower window stays put
+    grow(70)  # past the 60 min default, so "whole file" cannot pass for the default
+    at.run()
+    at.slider[0].set_value(at.slider[0].max).run()  # slid back to the end: the whole file
+    grow(10)
+    at.run()
+    assert at.slider[0].value == at.slider[0].max  # and the whole file keeps following it
 
 
 def _strip_value(at: AppTest, label: str) -> str | None:
@@ -425,6 +459,89 @@ def test_clearing_the_alert_returns_to_the_prompt(demo_db: Path) -> None:
     assert "lm_alert" not in at.session_state
     assert at.session_state["live_section"] == "Alert feed"
     assert "Click a row in the feed" in _page_text(at)
+
+
+def _spec(at, needle: str) -> str:
+    """The Vega-Lite spec, as text, of the one chart whose spec mentions `needle`."""
+    return next(c.proto.spec for c in at.get("vega_lite_chart") if needle in c.proto.spec)
+
+
+def test_latency_histogram_counts_batches_per_bin(demo_db: Path) -> None:
+    """A per-batch field in the tooltip makes Vega group by batch: one bar of height 1 per batch."""
+    import json
+
+    at = _page(_app(LEAKMATE_ALERTS_DB=str(demo_db)), "Live")
+    hist = json.loads(_spec(at, "ms_per_query"))["layer"][0]["encoding"]
+    assert [t.get("aggregate") for t in hist["tooltip"]] == ["count"]
+
+
+def test_shap_bars_are_named_and_coloured_by_direction(demo_db: Path) -> None:
+    import json
+
+    at = _page(_app(LEAKMATE_ALERTS_DB=str(demo_db)), "Live")
+    _click_row(at, 1)
+    enc = json.loads(_spec(at, "SHAP contribution"))["encoding"]
+    assert enc["y"]["field"] == "name" and enc["y"].get("axis") is not None  # each bar says which feature
+    assert "condition" in enc["color"]  # direction, not a scale that values above 1 fall off
+    text = _page_text(at)
+    assert "Why it was flagged" in text and ">what it counts<" in text  # said what the chart is, and one table
+
+
+def test_an_alert_without_shap_values_opens(demo_db: Path) -> None:
+    """The q_len scorer stores its features with `shap` null (live/README.md); opening one must not crash."""
+    import json
+    import sqlite3
+
+    with sqlite3.connect(demo_db) as conn:
+        nulls = json.dumps([{"feature": "q_len", "value": 117.0, "shap": None}])
+        conn.execute("UPDATE alerts SET top_features = ?", (nulls,))
+    conn.close()
+    at = _page(_app(LEAKMATE_ALERTS_DB=str(demo_db)), "Live")
+    _click_row(at, 1)
+    assert not at.exception, at.exception
+    assert any("no SHAP values" in str(c.value) for c in at.caption)
+    assert ">what it counts<" in _page_text(at)  # the features are still listed
+
+
+def test_overview_quotes_the_masked_picks_for_the_testbed_experiments(monkeypatch: pytest.MonkeyPatch) -> None:
+    """On the original names M3 wins Experiments 1, 3 and 5 from the tunnel.test suffix; the report quotes M1."""
+    from dashboard import data
+
+    monkeypatch.delenv("LEAKMATE_RESULTS", raising=False)
+    picks = data.read_selection().set_index("experiment")["selected_model"]
+    assert picks["E1"] == "m1" and picks["E5"] == "m1"  # from results_nozone/
+    assert picks["E2"] == "rf" and "E4_cic2testbed" in picks  # CIC experiments still from results/
+
+
+def test_cross_dataset_card_respects_the_false_positive_ceiling(demo_db: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The top F1 on CIC -> testbed is M2 at 13% FPR, which the selection rule rejects."""
+    monkeypatch.delenv("LEAKMATE_RESULTS", raising=False)
+    at = _app(LEAKMATE_ALERTS_DB=str(demo_db))
+    grid = next(str(m.value) for m in at.markdown if "Cross-dataset" in str(m.value))
+    card = grid[grid.index("Cross-dataset") :].split('class="lm-verdict ')[0]  # up to the next card
+    assert "M2 DNS-BERT" not in card and "% FPR" in card
+
+
+def test_overview_latency_chart_gives_each_model_its_own_row(demo_db: Path) -> None:
+    """Slanted labels under a half-width chart collided, and Vega hid three of the seven model names."""
+    import json
+
+    at = _app(LEAKMATE_ALERTS_DB=str(demo_db))
+    bars = json.loads(_spec(at, "latency_ms_median"))["layer"][0]["encoding"]
+    assert bars["y"]["field"] == "model" and bars["x"]["field"] == "latency_ms_median"
+    assert 'class="lm-sub">Latency per model<' in _page_text(at)  # the chart has a title
+
+
+def test_score_chart_keeps_alert_bars_at_the_foot(demo_db: Path) -> None:
+    """Scaled to their own maximum, the bars filled the plot and hid the per-host score lines."""
+    import json
+
+    at = _page(_app(LEAKMATE_ALERTS_DB=str(demo_db)), "Live")
+    layers = json.loads(_spec(at, "mean_score"))["layer"]
+    assert "params" not in json.dumps(layers)  # no zoom: the refresh reset it every few seconds
+    bars = next(layer["encoding"]["y"] for layer in layers if layer["encoding"]["y"]["field"] == "alerts")
+    top = bars["scale"]["domain"][1]
+    assert top >= 3  # three times the tallest bar, at least one alert
 
 
 def st_shap_chart(at) -> bool:

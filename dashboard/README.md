@@ -30,6 +30,7 @@ Other switches:
 | `LEAKMATE_RESULTS=results_nozone` | the runs with the lab domain hidden, instead of `results/` |
 | `LEAKMATE_ALERTS_DB=/tmp/demo_alerts.db` | read another SQLite file |
 | `LEAKMATE_PAGE=Results` | open on that page; used to take the report screenshots one at a time |
+| `LEAKMATE_REFRESH_S=10` | how often Overview and Live re-read `alerts.db` (default 5 s; `0` turns it off) |
 
 ## Chrome
 
@@ -76,13 +77,17 @@ be explained, not only the ones a panel happens to hold. `Clear` forgets it and 
 
 ## Live page
 
+Overview and Live re-run every `LEAKMATE_REFRESH_S` seconds as a fragment (`dashboard/app.py`), so alerts
+appear while the sniffer writes without a reload; the navbar, filters, window and open alert keep their state.
+Results is frozen and is drawn once.
+
 | Panel | Source | Notes |
 |---|---|---|
 | Status strip | `meta` + `host_stats` + `batches` | model, threshold, queries scored, alerts, alert rate, median ms/query, mode. The alert counters are `COUNT(*)` over the window, not a count of the loaded rows |
 | Score over time | `host_stats` | mean score per host per 10 s bucket; red dots mark buckets containing an alert |
 | Alert feed | `alerts` | filter (name contains, minimum score), sort, page. SQLite does all three, so the page is a slice and the count is the whole set. Each row is a button that opens that alert |
-| Alert trigger | `alerts` by id | nothing until a row is clicked, then the score, the threshold, time to alert, the SHAP bars and one sentence per feature |
-| Processing latency | `batches` | ms per query, median and 95th percentile, against the 10 ms rule |
+| Alert trigger | `alerts` by id | nothing until a row is clicked, then the score, the threshold, time to alert, the SHAP bars (named, coloured by direction) and one table: feature, value, SHAP, effect, what it counts |
+| Processing latency | `batches` | ms per query, median and 95th percentile, against the 10 ms rule. A batch is one scoring step: every 0.5 s (`--batch`) the queries whose reply arrived or waited 1 s (`--reply-wait`) |
 
 `meta.mode` decides one reading: with `mode = replay` the source was a capture file, so packet times are not
 wall-clock and **time to alert is not meaningful**; with `mode = sniff` it is (`detected_ts - ts`). The page
@@ -106,9 +111,9 @@ a DNS name is whatever the client sent, and the tables and alert panels are the 
 ## Results page
 
 **Which selection to quote.** `results/` holds the original testbed names, where every tunnel name ends in
-`tunnel.test`; a model that reads names scores perfectly there from the suffix. The Overview and Results pages say
-so, and `LEAKMATE_RESULTS=results_nozone` shows the runs with the domain hidden, the ones to quote for
-Experiments 1, 3 and 5 (`docs/suffix-ablation.md`).
+`tunnel.test`; a model that reads names scores perfectly there from the suffix. The Overview therefore quotes
+Experiments 1, 3 and 5 from `results_nozone/` (the runs with the domain hidden, `data.read_selection`) and 2 and 4
+from `results/`. The Results page shows whichever set `LEAKMATE_RESULTS` names and says which (`docs/suffix-ablation.md`).
 
 Experiment selector, then: model comparison table (the model `selection.csv` picked is marked),
 recall against false-positive rate with the 10 ms rule as the colour split, ROC and confusion-matrix figures,

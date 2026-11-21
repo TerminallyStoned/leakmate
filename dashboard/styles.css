@@ -210,6 +210,16 @@ p.lm-kv {
   z-index: 1;
 }
 
+/* a block's title inside a section: one size down from .lm-sec, and the same gap above every block */
+.lm-sub {
+  position: relative;
+  z-index: 1;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-1);
+  margin: 1.25rem 0 0.4rem;
+}
+
 /* ------------------------------ status strip ---------------------------- */
 .lm-strip {
   display: flex;
@@ -653,18 +663,6 @@ code,
 }
 .lm-why p {
   margin: 0 0 0.2rem;
-}
-.lm-dl {
-  display: grid;
-  gap: 0.5rem;
-}
-.lm-dl div {
-  border-bottom: 0;
-  background: var(--rule) bottom / 100% 1px no-repeat;
-  padding-bottom: 0.45rem;
-}
-.lm-dl div:last-child {
-  background: none;
 }
 .lm-kv {
   font-size: 0.78125rem;

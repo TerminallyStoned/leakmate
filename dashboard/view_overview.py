@@ -90,8 +90,8 @@ def _live_summary() -> dict:
         hosts = (
             frame.groupby("src_host", as_index=False)
             .agg(queries=("queries", "sum"), alerts=("alerts", "sum"))
-            .sort_values("alerts", ascending=False)
-            .head(5)
+            .sort_values(["alerts", "queries"], ascending=False)
+            .head(8)
         )
     latest = None
     if not alerts.empty:
@@ -109,6 +109,7 @@ def _live_summary() -> dict:
 
 def _alerts_over_time(buckets: pd.DataFrame, bucket_s: float) -> None:
     p = shell.pal()
+    shell.subhead("Queries and alerts over time")
     if buckets.empty:
         st.caption("No scored buckets yet.")
         return
@@ -132,23 +133,28 @@ def _alerts_over_time(buckets: pd.DataFrame, bucket_s: float) -> None:
 
 
 def _top_hosts(hosts: pd.DataFrame) -> None:
-    p = shell.pal()
+    """Up to eight hosts, alerting first, as a table: a bar chart this short dropped every other host label,
+    and a host with no alerts had no bar at all, so benign hosts vanished."""
     if hosts.empty:
         return
-    chart = (
-        alt.Chart(hosts)
-        .mark_bar(color=p["signal"])
-        .encode(
-            y=alt.Y("src_host:N", title=None, sort="-x", axis=alt.Axis(labelFontSize=10)),
-            x=alt.X("alerts:Q", title="alerts", axis=alt.Axis(labelFontSize=10, tickCount=4)),
-            tooltip=["src_host", "queries", "alerts"],
-        )
-        .properties(height=min(132, 26 * len(hosts) + 24))
+    shell.subhead("Hosts")
+    frame = hosts.copy()
+    frame["flagged"] = (frame["alerts"] / frame["queries"].clip(lower=1)).map("{:.1%}".format)
+    frame["queries"] = frame["queries"].map("{:,}".format)
+    frame["alerts"] = frame["alerts"].map("{:,}".format)
+    shell.table(
+        frame,
+        [
+            ("src_host", "host", "wire"),
+            ("queries", "queries", "num"),
+            ("alerts", "alerts", "num"),
+            ("flagged", "flagged", "num"),
+        ],
     )
-    st.altair_chart(chart, width="stretch")
 
 
 def _latest(latest: dict | None) -> None:
+    shell.subhead("Latest alert")
     if not latest:
         st.caption("Nothing has crossed the threshold in this database.")
         return
@@ -172,7 +178,7 @@ def _results_summary() -> dict:
     summary = data.read_table("summary")
     if summary.empty:
         return {"cells": [("results", "run summarise", True)], "selection": pd.DataFrame(), "latency": pd.DataFrame()}
-    selection = data.read_table("selection")
+    selection = data.read_selection()
     latency = data.read_table("latency")
     headline = data.drop_variants(summary)
     cells = [
@@ -185,6 +191,7 @@ def _results_summary() -> dict:
 
 
 def _picks(selection: pd.DataFrame) -> None:
+    shell.subhead("Model picked per experiment")
     if selection.empty:
         st.caption("No `results/selection.csv` - run `python -m eval.summarise`.")
         return
@@ -207,7 +214,7 @@ def _picks(selection: pd.DataFrame) -> None:
     )
     name = data.results_dir().name
     st.caption(
-        f"`{name}/selection.csv`: the model the rule picked for each experiment. The rule is the best F1 with a "
+        "`selection.csv`: the model the rule picked for each experiment. The rule is the best F1 with a "
         "false-positive rate (FPR) of at most 1% and at most 10 ms per query."
     )
     _selection_note(name)
@@ -222,10 +229,9 @@ def _selection_note(results_name: str) -> None:
         )
     elif results_name == "results":
         st.caption(
-            "Experiments 1, 3 and 5 here use the original testbed names, where every tunnel name ends in "
-            "`tunnel.test`, so a model that reads names scores perfectly from the suffix. For those experiments "
-            "quote the selection with the domain hidden: `LEAKMATE_RESULTS=results_nozone` "
-            "(docs/suffix-ablation.md)."
+            "Experiments 1, 3 and 5 come from `results_nozone/`, the runs with the lab domain hidden: on the "
+            "original names every tunnel ends in `tunnel.test`, so a model that reads names wins from the suffix "
+            "(docs/suffix-ablation.md). Experiments 2 and 4 use CIC and come from `results/`."
         )
 
 
@@ -233,6 +239,7 @@ def _latency_overview(latency: pd.DataFrame) -> None:
     p = shell.pal()
     if latency.empty:
         return
+    shell.subhead("Latency per model")
     frame = data.drop_variants(latency).copy()
     frame["family"] = frame["model"].map(shell.family)
     frame["model"] = frame["model"].map(data.model_label)
@@ -241,13 +248,14 @@ def _latency_overview(latency: pd.DataFrame) -> None:
         alt.Chart(frame)
         .mark_bar(size=12)
         .encode(
-            x=alt.X(
+            # one row per model: slanted labels under a half-width chart collided and Vega hid every other one
+            y=alt.Y(
                 "model:N",
                 title=None,
                 sort=sorted(frame["model"]),
-                axis=alt.Axis(labelAngle=-25, labelLimit=90, labelFontSize=10),
+                axis=alt.Axis(labelLimit=140, labelFontSize=10, labelOverlap=False),
             ),
-            y=alt.Y("latency_ms_median:Q", title="ms per query", axis=alt.Axis(tickCount=4)),
+            x=alt.X("latency_ms_median:Q", title="ms per query", axis=alt.Axis(tickCount=4)),
             color=alt.Color(
                 "under:N", scale=alt.Scale(domain=[True, False], range=[p["signal"], p["fade"]]), legend=None
             ),
@@ -257,10 +265,11 @@ def _latency_overview(latency: pd.DataFrame) -> None:
     rule = (
         alt.Chart(pd.DataFrame({"limit": [data.LIMIT_MS]}))
         .mark_rule(color=p["ink2"], strokeDash=[4, 3])
-        .encode(y="limit:Q")
+        .encode(x="limit:Q")
     )
-    st.altair_chart(alt.layer(chart, rule).properties(**shell.chart(132)), width="stretch")
-    st.caption(f"Red is under the {data.LIMIT_MS:.0f} ms rule (dashed). Median of three timings on one CPU box.")
+    height = 26 * len(frame)
+    st.altair_chart(alt.layer(chart, rule).properties(**shell.chart(height)), width="stretch")
+    st.caption(f"Purple is under the {data.LIMIT_MS:.0f} ms rule (dashed). Median of three timings on one CPU box.")
 
 
 def _bucket_width(span_s: float) -> float:
@@ -290,7 +299,7 @@ def _conclusions() -> list[dict]:
     kicker) and the plain reading of the number.
     """
     summary = data.read_table("summary")
-    selection = data.read_table("selection")
+    selection = data.read_selection()
     latency = data.read_table("latency")
     if summary.empty:
         return [
@@ -312,8 +321,8 @@ def _conclusions() -> list[dict]:
             "tone": "tone-good",
             "kicker": "Top F1",
             "hero": data.model_label(best["model"]),
-            "detail": f"F1 {best['f1']:.4f} in {data.experiment_label(best['experiment']).lower()}, with "
-            f"{best['fpr']:.5f} false positives per benign query.",
+            "detail": f"F1 {best['f1']:.4f} at {best['fpr']:.2%} FPR in "
+            f"{data.experiment_label(best['experiment']).lower()}.",
         }
     )
 
@@ -346,7 +355,9 @@ def _conclusions() -> list[dict]:
             }
         )
 
-    cross = headline[headline["experiment"] == "E4_cic2testbed"].sort_values("f1")
+    cross = headline[headline["experiment"] == "E4_cic2testbed"]
+    # the rule's ceiling first: the top F1 here (M2) flags 13% of benign traffic, which the rule rejects
+    cross = cross[cross["fpr"] <= data.MAX_FPR].sort_values("f1")
     if not cross.empty:
         c = cross.iloc[-1]
         out.append(
@@ -355,9 +366,9 @@ def _conclusions() -> list[dict]:
                 "tone": "tone-warn",
                 "kicker": "Cross-dataset",
                 "hero": f"{c['recall']:.1%}",
-                "detail": f"The best {data.model_label(c['model'])} recall on "
-                f"{data.experiment_label('E4_cic2testbed').lower()}: the same features against a network they "
-                "were never trained on, and the only experiment where nothing is saturated.",
+                "detail": f"{data.model_label(c['model'])} recall at {c['fpr']:.2%} FPR on "
+                f"{data.experiment_label('E4_cic2testbed').lower()}, the best F1 within the {data.MAX_FPR:.0%} "
+                "false-positive ceiling: a network it was never trained on, the only experiment not saturated.",
             }
         )
 
