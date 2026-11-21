@@ -64,10 +64,12 @@ FEED_ALIGN = """() => {
   const nodes = (root) => { const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT); const a = []; let n;
     while ((n = w.nextNode())) if (n.nodeValue.length) a.push(n); return a; };
   const xAt = (root, abs) => { let acc = 0; for (const n of nodes(root)) {
-      if (abs < acc + n.nodeValue.length) { const r = document.createRange(); r.setStart(n, abs - acc); r.setEnd(n, abs - acc + 1);
+      if (abs < acc + n.nodeValue.length) { const r = document.createRange();
+        r.setStart(n, abs - acc); r.setEnd(n, abs - acc + 1);
         return r.getBoundingClientRect().left; } acc += n.nodeValue.length; } return NaN; };
   const h = document.querySelector('.st-key-lm_feed_head [data-testid^="stBaseButton-"]');
-  const row = [...document.querySelectorAll('.st-key-lm_feed_stack [data-testid^="stBaseButton-"]')].find((e) => !e.disabled);
+  const row = [...document.querySelectorAll('.st-key-lm_feed_stack [data-testid^="stBaseButton-"]')]
+    .find((e) => !e.disabled);
   if (!h || !row) { return {error: 'head or row missing'}; }
   // the first row's own label is padded by the same helper, so the same character index is the same column
   const len = Math.min(h.textContent.length, row.textContent.length);
@@ -319,15 +321,22 @@ def run() -> int:
                     # <dl> margin used to break. When the strip wraps, each row is its own line and only the
                     # last row can reach the bottom, so the invariant there is "the last row reaches it".
                     if strip["lines"] == 1:
-                        check(f"{width}px {name}: strip cells fill the plate", all(g <= 1 for g in strip["lastRowGaps"]),
-                              str(strip["lastRowGaps"]))
+                        check(
+                            f"{width}px {name}: strip cells fill the plate",
+                            all(g <= 1 for g in strip["lastRowGaps"]),
+                            str(strip["lastRowGaps"]),
+                        )
                     else:
-                        check(f"{width}px {name}: wrapped strip still lights to the bottom",
-                              all(g <= 1 for g in strip["lastRowGaps"]), str(strip["lastRowGaps"]))
+                        check(
+                            f"{width}px {name}: wrapped strip still lights to the bottom",
+                            all(g <= 1 for g in strip["lastRowGaps"]),
+                            str(strip["lastRowGaps"]),
+                        )
                 if name == "Live":
                     al = pg.evaluate(FEED_ALIGN)
-                    check(f"{width}px Live: feed header sits over its columns",
-                          al.get("worst", 99) <= 1.0, str(al)[:120])
+                    check(
+                        f"{width}px Live: feed header sits over its columns", al.get("worst", 99) <= 1.0, str(al)[:120]
+                    )
                 prose = pg.evaluate(PROSE)
                 check(f"{width}px {name}: prose is not width-capped", not prose["capped"], str(prose["capped"]))
                 if name == "Live":
