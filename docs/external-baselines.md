@@ -1,7 +1,8 @@
-# External baselines: Splunk's pretrained model and RITA (Experiment 1)
+# External baselines: Splunk's pretrained model and RITA (Experiments 1 and 2)
 
-Two well-known detectors, run unchanged on the Experiment 1 test rows (67,699 queries, the rows in
-`results/<model>/E1.json`). Neither is trained on our data. Results: `results_external/` (from
+Two well-known detectors, run unchanged on the Experiment 1 test rows (testbed, 67,699 queries, the rows in
+`results/<model>/E1.json`) and the Experiment 2 test rows (CIC-Bell-DNS-EXF-2021, 113,078 queries, section
+[Experiment 2](#experiment-2-cic-bell)). Neither is trained on our data. Results: `results_external/` (from
 `python -m eval.summarise --results-dir results_external`); code: `scripts/external_baselines.py`.
 
 | Detector | Kind | Precision | Recall | F1 | FPR | ROC-AUC |
@@ -50,11 +51,41 @@ Recall per tool: Splunk dns2tcp 0.009, dnscat2 0.908, iodine 0.989, DNSExfiltrat
   flagged domain counts, legitimate ones too. The latency column is import time per row, not comparable with
   per-query scoring.
 
+## Experiment 2 (CIC-Bell)
+Same tools and settings on the CIC test rows: 75,323 DNSExfiltrator queries, 37,755 benign, the last 30% of
+each of the 18 captures by time.
+
+| Detector | Precision | Recall | F1 | FPR | ROC-AUC |
+|---|---|---|---|---|---|
+| Splunk pretrained model (threshold 0.5) | 0.9992 | 0.9310 | 0.9639 | 0.14% | 0.9755 |
+| RITA, any severity | - | 0 | 0 | 0% | 0.5 |
+| RF (`results/rf`, the rule's pick) | 1.0000 | 1.0000 | 1.0000 | 0% | 1.0000 |
+| M1 XGBoost (`results/m1`) | 1.0000 | 1.0000 | 1.0000 | 0% | 1.0000 |
+| M3 BiLSTM (`results/m3_bilstm`) | 0.9999 | 0.9999 | 0.9999 | 0.01% | 1.0000 |
+
+- **The capture cuts every name.** CIC recorded with a snaplen of 96 bytes, so each packet keeps about 40
+  characters of the query name (`parser/cic.py`). A tunnel name such as `660.A9oAS_1O--41iVzftwePWMDI3pg_cOb5ydDrv`
+  has lost its domain.
+- **Splunk:** misses 5,199 tunnel queries, spread evenly (about 7% in every attack capture), and raises 53 false
+  alarms on unusual benign sites (`ubuy.qa`, `baidu.fhmryy.com`). With the domain gone, its "name without the
+  last two labels" is only the sequence number (`660`), so length and entropy say little and the character
+  counts carry it.
+- **RITA finds nothing, and cannot here.** Zeek does not log a name from a cut DNS packet: in `heavy_text`, 7,987
+  of the 8,151 queries to port 53 have no `query` in `dns.log`. RITA kept 50,753 of the 719,676 log rows, 4 of
+  them tunnel names, so no domain reached 100 unique subdomains. Rebuilding the logs from our parser's names
+  would not help: those names have no parent domain, and RITA counts subdomains per parent domain. This is a
+  limit of the dataset, not a measure of RITA.
+- **Ours:** M1 and RF also read the size of the query on the wire (`qlen_wire`, `models/m1_features.py`), which
+  the cut does not change. M3 reads only the cut names and still scores 0.9999, because it was trained on them.
+
 ## What this means for the report
 Both tools work out of the box. Splunk's model misses short tunnel names; RITA catches high-volume tunnel
 zones with no false alarms at Medium but gives domain verdicts in batches and is noisy at Low. Our models flag
-single queries as they arrive, catch all four tools, and stay under 1% FPR. Only Experiment 1 was run: the
-test rows come from the same capture runs as training, which does not matter for tools never trained on them.
+single queries as they arrive, catch all four tools, and stay under 1% FPR. In Experiments 1 and 2 the test
+rows come from the same capture runs as training, which does not matter for tools never trained on them.
+Experiments 3 to 5 only change what our models are trained on, so they add nothing for these two. On CIC,
+Splunk's model still flags 93% of tunnel queries, and RITA cannot be judged because the capture drops the names
+it needs.
 
 ## Reproduce
 ```bash
@@ -77,6 +108,11 @@ docker compose -f rita-compose.yml -p rita run --rm rita import --database leakm
 docker compose -f rita-compose.yml -p rita run --rm -T rita view --stdout leakmate_e1 > rita_e1.csv
 docker compose -f rita-compose.yml -p rita down && cd ../..
 python scripts/external_baselines.py rita --csv work/rita/rita_e1.csv
+
+# Experiment 2: the same steps with --experiment E2 (a top-level option, before the step name), a fresh
+# work folder, and database leakmate_e2. RITA's import took 1.8 s (--import-seconds 1.8).
+python scripts/external_baselines.py --experiment E2 splunk --weights <.pt>
+python scripts/external_baselines.py --experiment E2 zeek-list --out work/zeek_cic/zeek_list.tsv
 
 python -m eval.summarise --results-dir results_external
 ```
