@@ -511,6 +511,18 @@ def test_overview_latency_chart_gives_each_model_its_own_row(demo_db: Path) -> N
     assert bars["y"]["field"] == "model" and bars["x"]["field"] == "latency_ms_median"
 
 
+def test_score_chart_keeps_alert_bars_at_the_foot(demo_db: Path) -> None:
+    """Scaled to their own maximum, the bars filled the plot and hid the per-host score lines."""
+    import json
+
+    at = _page(_app(LEAKMATE_ALERTS_DB=str(demo_db)), "Live")
+    layers = json.loads(_spec(at, "mean_score"))["layer"]
+    assert "params" not in json.dumps(layers)  # no zoom: the refresh reset it every few seconds
+    bars = next(layer["encoding"]["y"] for layer in layers if layer["encoding"]["y"]["field"] == "alerts")
+    top = bars["scale"]["domain"][1]
+    assert top >= 3  # three times the tallest bar, at least one alert
+
+
 def st_shap_chart(at) -> bool:
     """Any altair chart whose encoding is the SHAP contribution axis."""
     return any("SHAP contribution" in str(c.spec) for c in at.get("vega_lite_chart"))

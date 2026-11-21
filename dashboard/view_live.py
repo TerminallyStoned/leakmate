@@ -228,7 +228,13 @@ def _score_over_time(stats: pd.DataFrame, alerts: pd.DataFrame) -> None:
             .mark_bar(size=6, color=p["signal"], opacity=0.35)
             .encode(
                 x=x,
-                y=alt.Y("alerts:Q", title=None, axis=alt.Axis(labelExpr="datum.value + ' alert(s)'")),
+                # three times the tallest bar, so the bars keep to the bottom third and leave the lines visible
+                y=alt.Y(
+                    "alerts:Q",
+                    title=None,
+                    scale=alt.Scale(domain=[0, 3 * int(hit["alerts"].max())]),
+                    axis=alt.Axis(labelExpr="datum.value + ' alert(s)'"),
+                ),
                 tooltip=["time (UTC)", "src_host", "queries", "alerts", "max_score"],
             )
         )
