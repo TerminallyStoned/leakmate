@@ -302,18 +302,26 @@ def test_a_picked_window_survives_the_file_growing(demo_db: Path) -> None:
     """The page re-runs every few seconds while the sniffer appends; growing bounds must not reset the window."""
     import sqlite3
 
+    def grow(minutes: int) -> None:
+        with sqlite3.connect(demo_db) as conn:
+            last = conn.execute("SELECT MAX(bucket_ts) FROM host_stats").fetchone()[0]
+            conn.execute(
+                "INSERT INTO host_stats (bucket_ts, src_host, queries, alerts, max_score, sum_score) "
+                "VALUES (?, '10.0.0.9', 1, 0, 0.1, 0.1)",
+                (last + minutes * 60,),
+            )
+        conn.close()
+
     at = _page(_app(LEAKMATE_ALERTS_DB=str(demo_db)), "Live")
     at.slider[0].set_value(2).run()
-    with sqlite3.connect(demo_db) as conn:  # ten more minutes of traffic arrive
-        last = conn.execute("SELECT MAX(bucket_ts) FROM host_stats").fetchone()[0]
-        conn.execute(
-            "INSERT INTO host_stats (bucket_ts, src_host, queries, alerts, max_score, sum_score) "
-            "VALUES (?, '10.0.0.9', 1, 0, 0.1, 0.1)",
-            (last + 600,),
-        )
+    grow(10)
     at.run()
     assert not at.exception, at.exception
-    assert at.slider[0].value == 2
+    assert at.slider[0].value == 2  # a narrower window stays put
+    at.slider[0].set_value(at.slider[0].max).run()  # slid back to the end: the whole file
+    grow(10)
+    at.run()
+    assert at.slider[0].value == at.slider[0].max  # and the whole file keeps following it
 
 
 def _strip_value(at: AppTest, label: str) -> str | None:

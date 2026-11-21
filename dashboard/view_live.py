@@ -88,9 +88,10 @@ def _controls(alerts: pd.DataFrame, stats: pd.DataFrame, batches: pd.DataFrame) 
     hosts = sorted(set(stats.get("src_host", pd.Series(dtype=str))) | set(alerts.get("src_host", pd.Series(dtype=str))))
     cols = st.columns([2, 1])
     top = max(minutes, 5)
-    # The bounds grow while the sniffer writes, and a slider with new bounds is a new widget to Streamlit, so
-    # it would drop the window the reader picked every minute. Keep the pick apart and hand it back.
+    # The bounds and the default grow while the sniffer writes, and Streamlit then treats the slider as a new
+    # widget, so it would drop the window the reader picked every minute. Keep the pick apart and hand it back.
     picked = st.session_state.get("lm_window_pick")
+    st.session_state["lm_window_top"] = top
     window = cols[0].slider(
         "Last",
         min_value=1,
@@ -118,7 +119,9 @@ def _controls(alerts: pd.DataFrame, stats: pd.DataFrame, batches: pd.DataFrame) 
 
 
 def _keep_window() -> None:
-    st.session_state["lm_window_pick"] = st.session_state["lm_window"]
+    """Remember a narrower window; slid back to the end means the whole file again, so it follows growth."""
+    value = st.session_state["lm_window"]
+    st.session_state["lm_window_pick"] = None if value >= st.session_state.get("lm_window_top", 0) else value
 
 
 def _span(alerts: pd.DataFrame, stats: pd.DataFrame, batches: pd.DataFrame) -> tuple[float, float]:
