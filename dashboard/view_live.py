@@ -453,7 +453,12 @@ def _why(conn: sqlite3.Connection) -> None:
     if not features:
         st.caption("This scorer stored no explanation, so the alert has only its score.")
         return
-    left, right = st.columns([1, 1.15])
+    st.markdown(
+        '<p class="lm-note"><strong>Why it was flagged.</strong> The features that moved this score most, from '
+        "SHAP: each bar is one feature's share of the score (in log-odds), so a longer bar mattered more. Above "
+        "0 pushes toward tunnel, below 0 away from it.</p>",
+        unsafe_allow_html=True,
+    )
     shap = pd.DataFrame(features)
     shap["name"] = shap["feature"].map(explain.label)  # the same plain words as the list beside the chart
     bars = (
@@ -468,26 +473,37 @@ def _why(conn: sqlite3.Connection) -> None:
         )
         .properties(height=min(240, 34 * len(features) + 20), **shell.chart_config())
     )
-    left.altair_chart(bars, width="stretch")
-    parts = []
-    for feat in features:
-        name = str(feat["feature"])
-        label = html.escape(explain.label(name))
-        reading = html.escape(explain.value_text(name, feat.get("value")))
-        meaning = html.escape(explain.meaning(name, feat.get("shap")))
-        parts.append(
-            f'<div><p class="lm-why"><strong>{label}</strong> {reading}</p><p class="lm-kv">{meaning}</p></div>'
-        )
-    lines = "".join(parts)
-    right.markdown(f'<div class="lm-dl">{lines}</div>', unsafe_allow_html=True)
+    st.altair_chart(bars, width="stretch")
+    # one table instead of a loose list beside the chart: the same features, their values and what they count
+    shell.table(
+        pd.DataFrame(
+            {
+                "feature": shap["name"],
+                "value": [explain.value_text(f["feature"], f.get("value")) for f in features],
+                "shap": shap["shap"].map("{:+.2f}".format),
+                "effect": shap["shap"].map(explain.direction),
+                "what": [explain.what(f["feature"]) for f in features],
+            }
+        ),
+        [
+            ("feature", "feature", "text"),
+            ("value", "value here", "num"),
+            ("shap", "SHAP", "num"),
+            ("effect", "effect", "text"),
+            ("what", "what it counts", "text"),
+        ],
+    )
 
 
 def _latency(batches: pd.DataFrame, meta: dict) -> None:
     p = shell.pal()
     st.markdown(
         '<div class="lm-sec">Processing latency</div>'
-        '<p class="lm-note">From the <code>batches</code> table: features, scoring and explanations '
-        "for each scored batch.</p>",
+        '<p class="lm-note">A batch is one scoring step of the sniffer. Every 0.5 s by default '
+        "(<code>python -m live --batch</code>) it takes the queries whose reply has arrived, or that waited 1 s "
+        "for one (<code>--reply-wait</code>), and scores them together, so a batch holds whatever traffic came in "
+        "that half second. Each bar counts batches by their time per query: features, score and SHAP "
+        "explanations for the batch, divided by its queries (the <code>batches</code> table).</p>",
         unsafe_allow_html=True,
     )
     if batches.empty:

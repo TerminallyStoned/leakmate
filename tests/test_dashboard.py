@@ -481,6 +481,8 @@ def test_shap_bars_are_named_and_coloured_by_direction(demo_db: Path) -> None:
     enc = json.loads(_spec(at, "SHAP contribution"))["encoding"]
     assert enc["y"]["field"] == "name" and enc["y"].get("axis") is not None  # each bar says which feature
     assert "condition" in enc["color"]  # direction, not a scale that values above 1 fall off
+    text = _page_text(at)
+    assert "Why it was flagged" in text and ">what it counts<" in text  # said what the chart is, and one table
 
 
 def test_overview_quotes_the_masked_picks_for_the_testbed_experiments(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -509,6 +511,7 @@ def test_overview_latency_chart_gives_each_model_its_own_row(demo_db: Path) -> N
     at = _app(LEAKMATE_ALERTS_DB=str(demo_db))
     bars = json.loads(_spec(at, "latency_ms_median"))["layer"][0]["encoding"]
     assert bars["y"]["field"] == "model" and bars["x"]["field"] == "latency_ms_median"
+    assert 'class="lm-sub">Latency per model<' in _page_text(at)  # the chart has a title
 
 
 def test_score_chart_keeps_alert_bars_at_the_foot(demo_db: Path) -> None:

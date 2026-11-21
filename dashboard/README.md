@@ -86,8 +86,8 @@ Results is frozen and is drawn once.
 | Status strip | `meta` + `host_stats` + `batches` | model, threshold, queries scored, alerts, alert rate, median ms/query, mode. The alert counters are `COUNT(*)` over the window, not a count of the loaded rows |
 | Score over time | `host_stats` | mean score per host per 10 s bucket; red dots mark buckets containing an alert |
 | Alert feed | `alerts` | filter (name contains, minimum score), sort, page. SQLite does all three, so the page is a slice and the count is the whole set. Each row is a button that opens that alert |
-| Alert trigger | `alerts` by id | nothing until a row is clicked, then the score, the threshold, time to alert, the SHAP bars and one sentence per feature |
-| Processing latency | `batches` | ms per query, median and 95th percentile, against the 10 ms rule |
+| Alert trigger | `alerts` by id | nothing until a row is clicked, then the score, the threshold, time to alert, the SHAP bars (named, coloured by direction) and one table: feature, value, SHAP, effect, what it counts |
+| Processing latency | `batches` | ms per query, median and 95th percentile, against the 10 ms rule. A batch is one scoring step: every 0.5 s (`--batch`) the queries whose reply arrived or waited 1 s (`--reply-wait`) |
 
 `meta.mode` decides one reading: with `mode = replay` the source was a capture file, so packet times are not
 wall-clock and **time to alert is not meaningful**; with `mode = sniff` it is (`detected_ts - ts`). The page
