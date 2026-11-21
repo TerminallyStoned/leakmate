@@ -502,6 +502,15 @@ def test_cross_dataset_card_respects_the_false_positive_ceiling(demo_db: Path, m
     assert "M2 DNS-BERT" not in card and "% FPR" in card
 
 
+def test_overview_latency_chart_gives_each_model_its_own_row(demo_db: Path) -> None:
+    """Slanted labels under a half-width chart collided, and Vega hid three of the seven model names."""
+    import json
+
+    at = _app(LEAKMATE_ALERTS_DB=str(demo_db))
+    bars = json.loads(_spec(at, "latency_ms_median"))["layer"][0]["encoding"]
+    assert bars["y"]["field"] == "model" and bars["x"]["field"] == "latency_ms_median"
+
+
 def st_shap_chart(at) -> bool:
     """Any altair chart whose encoding is the SHAP contribution axis."""
     return any("SHAP contribution" in str(c.spec) for c in at.get("vega_lite_chart"))

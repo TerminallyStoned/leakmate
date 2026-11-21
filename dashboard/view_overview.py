@@ -243,13 +243,14 @@ def _latency_overview(latency: pd.DataFrame) -> None:
         alt.Chart(frame)
         .mark_bar(size=12)
         .encode(
-            x=alt.X(
+            # one row per model: slanted labels under a half-width chart collided and Vega hid every other one
+            y=alt.Y(
                 "model:N",
                 title=None,
                 sort=sorted(frame["model"]),
-                axis=alt.Axis(labelAngle=-25, labelLimit=90, labelFontSize=10),
+                axis=alt.Axis(labelLimit=140, labelFontSize=10),
             ),
-            y=alt.Y("latency_ms_median:Q", title="ms per query", axis=alt.Axis(tickCount=4)),
+            x=alt.X("latency_ms_median:Q", title="ms per query", axis=alt.Axis(tickCount=4)),
             color=alt.Color(
                 "under:N", scale=alt.Scale(domain=[True, False], range=[p["signal"], p["fade"]]), legend=None
             ),
@@ -259,9 +260,10 @@ def _latency_overview(latency: pd.DataFrame) -> None:
     rule = (
         alt.Chart(pd.DataFrame({"limit": [data.LIMIT_MS]}))
         .mark_rule(color=p["ink2"], strokeDash=[4, 3])
-        .encode(y="limit:Q")
+        .encode(x="limit:Q")
     )
-    st.altair_chart(alt.layer(chart, rule).properties(**shell.chart(132)), width="stretch")
+    height = 22 * len(frame) + 30
+    st.altair_chart(alt.layer(chart, rule).properties(**shell.chart(height)), width="stretch")
     st.caption(f"Purple is under the {data.LIMIT_MS:.0f} ms rule (dashed). Median of three timings on one CPU box.")
 
 
