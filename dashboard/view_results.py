@@ -124,7 +124,7 @@ def _comparison(summary: pd.DataFrame, selection: pd.DataFrame, experiment: str)
     show = frame[TABLE_COLS].copy()
     for col in ("recall", "precision", "f1", "roc_auc", "recall_at_1pct_fpr"):
         show[col] = show[col].map("{:.4f}".format)
-    show["fpr"] = show["fpr"].map("{:.5f}".format)
+    show["fpr"] = show["fpr"].map("{:.2%}".format)  # one format with the Overview
     show = show.rename(
         columns={
             "picked": "rule",

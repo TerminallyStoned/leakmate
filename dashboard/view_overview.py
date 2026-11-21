@@ -316,8 +316,8 @@ def _conclusions() -> list[dict]:
             "tone": "tone-good",
             "kicker": "Top F1",
             "hero": data.model_label(best["model"]),
-            "detail": f"F1 {best['f1']:.4f} in {data.experiment_label(best['experiment']).lower()}, with "
-            f"{best['fpr']:.5f} false positives per benign query.",
+            "detail": f"F1 {best['f1']:.4f} at {best['fpr']:.2%} FPR in "
+            f"{data.experiment_label(best['experiment']).lower()}.",
         }
     )
 
