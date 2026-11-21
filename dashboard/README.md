@@ -111,9 +111,9 @@ a DNS name is whatever the client sent, and the tables and alert panels are the 
 ## Results page
 
 **Which selection to quote.** `results/` holds the original testbed names, where every tunnel name ends in
-`tunnel.test`; a model that reads names scores perfectly there from the suffix. The Overview and Results pages say
-so, and `LEAKMATE_RESULTS=results_nozone` shows the runs with the domain hidden, the ones to quote for
-Experiments 1, 3 and 5 (`docs/suffix-ablation.md`).
+`tunnel.test`; a model that reads names scores perfectly there from the suffix. The Overview therefore quotes
+Experiments 1, 3 and 5 from `results_nozone/` (the runs with the domain hidden, `data.read_selection`) and 2 and 4
+from `results/`. The Results page shows whichever set `LEAKMATE_RESULTS` names and says which (`docs/suffix-ablation.md`).
 
 Experiment selector, then: model comparison table (the model `selection.csv` picked is marked),
 recall against false-positive rate with the 10 ms rule as the colour split, ROC and confusion-matrix figures,

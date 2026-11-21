@@ -483,6 +483,16 @@ def test_shap_bars_are_named_and_coloured_by_direction(demo_db: Path) -> None:
     assert "condition" in enc["color"]  # direction, not a scale that values above 1 fall off
 
 
+def test_overview_quotes_the_masked_picks_for_the_testbed_experiments(monkeypatch: pytest.MonkeyPatch) -> None:
+    """On the original names M3 wins Experiments 1, 3 and 5 from the tunnel.test suffix; the report quotes M1."""
+    from dashboard import data
+
+    monkeypatch.delenv("LEAKMATE_RESULTS", raising=False)
+    picks = data.read_selection().set_index("experiment")["selected_model"]
+    assert picks["E1"] == "m1" and picks["E5"] == "m1"  # from results_nozone/
+    assert picks["E2"] == "rf" and "E4_cic2testbed" in picks  # CIC experiments still from results/
+
+
 def st_shap_chart(at) -> bool:
     """Any altair chart whose encoding is the SHAP contribution axis."""
     return any("SHAP contribution" in str(c.spec) for c in at.get("vega_lite_chart"))

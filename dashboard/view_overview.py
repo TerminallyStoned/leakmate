@@ -175,7 +175,7 @@ def _results_summary() -> dict:
     summary = data.read_table("summary")
     if summary.empty:
         return {"cells": [("results", "run summarise", True)], "selection": pd.DataFrame(), "latency": pd.DataFrame()}
-    selection = data.read_table("selection")
+    selection = data.read_selection()
     latency = data.read_table("latency")
     headline = data.drop_variants(summary)
     cells = [
@@ -210,7 +210,7 @@ def _picks(selection: pd.DataFrame) -> None:
     )
     name = data.results_dir().name
     st.caption(
-        f"`{name}/selection.csv`: the model the rule picked for each experiment. The rule is the best F1 with a "
+        "`selection.csv`: the model the rule picked for each experiment. The rule is the best F1 with a "
         "false-positive rate (FPR) of at most 1% and at most 10 ms per query."
     )
     _selection_note(name)
@@ -225,10 +225,9 @@ def _selection_note(results_name: str) -> None:
         )
     elif results_name == "results":
         st.caption(
-            "Experiments 1, 3 and 5 here use the original testbed names, where every tunnel name ends in "
-            "`tunnel.test`, so a model that reads names scores perfectly from the suffix. For those experiments "
-            "quote the selection with the domain hidden: `LEAKMATE_RESULTS=results_nozone` "
-            "(docs/suffix-ablation.md)."
+            "Experiments 1, 3 and 5 come from `results_nozone/`, the runs with the lab domain hidden: on the "
+            "original names every tunnel ends in `tunnel.test`, so a model that reads names wins from the suffix "
+            "(docs/suffix-ablation.md). Experiments 2 and 4 use CIC and come from `results/`."
         )
 
 
@@ -293,7 +292,7 @@ def _conclusions() -> list[dict]:
     kicker) and the plain reading of the number.
     """
     summary = data.read_table("summary")
-    selection = data.read_table("selection")
+    selection = data.read_selection()
     latency = data.read_table("latency")
     if summary.empty:
         return [

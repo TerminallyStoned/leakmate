@@ -54,6 +54,22 @@ def read_table(name: str) -> pd.DataFrame:
     return pd.read_csv(path)
 
 
+def read_selection() -> pd.DataFrame:
+    """The rule's pick per experiment, the one to quote.
+
+    On the original testbed names every tunnel ends in tunnel.test, so a model that reads names wins
+    Experiments 1, 3 and 5 from the suffix. With the default results/, those experiments are taken from
+    results_nozone/ (lab domain hidden); Experiments 2 and 4 use CIC and exist only in results/.
+    """
+    picks = read_table("selection")
+    masked = ROOT / "results_nozone" / "selection.csv"
+    if picks.empty or results_dir() != ROOT / "results" or not masked.exists():
+        return picks
+    hidden = pd.read_csv(masked)
+    kept = picks[~picks["experiment"].isin(hidden["experiment"])]
+    return pd.concat([kept, hidden]).sort_values("experiment", kind="stable").reset_index(drop=True)
+
+
 def figure(kind: str, model: str | None = None, experiment: str | None = None) -> Path | None:
     """results/figures/{roc_<exp>,cm_<model>_<exp>,latency}.png, or None if it was never drawn."""
     if model is None and experiment is None:
