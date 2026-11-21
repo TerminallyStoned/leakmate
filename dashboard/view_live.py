@@ -96,7 +96,7 @@ def _controls(alerts: pd.DataFrame, stats: pd.DataFrame, batches: pd.DataFrame) 
         "Last",
         min_value=1,
         max_value=top,
-        value=min(picked, top) if picked else min(minutes, 60),
+        value=top if picked == "all" else min(picked, top) if picked else min(minutes, 60),
         step=1,
         format="%d min",
         key="lm_window",
@@ -121,7 +121,7 @@ def _controls(alerts: pd.DataFrame, stats: pd.DataFrame, batches: pd.DataFrame) 
 def _keep_window() -> None:
     """Remember a narrower window; slid back to the end means the whole file again, so it follows growth."""
     value = st.session_state["lm_window"]
-    st.session_state["lm_window_pick"] = None if value >= st.session_state.get("lm_window_top", 0) else value
+    st.session_state["lm_window_pick"] = "all" if value >= st.session_state.get("lm_window_top", 0) else value
 
 
 def _span(alerts: pd.DataFrame, stats: pd.DataFrame, batches: pd.DataFrame) -> tuple[float, float]:
@@ -460,7 +460,7 @@ def _why(conn: sqlite3.Connection) -> None:
         unsafe_allow_html=True,
     )
     shap = pd.DataFrame(features)
-    shap["name"] = shap["feature"].map(explain.label)  # the same plain words as the list beside the chart
+    shap["name"] = shap["feature"].map(explain.label)  # the same plain words as the table below
     bars = (
         alt.Chart(shap)
         .mark_bar(size=16)

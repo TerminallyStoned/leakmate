@@ -203,8 +203,7 @@ def table(
     """An HTML table: ours, so it themes with the page and never reflows into a scrollbar.
 
     `columns` is a list of (key, label, kind) where kind is text, num, wire or mark. `picked` is a value of
-    the first column that gets the highlight row. `link` is (column, href template): that column becomes an
-    anchor whose `{id}` is the row's id, which is how a row click works on a page that cannot run scripts.
+    the first column that gets the highlight row.
     """
     if frame.empty:
         return
@@ -214,8 +213,7 @@ def table(
     for _, row in rows.iterrows():
         cls = ' class="is-picked"' if picked is not None and str(row[columns[0][0]]) == str(picked) else ""
         cells = "".join(f'<td class="{kind}">{_cell(row.get(key), kind)}</td>' for key, _, kind in columns)
-        attr = cls
-        body.append(f"<tr{attr}>{''.join(cells)}</tr>")
+        body.append(f"<tr{cls}>{cells}</tr>")
     st.markdown(
         f'<div class="lm-table-wrap"><table class="lm-table"><thead><tr>{head}</tr></thead>'
         f"<tbody>{''.join(body)}</tbody></table></div>",

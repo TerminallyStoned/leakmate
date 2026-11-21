@@ -318,6 +318,8 @@ def test_a_picked_window_survives_the_file_growing(demo_db: Path) -> None:
     at.run()
     assert not at.exception, at.exception
     assert at.slider[0].value == 2  # a narrower window stays put
+    grow(70)  # past the 60 min default, so "whole file" cannot pass for the default
+    at.run()
     at.slider[0].set_value(at.slider[0].max).run()  # slid back to the end: the whole file
     grow(10)
     at.run()
