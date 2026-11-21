@@ -459,6 +459,20 @@ def test_clearing_the_alert_returns_to_the_prompt(demo_db: Path) -> None:
     assert "Click a row in the feed" in _page_text(at)
 
 
+def _spec(at, needle: str) -> str:
+    """The Vega-Lite spec, as text, of the one chart whose spec mentions `needle`."""
+    return next(c.proto.spec for c in at.get("vega_lite_chart") if needle in c.proto.spec)
+
+
+def test_latency_histogram_counts_batches_per_bin(demo_db: Path) -> None:
+    """A per-batch field in the tooltip makes Vega group by batch: one bar of height 1 per batch."""
+    import json
+
+    at = _page(_app(LEAKMATE_ALERTS_DB=str(demo_db)), "Live")
+    hist = json.loads(_spec(at, "ms_per_query"))["layer"][0]["encoding"]
+    assert [t.get("aggregate") for t in hist["tooltip"]] == ["count"]
+
+
 def st_shap_chart(at) -> bool:
     """Any altair chart whose encoding is the SHAP contribution axis."""
     return any("SHAP contribution" in str(c.spec) for c in at.get("vega_lite_chart"))

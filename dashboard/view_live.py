@@ -510,7 +510,8 @@ def _latency(batches: pd.DataFrame, meta: dict) -> None:
                 scale=alt.Scale(zero=True),
             ),
             y=alt.Y("count()", title="batches"),
-            tooltip=["queries", "process_ms", "ms_per_query"],
+            # per-row fields here would group by batch, one bar of height 1 each: aggregates only
+            tooltip=[alt.Tooltip("count()", title="batches")],
         )
     )
     rule = alt.Chart(pd.DataFrame({"limit": [data.LIMIT_MS]})).mark_rule(color=p["signal"]).encode(x="limit:Q")
