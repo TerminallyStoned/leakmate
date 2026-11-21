@@ -183,6 +183,11 @@ def section(label: str, note: str = "") -> None:
     )
 
 
+def subhead(label: str) -> None:
+    """A block's title inside a section: smaller than the section label, the same gap above every block."""
+    st.markdown(f'<div class="lm-sub">{label}</div>', unsafe_allow_html=True)
+
+
 def need(title: str, body_md: str) -> None:
     """The one honest empty state: what is missing, and the command that fills it."""
     st.warning(title)

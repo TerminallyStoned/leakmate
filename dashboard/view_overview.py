@@ -109,6 +109,7 @@ def _live_summary() -> dict:
 
 def _alerts_over_time(buckets: pd.DataFrame, bucket_s: float) -> None:
     p = shell.pal()
+    shell.subhead("Queries and alerts over time")
     if buckets.empty:
         st.caption("No scored buckets yet.")
         return
@@ -136,6 +137,7 @@ def _top_hosts(hosts: pd.DataFrame) -> None:
     and a host with no alerts had no bar at all, so benign hosts vanished."""
     if hosts.empty:
         return
+    shell.subhead("Hosts")
     frame = hosts.copy()
     frame["flagged"] = (frame["alerts"] / frame["queries"].clip(lower=1)).map("{:.1%}".format)
     frame["queries"] = frame["queries"].map("{:,}".format)
@@ -152,6 +154,7 @@ def _top_hosts(hosts: pd.DataFrame) -> None:
 
 
 def _latest(latest: dict | None) -> None:
+    shell.subhead("Latest alert")
     if not latest:
         st.caption("Nothing has crossed the threshold in this database.")
         return
@@ -188,6 +191,7 @@ def _results_summary() -> dict:
 
 
 def _picks(selection: pd.DataFrame) -> None:
+    shell.subhead("Model picked per experiment")
     if selection.empty:
         st.caption("No `results/selection.csv` - run `python -m eval.summarise`.")
         return
@@ -235,6 +239,7 @@ def _latency_overview(latency: pd.DataFrame) -> None:
     p = shell.pal()
     if latency.empty:
         return
+    shell.subhead("Latency per model")
     frame = data.drop_variants(latency).copy()
     frame["family"] = frame["model"].map(shell.family)
     frame["model"] = frame["model"].map(data.model_label)
