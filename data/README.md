@@ -1,4 +1,4 @@
-# data/
+# data
 
 Nothing under the subfolders is committed (see `.gitignore`). Every file is either downloaded
 or rebuilt by a command from the main README.
