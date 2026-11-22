@@ -1,4 +1,4 @@
-# Testbed (card #5)
+# Testbed
 
 Contained DNS testbed: a recursive **resolver**, an attacker-controlled
 **authoritative server** for the unregistered domain `tunnel.test`, and a
