@@ -23,7 +23,7 @@ BOXES = [
     (32, 44, 212, 74, "Docker testbed (pcap)", ["4 DNS tunnelling tools", "and benign traffic"], "source"),
     (32, 132, 212, 74, "CIC-Bell-DNS-EXF-2021", ["Public benchmark (pcap)", "Exfiltration and benign"], "source"),
     (268, 97, 170, 56, "Shared parser", ["One query table"], "step"),
-    (464, 97, 176, 56, "Features and splits", ["Time split, masked copy"], "step"),
+    (464, 97, 176, 56, "Experiment splits", ["Time split, masked copy"], "step"),
     (464, 224, 176, 56, "Three models", ["M1, M2, M3, baselines"], "step"),
     (268, 224, 170, 56, "Evaluation module", ["Metrics, selection rule"], "step"),
     (40, 224, 200, 56, "Frozen results", ["Tables and figures"], "step"),
