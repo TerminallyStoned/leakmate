@@ -128,8 +128,13 @@ def feature_importance(model) -> dict:
 
 def save(model, path) -> None:
     Path(path).parent.mkdir(parents=True, exist_ok=True)
-    joblib.dump(model, path)
+    joblib.dump({**model, "clf": bytes(model["clf"].get_booster().save_raw("ubj"))}, path)
 
 
 def load(path):
-    return joblib.load(path)
+    model = joblib.load(path)
+    if isinstance(model["clf"], (bytes, bytearray)):
+        clf = xgb.XGBClassifier()
+        clf.load_model(bytearray(model["clf"]))
+        model["clf"] = clf
+    return model  # older files hold a pickled XGBClassifier, which still loads as-is

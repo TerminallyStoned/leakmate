@@ -2,7 +2,9 @@
 
 import json
 import sqlite3
+from pathlib import Path
 
+import joblib
 import numpy as np
 import pandas as pd
 import pytest
@@ -174,6 +176,17 @@ def test_no_model_flag_runs_m1_from_its_default_file(tmp_path, monkeypatch):
 
     with pytest.raises(SystemExit, match="--model rf needs --weights"):  # the default file is M1's alone
         main([*args, "--model", "rf"])
+
+
+def test_committed_m1_weights_load_and_score(tmp_path):
+    """The committed default file loads on any OS: the booster is stored as UBJSON, not a platform pickle."""
+    path = Path(__file__).resolve().parents[1] / M1_WEIGHTS
+    assert isinstance(joblib.load(path)["clf"], bytes)
+    model = m1_xgb.load(path)
+    assert model["threshold"] == 0.49990979689755477  # the threshold behind results/m1/E1.json
+    table = parse_pcap(_capture(tmp_path / "cap.pcap"), lambda _src, _q: "benign")
+    scores = m1_xgb.score(model, table)
+    assert len(scores) == len(table) > 0 and np.all((scores >= 0) & (scores <= 1))
 
 
 def test_an_alias_for_several_models_asks_to_pick_one():
