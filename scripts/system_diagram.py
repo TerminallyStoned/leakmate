@@ -1,6 +1,6 @@
 """Draw the report's system diagram (Fig. 2) as a grayscale PNG sized for one IEEE column.
 
-python scripts/system_diagram.py            # writes docs/system_diagram.png
+python scripts/system_diagram.py            # writes docs/images/system_diagram.png
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 from matplotlib.patches import FancyArrowPatch, FancyBboxPatch  # noqa: E402
 
-OUT = Path(__file__).resolve().parents[1] / "docs" / "system_diagram.png"
+OUT = Path(__file__).resolve().parents[1] / "docs" / "images" / "system_diagram.png"
 W, H = 680, 536  # layout units; the figure is 3.5 in wide, one IEEE column
 TITLE, SUB = 6.5, 6  # font sizes in points
 FILL = {"source": "#e6e6e6", "step": "#ffffff"}
@@ -90,7 +90,7 @@ def main() -> None:
     for a, b in ARROWS:
         ax.add_patch(FancyArrowPatch(a, b, arrowstyle="-|>", mutation_scale=5, linewidth=0.6, color="black"))
     ax.text(562, 306, "Selected M1", fontsize=SUB, va="center", color="#222222")
-    OUT.parent.mkdir(exist_ok=True)
+    OUT.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(OUT, dpi=600, facecolor="white")
     print(f"wrote {OUT}")
 
