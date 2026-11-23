@@ -1,6 +1,13 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/leakmate_logo.png">
+    <img src="docs/images/leakmate_logo_light.png" alt="leakmate" width="320">
+  </picture>
+</p>
+
 # leakmate
 
-**Detecting DNS tunnels with supervised, unsupervised and language-model detectors.**
+**Detecting DNS tunnels with feature-based, language-model and character-level detectors.**
 ICT3214 Security Analytics, Coursework 2 · Group 32 · Singapore Institute of Technology
 
 DNS is allowed out of almost every network, so attackers hide stolen data and C2 traffic in DNS
@@ -8,6 +15,13 @@ query names. Off-the-shelf tunnelling tools are easy to catch; tunnels from unse
 send data slowly, are not. This project builds a contained testbed that generates labelled tunnel
 traffic, compares three ML/AI detectors on it and on a public benchmark, and runs the best one on live
 DNS traffic behind a dashboard.
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/system_diagram_dark.png">
+    <img src="docs/images/system_diagram.png" alt="System diagram: offline model comparison (top) and live detection (bottom)" width="560">
+  </picture>
+</p>
 
 > Status: **Phase 4 (report and submission)**. Every model has result files for Experiments 1–5 on `main`, and
 > the frozen results are at the `results-freeze` tag. Sections marked *planned* are not in the repo yet.
@@ -77,14 +91,16 @@ models/       model code, one file per model: train / score / save / load
 contracts.py  validator + session/qtype helpers for the shared contracts (docs/contracts.md)
 scripts/      time_models.py (one-CPU latency), make_synthetic_sample.py, parse_capture.py (quick capture check used by run_tool.sh),
               check_setup.py (setup check), m2_phase2.py, m2_ablation2.py, m2_e5.py, m2_error_analysis.py (M2 runs, docs/m2.md),
-              external_baselines.py + external/ (Splunk's pretrained model and RITA, docs/external-baselines.md)
+              external_baselines.py + external/ (Splunk's pretrained model and RITA, docs/external-baselines.md),
+              system_diagram.py (draws docs/images/system_diagram.png and its dark copy)
 notebooks/    m2_dnsbert_colab.ipynb and m2_phase2_colab.ipynb (Colab GPU runs), m1_xgb_colab.ipynb (Colab CPU run)
 results/      <model>/<experiment>.json in the shared results format; summary.csv, selection.csv, latency.csv,
               per_tool.csv and figures/ from python -m eval.summarise
 results_nozone/  every model's result files on the masked testbed table (Experiments 1, 3, 5) and their
               selection.csv (docs/suffix-ablation.md)
 results_external/  Splunk's pretrained model and RITA on the Experiment 1 and 2 test rows (docs/external-baselines.md)
-docs/         per-component notes: contracts.md, m1.md, m2.md, m3.md, suffix-ablation.md, experiment-s.md, external-baselines.md
+docs/         per-component notes: contracts.md, m1.md, m2.md, m3.md, suffix-ablation.md, experiment-s.md, external-baselines.md;
+              images/ holds the logo and the system diagram, each with a copy for the other GitHub theme
 tests/        smoke tests
 testbed/      lab network (docker compose), run_tool.sh, capture_matrix.sh
   benign/            benign traffic generator (Tranco, CDN names, curl, apt, browser)
