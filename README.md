@@ -7,7 +7,7 @@
 
 # leakmate
 
-**Detecting DNS tunnels with supervised, unsupervised and language-model detectors.**
+**Detecting DNS tunnels with feature-based, language-model and character-level detectors.**
 ICT3214 Security Analytics, Coursework 2 · Group 32 · Singapore Institute of Technology
 
 DNS is allowed out of almost every network, so attackers hide stolen data and C2 traffic in DNS
