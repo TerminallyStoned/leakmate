@@ -1,6 +1,7 @@
-"""Draw the report's system diagram (Fig. 2) as a grayscale PNG sized for one IEEE column.
+"""Draw the system diagram (report Fig. 2, README) as PNGs sized for one IEEE column.
 
-python scripts/system_diagram.py            # writes docs/images/system_diagram.png
+python scripts/system_diagram.py   # docs/images/system_diagram.png (grayscale, report and light README)
+                                   # docs/images/system_diagram_dark.png (dark README)
 """
 
 from __future__ import annotations
@@ -13,10 +14,18 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 from matplotlib.patches import FancyArrowPatch, FancyBboxPatch  # noqa: E402
 
-OUT = Path(__file__).resolve().parents[1] / "docs" / "images" / "system_diagram.png"
+IMAGES = Path(__file__).resolve().parents[1] / "docs" / "images"
 W, H = 680, 536  # layout units; the figure is 3.5 in wide, one IEEE column
 TITLE, SUB = 6.5, 6  # font sizes in points
-FILL = {"source": "#e6e6e6", "step": "#ffffff"}
+# GitHub's dark page is #0d1117: the dark version is transparent with light lines, so it sits on it
+THEMES = {
+    "system_diagram.png": dict(
+        source="#e6e6e6", step="#ffffff", ink="#000000", soft="#222222", label="#333333", area="#555555", bg="white"
+    ),
+    "system_diagram_dark.png": dict(
+        source="#30363d", step="#161b22", ink="#e6edf3", soft="#c9d1d9", label="#c9d1d9", area="#8b949e", bg="none"
+    ),
+}
 
 # (x, y, w, h, title, subtitle lines, kind) with y measured from the top
 BOXES = [
@@ -49,8 +58,7 @@ ARROWS = [
 AREAS = [(20, 20, 640, 276, "Offline: build and compare"), (20, 316, 640, 200, "Live: detect and explain")]
 
 
-def main() -> None:
-    plt.rcParams["font.family"] = "Times New Roman"
+def draw(name: str, c: dict) -> None:
     fig = plt.figure(figsize=(3.5, 3.5 * H / W), dpi=600)
     ax = fig.add_axes((0, 0, 1, 1))
     ax.set_xlim(0, W)
@@ -66,10 +74,10 @@ def main() -> None:
                 fill=False,
                 linestyle=(0, (4, 3)),
                 linewidth=0.5,
-                edgecolor="#555555",
+                edgecolor=c["area"],
             )
         )
-        ax.text(x + 14, y + 13, label, fontsize=SUB, style="italic", va="center", color="#333333")
+        ax.text(x + 14, y + 13, label, fontsize=SUB, style="italic", va="center", color=c["label"])
     for x, y, w, h, title, subs, kind in BOXES:
         ax.add_patch(
             FancyBboxPatch(
@@ -77,22 +85,30 @@ def main() -> None:
                 w,
                 h,
                 boxstyle="round,pad=0,rounding_size=7",
-                facecolor=FILL[kind],
-                edgecolor="black",
+                facecolor=c[kind],
+                edgecolor=c["ink"],
                 linewidth=0.6,
             )
         )
         lines = len(subs)
         top = y + h / 2 - 9 * lines
-        ax.text(x + w / 2, top, title, fontsize=TITLE, weight="bold", ha="center", va="center")
+        ax.text(x + w / 2, top, title, fontsize=TITLE, weight="bold", ha="center", va="center", color=c["ink"])
         for i, s in enumerate(subs):
-            ax.text(x + w / 2, top + 19 * (i + 1), s, fontsize=SUB, ha="center", va="center", color="#222222")
+            ax.text(x + w / 2, top + 19 * (i + 1), s, fontsize=SUB, ha="center", va="center", color=c["soft"])
     for a, b in ARROWS:
-        ax.add_patch(FancyArrowPatch(a, b, arrowstyle="-|>", mutation_scale=5, linewidth=0.6, color="black"))
-    ax.text(562, 306, "Selected M1", fontsize=SUB, va="center", color="#222222")
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(OUT, dpi=600, facecolor="white")
-    print(f"wrote {OUT}")
+        ax.add_patch(FancyArrowPatch(a, b, arrowstyle="-|>", mutation_scale=5, linewidth=0.6, color=c["ink"]))
+    ax.text(562, 306, "Selected M1", fontsize=SUB, va="center", color=c["soft"])
+    out = IMAGES / name
+    fig.savefig(out, dpi=600, facecolor=c["bg"], transparent=c["bg"] == "none")
+    plt.close(fig)
+    print(f"wrote {out}")
+
+
+def main() -> None:
+    plt.rcParams["font.family"] = "Times New Roman"
+    IMAGES.mkdir(parents=True, exist_ok=True)
+    for name, colours in THEMES.items():
+        draw(name, colours)
 
 
 if __name__ == "__main__":
