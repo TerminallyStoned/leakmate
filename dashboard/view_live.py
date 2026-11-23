@@ -434,9 +434,10 @@ def _why(conn: sqlite3.Connection) -> None:
     qtype, model, host, qname = (
         html.escape(str(row.get(k) or "&ndash;")) for k in ("qtype", "model", "src_host", "qname")
     )
+    # a replayed packet keeps its capture time while detected_ts is the wall clock, so the gap means nothing
     caught = (
         f'<span class="lm-badge">caught {(row["detected_ts"] - row["ts"]) * 1000:,.0f} ms after the query</span>'
-        if row.get("detected_ts")
+        if row.get("detected_ts") and data.read_meta(conn).get("mode") != "replay"
         else ""
     )
     cols = st.columns([6, 1])
