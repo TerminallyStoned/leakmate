@@ -1,6 +1,6 @@
 """Draw the report's system diagram (Fig. 2) as a grayscale PNG sized for one IEEE column.
 
-    python scripts/system_diagram.py            # writes docs/system_diagram.png
+python scripts/system_diagram.py            # writes docs/system_diagram.png
 """
 
 from __future__ import annotations
@@ -34,9 +34,17 @@ BOXES = [
     (268, 436, 170, 56, "Dashboard", ["Results, live alerts"], "step"),
 ]
 ARROWS = [
-    ((244, 81), (266, 112)), ((244, 169), (266, 138)), ((438, 125), (462, 125)), ((552, 153), (552, 222)),
-    ((464, 252), (440, 252)), ((268, 252), (242, 252)), ((552, 280), (552, 350)),
-    ((240, 380), (266, 380)), ((438, 380), (462, 380)), ((552, 408), (552, 434)), ((464, 464), (440, 464)),
+    ((244, 81), (266, 112)),
+    ((244, 169), (266, 138)),
+    ((438, 125), (462, 125)),
+    ((552, 153), (552, 222)),
+    ((464, 252), (440, 252)),
+    ((268, 252), (242, 252)),
+    ((552, 280), (552, 350)),
+    ((240, 380), (266, 380)),
+    ((438, 380), (462, 380)),
+    ((552, 408), (552, 434)),
+    ((464, 464), (440, 464)),
 ]
 AREAS = [(20, 20, 640, 276, "Offline: build and compare"), (20, 316, 640, 200, "Live: detect and explain")]
 
@@ -49,12 +57,31 @@ def main() -> None:
     ax.set_ylim(H, 0)
     ax.axis("off")
     for x, y, w, h, label in AREAS:
-        ax.add_patch(FancyBboxPatch((x, y), w, h, boxstyle="round,pad=0,rounding_size=12", fill=False,
-                                    linestyle=(0, (4, 3)), linewidth=0.5, edgecolor="#555555"))
+        ax.add_patch(
+            FancyBboxPatch(
+                (x, y),
+                w,
+                h,
+                boxstyle="round,pad=0,rounding_size=12",
+                fill=False,
+                linestyle=(0, (4, 3)),
+                linewidth=0.5,
+                edgecolor="#555555",
+            )
+        )
         ax.text(x + 14, y + 13, label, fontsize=SUB, style="italic", va="center", color="#333333")
     for x, y, w, h, title, subs, kind in BOXES:
-        ax.add_patch(FancyBboxPatch((x, y), w, h, boxstyle="round,pad=0,rounding_size=7", facecolor=FILL[kind],
-                                    edgecolor="black", linewidth=0.6))
+        ax.add_patch(
+            FancyBboxPatch(
+                (x, y),
+                w,
+                h,
+                boxstyle="round,pad=0,rounding_size=7",
+                facecolor=FILL[kind],
+                edgecolor="black",
+                linewidth=0.6,
+            )
+        )
         lines = len(subs)
         top = y + h / 2 - 9 * lines
         ax.text(x + w / 2, top, title, fontsize=TITLE, weight="bold", ha="center", va="center")
