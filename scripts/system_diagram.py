@@ -77,7 +77,7 @@ def draw(name: str, c: dict) -> None:
                 edgecolor=c["area"],
             )
         )
-        ax.text(x + 14, y + 13, label, fontsize=SUB, style="italic", va="center", color=c["label"])
+        ax.text(x + 14, y + 13, label, fontsize=TITLE, va="center", color=c["label"])
     for x, y, w, h, title, subs, kind in BOXES:
         ax.add_patch(
             FancyBboxPatch(
